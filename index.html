@@ -4295,7 +4295,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
  // Unlike the old code, this never turns Home into the original single-post page.
  const homeObserver=new MutationObserver(()=>{
    if(!homeVisible||homeLoading||state.clientMode==='user')return;
-   if(area.querySelector('.hw-home-top,.hw-home-loading,.hw-home-post,#hwHomeRetry'))return;
+   if(area.querySelector('.hw-home-top,.hw-home-loading,#hwHomeRetry'))return;
    showHome();
  });
  homeObserver.observe(area,{childList:true});
@@ -4312,16 +4312,20 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    }
    return previousPreviewRenderer();
  };
- nav.addEventListener('click',e=>{
-  const link=e.target.closest('.x-nav-link');
-  if(!link||[...nav.querySelectorAll('.x-nav-link')].indexOf(link)!==0)return;
-  e.preventDefault();e.stopImmediatePropagation();showHome();
+ // Capture the actual Home click before legacy post/profile routing can run.
+ function isHomeTarget(target){
+   const link=target?.closest?.('#xNavLinks .x-nav-link');
+   return !!link && link===nav.querySelector('.x-nav-link:first-child');
+ }
+ document.addEventListener('click',e=>{
+   if(state.clientMode==='user'||!isHomeTarget(e.target))return;
+   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+   showHome();
  },true);
- nav.addEventListener('keydown',e=>{
-  if(e.key!=='Enter'&&e.key!==' ')return;
-  const link=e.target.closest('.x-nav-link');
-  if(!link||[...nav.querySelectorAll('.x-nav-link')].indexOf(link)!==0)return;
-  e.preventDefault();e.stopImmediatePropagation();showHome();
+ document.addEventListener('keydown',e=>{
+   if(state.clientMode==='user'||!['Enter',' '].includes(e.key)||!isHomeTarget(e.target))return;
+   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+   showHome();
  },true);
  document.addEventListener('click',e=>{
   if(!homeVisible)return;
@@ -4333,11 +4337,15 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
   // Load the REAL cloud timeline by default in developer mode.
  // Previously it was only opened by clicking Home; every reload showed the old Adrian draft.
  const startDeveloperHome=()=>{
-   if(state.clientMode==='user'||document.documentElement.dataset.u23ViewerOnly==='true')return;
+   if(document.documentElement.dataset.u23ViewerOnly==='true'||state.clientMode==='user')return;
+   // Run after initial legacy render; cloud Home becomes the real default.
    if(!homeVisible)showHome();
  };
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startDeveloperHome,{once:true});
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(startDeveloperHome,0),{once:true});
  else setTimeout(startDeveloperHome,0);
+ document.getElementById('u23DevBtn')?.addEventListener('click',()=>{
+   setTimeout(()=>{if(state.clientMode!=='user')showHome()},0);
+ });
 })();
 </script>
 <style>
@@ -4611,47 +4619,7 @@ body:not(.u23-user) #hw-v41-nav-plus,
 body:not(.u23-user) #hwV35Choose,
 body:not(.u23-user) #v276AuthorBox{display:none!important}
 </style>
-<script id="hw-v46-home-boot">
-(function(){
-  const version='V46-cloud-home';
-  const statusKey='hw-developer-home-active';
-  const shouldOpen=()=>document.documentElement.dataset.u23ViewerOnly!=='true'&&
-    !document.body.classList.contains('u23-user')&&
-    !!document.getElementById('feedContent');
-  function openHome(){
-    if(!shouldOpen())return;
-    const fn=window.hwShowDeveloperHome;
-    if(typeof fn==='function'){
-      fn();
-      document.documentElement.dataset.homeVersion=version;
-      try{sessionStorage.setItem(statusKey,'1')}catch(_){}
-    }else{
-      const home=document.querySelector('#xNavLinks .x-nav-link:first-child');
-      home?.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
-    }
-  }
-  function boot(){
-    // Run after the legacy initial render; do not allow that initialization to win.
-    openHome();
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
-  else boot();
-  document.getElementById('u23DevBtn')?.addEventListener('click',()=>{
-    setTimeout(openHome,0);
-  });
-  // Re-entering the page or restoring a developer tab must not leave the old draft visible.
-  window.addEventListener('pageshow',()=>{if(shouldOpen()&&
-    !document.getElementById('feedContent')?.querySelector('.hw-home-top,.hw-home-loading'))openHome()});
-  // The home icon must always lead to the cloud timeline in developer mode.
-  document.getElementById('xNavLinks')?.addEventListener('click',e=>{
-    const first=document.querySelector('#xNavLinks .x-nav-link:first-child');
-    if(!first||!e.target.closest('.x-nav-link')?.isSameNode(first)||!shouldOpen())return;
-    if(typeof window.hwShowDeveloperHome==='function'){
-      e.preventDefault();e.stopImmediatePropagation();window.hwShowDeveloperHome();
-    }
-  },true);
-})();
-</script>
+
 <style id="hw-v48-nav-three">
 /* Developer-only compact X navigation. Keep original nodes in DOM because
    existing click handlers identify home/DM/profile by their original indices. */
