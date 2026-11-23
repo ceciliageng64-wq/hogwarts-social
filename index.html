@@ -4433,5 +4433,53 @@ body.u23-user #hw-v41-nav-plus{display:none!important}
  };
 })();
 </script>
+<style id="hw-v42-twin-scroll">
+/* Desktop developer mode: two completely independent scroll panes under the toolbar. */
+@media(min-width:871px){
+  html:has(body:not(.u23-user) #workspace){overflow:hidden!important}
+  body:not(.u23-user){height:100dvh!important;overflow:hidden!important}
+  body:not(.u23-user)>.toolbar{position:relative!important;top:auto!important;flex-shrink:0}
+  body:not(.u23-user) #workspace{
+    height:calc(100dvh - var(--hw-v42-header-height, 120px))!important;
+    min-height:0!important;
+    max-height:calc(100dvh - var(--hw-v42-header-height, 120px))!important;
+    overflow:hidden!important;
+    align-items:stretch!important;
+  }
+  body:not(.u23-user) #workspace>.controls,
+  body:not(.u23-user) #workspace>.preview-zone{
+    position:relative!important;
+    top:auto!important;
+    height:100%!important;
+    max-height:100%!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+    align-self:stretch!important;
+  }
+  body:not(.u23-user) #workspace>.preview-zone .app-viewport{min-height:100%!important}
+  body:not(.u23-user) #workspace>.preview-zone .x-nav,
+  body:not(.u23-user) #workspace>.preview-zone .x-right{
+    top:0!important;
+    max-height:100%!important;
+  }
+}
+/* Native page scrolling stays unchanged on mobile and in player mode. */
+</style>
+<script id="hw-v42-twin-scroll-measure">
+(function(){
+ const toolbar=document.querySelector('body>.toolbar');
+ if(!toolbar)return;
+ function update(){
+   document.documentElement.style.setProperty('--hw-v42-header-height',Math.ceil(toolbar.getBoundingClientRect().height)+'px');
+ }
+ update();
+ if(typeof ResizeObserver!=='undefined')new ResizeObserver(update).observe(toolbar);
+ window.addEventListener('resize',update,{passive:true});
+})();
+</script>
 </body>
 </html>
