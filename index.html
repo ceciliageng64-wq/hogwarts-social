@@ -4161,6 +4161,15 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    const candidateAuthors=[...authors,...randomAuthors];
    const options=(list)=>list.map(a=>'<option value="'+attr(a.id)+'">'+esc(a.name)+' @'+esc(a.handle)+'</option>').join('');
    const presetComments=['这条我必须留下评论😭','等一下，事情居然是这样发展的吗？','救命哈哈哈哈笑死了','有人能解释一下到底发生了什么吗？','前排吃瓜，先收藏了🍿','我决定把这条转给全寝室看','很难不支持这一句！','霍格沃茨今天也太热闹了'];
+   const createCard=editable?
+    '<details class="hw-home-create" id="hwHomeCreate"><summary>＋ 新增帖子 · 点击直接编辑</summary>'+
+    '<label>发帖人物<select data-new-author>'+options(authors.length?authors:candidateAuthors)+'</select></label>'+
+    '<label>帖子正文<textarea data-new-body rows="4" placeholder="输入新主帖内容…"></textarea></label>'+
+    '<div class="hw-home-create-grid"><label>发布时间<input data-new-time value="刚刚"></label>'+
+    [['views','浏览量'],['likes','点赞'],['replies','评论'],['reposts','转发'],['bookmarks','收藏']].map(([key,label])=>'<label>'+label+'<input data-new-metric="'+key+'" value="0"></label>').join('')+'</div>'+
+    '<div class="hw-home-actions"><button type="button" data-home-create="time">🎲 随机时间</button><button type="button" data-home-create="views">🎲 随机浏览量</button><button type="button" data-home-create="all">🎲 一键随机全部数值</button><button type="button" data-home-create="publish">☁ 发布新帖</button></div>'+
+    '</details>':
+    '<div class="hw-home-hint">登录开发者管理员账号后，可在这里直接新增主帖。</div>';
    const editor=p=>!editable?'<div class="hw-home-hint">登录管理员后可直接编辑帖子与评论</div>':
      '<details class="hw-home-editor" data-editor="'+attr(p.id)+'"><summary>✎ 管理这条帖子 · 数字 / 评论 / 随机互动</summary>'+
      (p.author_kind==='character'?'<label>修改主帖正文<textarea data-home-body rows="3">'+esc(p.body||'')+'</textarea></label>':'<p class="hw-home-hint">这是玩家主帖：不可替玩家修改正文，但可以添加人物评论。</p>')+
@@ -4186,7 +4195,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    const number=(p,k)=>esc(p.metrics?.[k]??'0');
    const replies=posts.reduce((a,p)=>{if(p.parent_id)a.set(p.parent_id,(a.get(p.parent_id)||0)+1);return a},new Map());
    area.innerHTML='<div class="hw-home-top"><strong>🏰 霍格沃茨实时首页</strong><small>云端全站编辑模式 · 直接修改互动数字、添加评论和随机评论</small><button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
-    (visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post">'+
+    createCard+(visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post">'+
     '<div class="hw-home-by">'+(a.avatar?'<img class="hw-home-avatar" src="'+attr(a.avatar)+'" alt="">':'<span class="hw-home-avatar hw-home-default">✦</span>')+
     '<div><strong>'+esc(a.name)+'</strong><span>@'+esc(a.handle)+' · '+esc(p.metrics?.time_label||new Date(p.created_at).toLocaleString('zh-CN'))+'</span></div></div>'+
     '<div class="hw-home-body">'+esc(p.body||'')+'</div>'+pic(p.image_url)+snapshot(p)+
@@ -4194,6 +4203,39 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
     '<div class="hw-home-replies">'+posts.filter(x=>x.parent_id===p.id).slice(0,8).map(r=>{const a=author(r);return '<div><b>'+esc(a.name)+'</b>：'+esc(r.body||'[图片]')+'</div>'}).join('')+'</div>'+editor(p)+
     '</article>'}).join(''):'<div class="hw-home-loading">云端暂时没有公开帖子。</div>');
    area.onclick=async function onEdit(e){
+    const createBtn=e.target.closest('[data-home-create]');
+    if(createBtn){
+      e.preventDefault();e.stopPropagation();
+      const panel=area.querySelector('#hwHomeCreate'),action=createBtn.dataset.homeCreate;
+      if(!panel)return;
+      const field=k=>panel.querySelector('[data-new-metric="'+k+'"]');
+      if(action==='time'){panel.querySelector('[data-new-time]').value=randomRelativeTime();return}
+      if(action==='views'){field('views').value=rollViews('post');return}
+      if(action==='all'){
+        const pack=randomMetricPack('post');
+        for(const [key,value] of Object.entries(pack))if(field(key))field(key).value=value;
+        panel.querySelector('[data-new-time]').value=randomRelativeTime();
+        return;
+      }
+      if(action==='publish'){
+        const body=panel.querySelector('[data-new-body]').value.trim();
+        const character_id=panel.querySelector('[data-new-author]').value;
+        if(!body||!character_id){alert('请选择人物并填写帖子正文');return}
+        createBtn.disabled=true;
+        try{
+          if(!cloud.user||!await cloud.isAdmin())throw Error('请先登录开发者管理员账号');
+          const metrics={time_label:panel.querySelector('[data-new-time]').value.trim()||'刚刚'};
+          for(const key of ['views','likes','replies','reposts','bookmarks'])metrics[key]=field(key).value.trim()||'0';
+          const row={id:'home:'+crypto.randomUUID(),author_kind:'character',character_id,user_id:null,
+            parent_id:null,quote_id:null,body,language:'zh',metrics,created_at:new Date().toISOString()};
+          const {error}=await client.from('hw_posts').insert(row);
+          if(error)throw error;
+          await showHome();
+        }catch(err){alert('发布失败：'+(err?.message||err))}
+        finally{createBtn.disabled=false}
+        return;
+      }
+    }
     const button=e.target.closest('[data-home-action]');if(!button)return;
     const panel=button.closest('[data-editor]');if(!panel)return;
     e.preventDefault();e.stopPropagation();
@@ -4499,5 +4541,18 @@ body.u23-user #hw-v41-nav-plus{display:none!important}
  window.addEventListener('resize',update,{passive:true});
 })();
 </script>
+<style id="hw-v44-inline-post">
+body:not(.u23-user) #hw-v41-nav-plus{display:none!important}
+body:not(.u23-user) #hwV35Choose,body:not(.u23-user) #v276AuthorBox{display:none!important}
+.hw-home-create{margin:12px 16px 18px;border:1px solid var(--stroke);border-radius:14px;background:var(--surface);padding:13px 14px}
+.hw-home-create summary{cursor:pointer;color:var(--accent);font-size:16px;font-weight:750;padding:8px 5px;list-style:none}
+.hw-home-create summary::-webkit-details-marker{display:none}
+.hw-home-create label{display:block;margin:10px 0;font-size:12px;font-weight:650;color:var(--ink)}
+.hw-home-create select,.hw-home-create input,.hw-home-create textarea{display:block;width:100%;margin-top:5px;padding:9px;border:1px solid var(--stroke);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit}
+.hw-home-create textarea{resize:vertical;min-height:90px;font-size:15px}
+.hw-home-create-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.hw-home-create-grid label{min-width:0}
+@media(max-width:640px){.hw-home-create-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
 </body>
 </html>
