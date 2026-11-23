@@ -4328,6 +4328,14 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
   if(e.target.closest('#hwHomeRefresh,#hwHomeRetry,.hw-home-post,#hwHomeHome'))return;
   if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child),#navUser,#pvThreadMode,#pvProfileMode,#dmMode')){homeVisible=false;requestId++;}
  },true);
+ // Load the REAL cloud timeline by default in developer mode.
+ // Previously it was only opened by clicking Home; every reload showed the old Adrian draft.
+ const startDeveloperHome=()=>{
+   if(state.clientMode==='user'||document.documentElement.dataset.u23ViewerOnly==='true')return;
+   if(!homeVisible)showHome();
+ };
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startDeveloperHome,{once:true});
+ else setTimeout(startDeveloperHome,0);
 })();
 </script>
 <style>
