@@ -4284,5 +4284,20 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
 
 
 
+<script id="hw-independent-editor-wheel">
+/* Isolate the developer editor wheel from the page/timeline, including scroll edges. */
+(function(){
+  const editor=document.getElementById('controls');
+  if(!editor)return;
+  editor.addEventListener('wheel',function(event){
+    if(document.body.classList.contains('u23-user')||window.innerWidth<871||event.ctrlKey)return;
+    // Prevent scroll-chain propagation into the right-side timeline/page.
+    event.preventDefault();
+    event.stopPropagation();
+    const multiplier=event.deltaMode===1?16:event.deltaMode===2?editor.clientHeight:1;
+    editor.scrollTop+=event.deltaY*multiplier;
+  },{passive:false,capture:true});
+})();
+</script>
 </body>
 </html>
