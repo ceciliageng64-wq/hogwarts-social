@@ -3470,6 +3470,69 @@ window.hw38EditorInspection=()=>({selected:state.hwSelectedPost||null,post:hwEdi
 const hwPrevPersist=persist;
 persist=function(){hwPrevPersist();};
 (async function init(){try{database=await connectDB()}catch{}let prev=database?await loadDB():null;if(!prev){try{prev=JSON.parse(localStorage.getItem('x-post-template-editor-v2')||'null')}catch{}}if(prev?.drafts?.zh?.post&&prev?.drafts?.en?.post){state={lang:prev.lang==='en'?'en':'zh',theme:prev.theme==='dark'?'dark':'light',hideBrand:!!prev.hideBrand,avatarPreset:safeAvatarPreset(prev.avatarPreset),people:Array.isArray(prev.people)?prev.people.map(safePerson).filter(Boolean):[],avatarLibrary:safeAssetList(prev.avatarLibrary,80),avatarClaims:prev.avatarClaims&&typeof prev.avatarClaims==='object'&&!Array.isArray(prev.avatarClaims)?{...prev.avatarClaims}:{},mediaLibrary:safeAssetList(prev.mediaLibrary,80),commentLibrary:safeTextList(prev.commentLibrary),mediaChance:[0,.15,.30,.50,.75].includes(Number(prev.mediaChance))?Number(prev.mediaChance):.30,repeatChance:Number.isFinite(Number(prev.repeatChance))?Math.max(0,Math.min(.30,Number(prev.repeatChance))):.20,viewerId:String(prev.viewerId||'sample_my_account'),samplePeopleLoaded:!!prev.samplePeopleLoaded,officialVerifiedV12:!!prev.officialVerifiedV12,drafts:prev.drafts,viewMode:prev.viewMode,profileSelected:prev.profileSelected,profilePages:prev.profilePages||{},profilePosts:prev.profilePosts||{zh:{},en:{}},profileLikes:prev.profileLikes||{zh:{},en:{}},profileReposts:prev.profileReposts||{zh:{},en:{}},userComments:prev.userComments||{zh:{},en:{}},userBookmarks:prev.userBookmarks||{zh:[],en:[]},userReplyLikes:prev.userReplyLikes||{zh:[],en:[]},userAccountId:prev.userAccountId||'sample_my_account',userLocalAvatar:prev.userLocalAvatar??null,userLocalAvatarBase:prev.userLocalAvatarBase||'',userFollowing:Array.isArray(prev.userFollowing)?prev.userFollowing:[],u26Notice:!!prev.u26Notice,u23DmOwnerMigrated:!!prev.u23DmOwnerMigrated,clientMode:prev.clientMode||'developer',userNav:prev.userNav||'home',userViewedId:prev.userViewedId||'',userFocus:prev.userFocus||'',userProfileTab:prev.userProfileTab||'posts',profileTab:prev.profileTab,dmThreads:Array.isArray(prev.dmThreads)?prev.dmThreads:[],dmSelected:prev.dmSelected||"",dmFilter:prev.dmFilter||"all",dmSeeded:!!prev.dmSeeded}}for(const lg of ['zh','en'])inferReplyParents(state.drafts[lg].replies,state.drafts[lg].post.handle);if(!state.samplePeopleLoaded)mergeSamplePeople();upgradeLegacySampleNames();upgradeOfficialNames();ensureOfficialVerified();if(!personByHandle('my_account')){const p=samplePeople()[0];state.people.unshift(p)}reconcileAvatarClaims();if(document.documentElement.dataset.u23ViewerOnly==='true'){state.clientMode='user';state.viewMode='thread';state.userNav=state.userNav||'home';}if(innerWidth<=870)$('workspace').classList.add('editor-closed');v26InitState();v26SyncMirrors();syncFields();renderAssetLibraries();render();persist()})();
+
+/* V39.9 safe patch: developer home follows the player timeline, without changing DM routing. */
+let hwDevFeedPage='', hwDevFeedFocus='';
+const hwDevPrevRender=render;
+function hwDevFeedEdit(ref){
+  hwDevFeedPage='';
+  if(!ref||ref.type==='main'){hwChoosePost(null);}
+  else {
+    const parts=String(ref.key).split(':');
+    if(parts.length===3)hwChoosePost({lang:state.lang,kind:ref.type==='repost'?'repost':'post',owner:parts[1],id:parts[2]});
+  }
+  render();
+}
+function hwDevFeedHTML(){
+  const refs=u23Refs();
+  if(hwDevFeedPage==='post'){
+    const ref=u23Find(hwDevFeedFocus);
+    if(!ref){hwDevFeedPage='home';return hwDevFeedHTML();}
+    const comments=u23Comments(ref);
+    return '<div class="u23-page-head"><button type="button" data-hw-dev-feed="back">← 返回首页</button><strong>帖子与评论</strong><button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button></div>'
+      +u23PostCard(ref)
+      +(comments.map(r=>'<div class="u23-comment-indent">'+u23CommentCard(r,ref)+'</div>').join('')||'<div class="u23-empty">暂无评论</div>');
+  }
+  return '<div class="u23-page-head"><strong>首页 · 所有人发布的帖子</strong><small>开发者浏览模式</small></div>'
+    +refs.map(ref=>'<div class="hw-dev-feed-entry">'+u23PostCard(ref)
+      +'<div style="padding:8px 16px;display:flex;gap:12px;border-bottom:1px solid var(--border,#ddd)">'
+      +'<button type="button" data-hw-dev-feed="open" data-key="'+esc(ref.key)+'">查看评论</button>'
+      +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button></div></div>').join('');
+}
+render=function(){
+  hwDevPrevRender();
+  if(state.clientMode!=='developer'||!hwDevFeedPage)return;
+  $('postHeader').textContent=hwDevFeedPage==='home'?'首页':'帖子与评论';
+  $('backArrow').innerHTML='';
+  $('feedContent').innerHTML=hwDevFeedHTML();
+  const first=$('xNavLinks')?.querySelector('.x-nav-link');
+  if(first)first.classList.add('active');
+};
+$('xNavLinks').addEventListener('click',e=>{
+  if(state.clientMode!=='developer')return;
+  const nav=e.target.closest('.x-nav-link');
+  if(nav&&nav===$('xNavLinks').querySelector('.x-nav-link')){
+    e.preventDefault();e.stopImmediatePropagation();
+    hwDevFeedPage='home';hwDevFeedFocus='';render();persist();
+  }else if(hwDevFeedPage&&nav){hwDevFeedPage='';hwDevFeedFocus='';}
+},true);
+$('feedContent').addEventListener('click',e=>{
+  if(state.clientMode!=='developer'||!hwDevFeedPage)return;
+  const target=e.target.closest('[data-hw-dev-feed],[data-u23]');
+  if(!target)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  const action=target.dataset.hwDevFeed||target.dataset.u23;
+  const key=target.dataset.key;
+  if(action==='back'){hwDevFeedPage='home';hwDevFeedFocus='';render();return;}
+  if(action==='edit'){hwDevFeedEdit(u23Find(key));return;}
+  if(action==='open'||action==='reply'||action==='thread'){
+    hwDevFeedFocus=key;hwDevFeedPage='post';render();return;
+  }
+  if(action==='profile'&&target.dataset.id){
+    hwDevFeedPage='';state.profileSelected=target.dataset.id;pvSwitch('profile');return;
+  }
+  if(key){hwDevFeedFocus=key;hwDevFeedPage='post';render();}
+},true);
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
