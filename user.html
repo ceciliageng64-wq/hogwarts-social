@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>今日霍格沃茨不宜恋爱 · X 在线校园</title>
+<style>
+:root{--bg:#fff;--ink:#0f1419;--sub:#536471;--line:#eff3f4;--hover:#f7f9f9;--surface:#f7f9f9;--btn:#1d9bf0;--shadow:#071c331c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',Arial,sans-serif;color-scheme:light}body.dark{--bg:#000;--ink:#e7e9ea;--sub:#71767b;--line:#2f3336;--hover:#111517;--surface:#16181c;--shadow:#000;color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink)}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.48;cursor:default}img{display:block}input,textarea,select{color:var(--ink);background:var(--bg);outline-color:#1d9bf0}button:focus-visible{outline:2px solid var(--btn);outline-offset:2px}button{border:0}a{color:var(--btn)}.site{max-width:1320px;margin:auto;display:grid;grid-template-columns:270px minmax(0,600px) minmax(260px,350px);min-height:100vh}.leftnav{border-right:1px solid var(--line);padding:10px 18px 24px 8px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:12px}.x-symbol{font-size:32px;font-weight:800;padding:0 15px}.nav-item{display:flex;align-items:center;gap:22px;color:var(--ink);background:transparent;border-radius:999px;text-align:left;font-size:20px;padding:12px 17px;margin:2px 0;max-width:230px}.nav-item:hover,.nav-item.active{background:var(--hover);font-weight:720}.nav-ico{display:inline-flex;width:27px;justify-content:center;font-size:26px;font-weight:500}.nav-post{background:var(--btn);color:white;border-radius:999px;font-weight:760;font-size:17px;padding:14px 30px;margin:12px 12px 0}.nav-current{display:flex;gap:12px;align-items:center;margin-top:auto;padding:11px;border-radius:40px;min-width:0;cursor:pointer}.nav-current:hover{background:var(--hover)}.nav-user-name{font-size:14px;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nav-user-name small{font-weight:400;color:var(--sub);font-size:12px}.center{border-right:1px solid var(--line);min-width:0;min-height:100vh}.topbar{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;backdrop-filter:blur(15px);background:color-mix(in srgb,var(--bg) 90%,transparent);border-bottom:1px solid var(--line);padding:9px 15px;min-height:58px}.topbar-main,.top-actions{display:flex;gap:8px;align-items:center}.topbar h1{font-size:20px;margin:0;font-weight:800}.top-icon{font-size:27px;background:transparent;color:var(--ink);border-radius:50%;height:35px;width:35px}.top-icon:hover{background:var(--hover)}.icon-btn{color:var(--ink);border-radius:50%;background:transparent;min-width:32px;min-height:32px}.icon-btn:hover{background:var(--hover)}.small-outline{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:700;font-size:12px}.brand-line{border-bottom:1px solid var(--line);padding:11px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.brand-link{background:transparent;color:var(--ink);font-size:14px;font-weight:750;padding:0;cursor:pointer}.brand-secret{font-size:12px;color:var(--sub)}.rightbar{padding:10px 20px}.search-decor{border-radius:999px;padding:12px 20px;background:var(--surface);color:var(--sub);font-size:14px;margin-bottom:18px}.sidecard{border:1px solid var(--line);border-radius:18px;padding:17px;margin-bottom:15px}.sidecard h2{font-size:20px;margin:0 0 12px}.sidecard p{font-size:14px;line-height:1.45}.trend{display:grid;gap:4px;padding:13px 0;border-bottom:1px solid var(--line)}.trend:last-child{border:0}.trend small,.trend span,.sidefoot{color:var(--sub);font-size:12px}.trend b{font-size:15px}.sidefoot{padding:5px 10px;line-height:1.5}.primary{background:var(--btn);color:#fff;padding:10px 18px;border-radius:999px;font-weight:750;white-space:nowrap}.primary:hover{filter:brightness(.96)}.wide{width:100%;padding:13px}.avatar{height:43px;width:43px;object-fit:cover;border-radius:50%;flex-shrink:0;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:750}.avatar.big{width:124px;height:124px;border:5px solid var(--bg);font-size:40px}.avatar.placeholder{background:linear-gradient(145deg,#617e8e,#c9d6da);color:#fff}.hw-badge{display:inline-block;vertical-align:middle;flex:0 0 auto}.post{border-bottom:1px solid var(--line);padding:13px 16px;display:flex;gap:10px;position:relative;min-width:0}.post .author{display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:14px;min-width:0}.author strong{cursor:pointer}.author strong:hover{text-decoration:underline}.handle,.post-time{color:var(--sub);font-size:13px}.bodytext{font-size:15px;line-height:1.52;white-space:pre-wrap;overflow-wrap:anywhere;margin:7px 0}.post-body{flex:1;min-width:0}.post-image{width:100%;max-height:390px;object-fit:cover;border-radius:17px;border:1px solid var(--line);margin:11px 0}.post-actions{display:flex;justify-content:space-between;gap:6px;margin-top:11px;color:var(--sub)}.post-actions button{background:transparent;color:var(--sub);font-size:12px;border-radius:20px;display:flex;align-items:center;gap:5px;padding:5px 5px;min-width:0}.post-actions button:hover{background:var(--hover);color:var(--btn)}.post-actions button.liked{color:#f91880}.post-actions button.saved{color:#1d9bf0}.post-actions .ic{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center}.post-actions svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.post-actions button.liked svg{fill:#f91880;stroke:#f91880}.post-actions button.saved svg{fill:#1d9bf0;stroke:#1d9bf0}.post-tools{position:absolute;right:10px;top:10px}.post-tools button{background:transparent;color:var(--sub);font-size:12px;border-radius:100px;padding:5px}.threadline{border-left:2px solid var(--line);margin-left:18px;padding-left:14px}.quoted{border:1px solid var(--line);border-radius:15px;padding:12px;margin-top:8px}.quoted small{color:var(--sub)}.quote-note{color:var(--sub);font-size:12px;margin-bottom:5px}.reply-banner{color:var(--sub);font-size:13px;margin-bottom:6px}.composer{display:flex;gap:11px;padding:17px 16px;border-bottom:1px solid var(--line)}.compose-side{flex:1;min-width:0}.compose-side textarea{width:100%;min-height:58px;background:transparent;border:0;resize:vertical;font-size:17px;line-height:1.4}.compose-actions{border-top:1px solid var(--line);padding-top:10px;display:flex;align-items:center;justify-content:space-between;gap:9px}.compose-actions label{cursor:pointer;color:var(--btn);font-size:13px}.compose-actions input[type=file]{max-width:180px}.notice{padding:12px 16px;border-bottom:1px solid var(--line);color:var(--ink);background:var(--surface);font-size:14px;line-height:1.4}.loader,.empty{padding:46px 23px;text-align:center;color:var(--sub);font-size:14px;line-height:1.7}.empty strong{display:block;color:var(--ink);font-size:18px}.time-tag{font-size:12px;color:var(--sub)}.banner{height:190px;background:linear-gradient(135deg,#2c4550,#a3bac3,#455364);position:relative}.banner img{width:100%;height:100%;object-fit:cover}.profile-head{padding:0 16px 20px;border-bottom:1px solid var(--line)}.profile-avatar-row{display:flex;justify-content:space-between;align-items:flex-end;margin-top:-60px}.profile-name{font-size:21px;font-weight:820;display:flex;align-items:center;gap:6px;margin-top:13px}.profile-handle{font-size:14px;color:var(--sub);margin-top:2px}.profile-bio{font-size:15px;white-space:pre-wrap;line-height:1.5;margin-top:12px}.profile-meta{display:flex;gap:15px;flex-wrap:wrap;color:var(--sub);font-size:13px;margin-top:13px}.profile-tabs{display:flex;justify-content:space-around;border-bottom:1px solid var(--line)}.profile-tabs button{padding:17px 24px;background:transparent;color:var(--ink);font-weight:700;border-bottom:3px solid var(--btn)}.profile-edit{display:grid;gap:10px;padding:17px;border-bottom:1px solid var(--line)}.profile-edit input,.profile-edit textarea,.field-input,.message-input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}.profile-edit label{font-size:12px;color:var(--sub)}.profile-edit select{padding:9px;border:1px solid var(--line);border-radius:8px}.message-layout{display:grid;grid-template-columns:210px 1fr;min-height:60vh}.conversation-list{border-right:1px solid var(--line);padding:8px}.conversation-list button{display:flex;align-items:center;gap:7px;width:100%;padding:10px 6px;text-align:left;border-radius:9px;background:transparent;color:var(--ink);font-size:12px}.conversation-list button:hover,.conversation-list button.active{background:var(--hover)}.conversation-list .avatar{width:34px;height:34px}.conversation-section-title{display:block;padding:10px 11px 6px;font-size:12px;color:var(--sub);font-weight:800;letter-spacing:.02em}.contact-card{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:10px 6px;border-radius:9px}.contact-card:hover{background:var(--hover)}.contact-meta{display:flex;align-items:center;gap:7px;min-width:0;flex:1}.contact-meta span{min-width:0;font-size:12px;line-height:1.35}.contact-start{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:700;flex:none}.contact-start:hover{border-color:var(--btn);color:var(--btn)}.contact-inline{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}.contact-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--line);background:var(--bg);border-radius:999px;font-size:12px}.post-dm-shortcut{margin-left:auto;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;flex:none}.post-dm-shortcut:hover{border-color:var(--btn);color:var(--btn)}.conversation-view{min-width:0;display:flex;flex-direction:column}.chat-header{padding:12px;border-bottom:1px solid var(--line);font-size:14px;font-weight:740}.chat-scroll{display:flex;flex-direction:column;gap:13px;padding:18px 13px;min-height:320px;max-height:70vh;overflow:auto}.bubble{max-width:86%;align-self:flex-start;padding:10px 13px;background:var(--surface);color:var(--ink);border-radius:17px 17px 17px 5px;font-size:14px;line-height:1.4;overflow-wrap:anywhere}.bubble.mine{align-self:flex-end;background:var(--btn);color:#fff;border-radius:17px 17px 5px 17px}.bubble img{max-width:100%;max-height:220px;border-radius:12px;margin-top:5px}.bubble small{font-size:10px;display:block;opacity:.7;margin-top:5px}.bubble button{font-size:10px;color:inherit;background:transparent;text-decoration:underline}.message-compose{display:flex;align-items:flex-end;gap:6px;border-top:1px solid var(--line);padding:10px}.message-compose textarea{resize:vertical;min-height:43px;max-height:105px}.message-compose label{font-size:12px;cursor:pointer}.message-compose input[type=file]{display:none}.modal-backdrop{position:fixed;inset:0;background:#0009;display:flex;justify-content:center;align-items:center;z-index:100;padding:18px}.modal-backdrop[hidden]{display:none}.modal-card{background:var(--bg);color:var(--ink);width:min(450px,100%);border-radius:18px;padding:25px;box-shadow:0 20px 70px var(--shadow);display:grid;gap:12px}.modal-head{display:flex;justify-content:space-between;align-items:center}.modal-card p{line-height:1.55;font-size:14px;color:var(--sub);margin:4px 0}.modal-card label{font-size:13px;font-weight:700}.modal-card input{border:1px solid var(--line);border-radius:9px;padding:12px}.status-text{font-size:13px;color:var(--sub);white-space:pre-wrap}.modal-card small{color:var(--sub);font-size:12px;line-height:1.4}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:250;background:#0f1419;color:#fff;border-radius:20px;padding:10px 18px;box-shadow:0 8px 24px #0003;display:none;font-size:13px}.toast.visible{display:block}.muted{color:var(--sub)}[hidden]{display:none!important}
+@media(max-width:1100px){.site{grid-template-columns:83px minmax(0,600px) minmax(220px,340px)}.leftnav{padding:8px}.nav-item{font-size:0;padding:11px 14px}.nav-ico{font-size:26px}.nav-post{font-size:0;padding:10px 6px;height:49px}.nav-post:after{content:'+';font-size:27px}.nav-user-name{display:none}.nav-current{padding:5px}.rightbar{padding:8px}}
+@media(max-width:850px){.site{grid-template-columns:73px minmax(0,1fr)}.rightbar{display:none}.leftnav{padding:7px}.center{border-right:0}.top-actions{gap:2px}.small-outline{padding:6px 8px}}
+@media(max-width:600px){.site{display:block;padding-bottom:60px}.leftnav{position:fixed;top:auto;left:0;bottom:0;width:100%;height:55px;z-index:50;background:var(--bg);border-right:0;border-top:1px solid var(--line);padding:0 4px;display:block}.x-symbol,.nav-post,.nav-current{display:none}.leftnav #nav-items{display:flex;justify-content:space-around}.nav-item{padding:8px 11px;margin:0}.nav-ico{font-size:27px}.topbar h1{font-size:17px}.brand-line{padding:9px 14px}.topbar{padding:8px 10px}.post{padding:11px}.message-layout{grid-template-columns:37% 63%}.conversation-list button{font-size:11px}.conversation-list .avatar{display:none}.chat-scroll{padding:9px}.profile-avatar-row .avatar.big{width:98px;height:98px}.profile-avatar-row{margin-top:-46px}.banner{height:155px}}
+
+
+/* V27.3 - screenshot controls are in a dropdown at the TOP of the page, never under Netlify floating bars. */
+.top-actions{position:relative;overflow:visible;z-index:65}
+.hw-shot-wrap{position:relative;display:flex;align-items:center;z-index:70}
+.hw-shot-launch{white-space:nowrap;font-weight:750;display:flex;align-items:center;gap:5px}
+.hw-shot-menu{position:absolute;z-index:90;right:0;top:calc(100% + 9px);width:min(315px,calc(100vw - 25px));background:var(--bg);border:1px solid var(--line);border-radius:15px;box-shadow:0 12px 38px var(--shadow);padding:14px;display:grid;gap:9px;color:var(--ink)}
+.hw-shot-menu[hidden]{display:none!important}
+.hw-shot-menu strong{font-size:14px}.hw-shot-menu small{color:var(--sub);line-height:1.4;font-size:11px}
+.hw-shot-choice{display:block;width:100%;text-align:left;background:var(--hover);color:var(--ink);padding:12px 13px;border-radius:11px;border:1px solid var(--line);font-size:13px;font-weight:700}
+.hw-shot-choice:hover{border-color:var(--btn);color:var(--btn)}
+@media(max-width:600px){.top-actions{flex-shrink:0}.hw-shot-menu{right:0;width:min(295px,calc(100vw - 16px))}.hw-shot-launch{font-size:12px;padding:8px 9px}}
+
+
+/* V27.6 mobile: keep the side content available by scrolling below the timeline. */
+@media(max-width:850px){
+ .site{grid-template-columns:73px minmax(0,1fr);grid-template-rows:auto auto}
+ .leftnav{grid-column:1;grid-row:1 / span 2}
+ .center{grid-column:2;grid-row:1;min-width:0}
+ .rightbar{display:block!important;grid-column:2;grid-row:2;position:static;width:100%;max-width:600px;margin:0 auto;padding:14px 14px 24px;border-top:1px solid var(--line)}
+}
+@media(max-width:600px){
+ .site{display:block;width:100%;max-width:100%;padding-bottom:calc(62px + env(safe-area-inset-bottom));overflow-x:hidden}
+ .leftnav{position:fixed;top:auto;left:0;bottom:0;width:100%;height:calc(56px + env(safe-area-inset-bottom));z-index:80;background:var(--bg);border-right:0;border-top:1px solid var(--line);padding:0 4px env(safe-area-inset-bottom);display:block}
+ .x-symbol,.nav-post,.nav-current{display:none!important}
+ .leftnav #nav-items{height:55px;display:flex;align-items:center;justify-content:space-around;gap:0}
+ .nav-item{flex:1;display:flex;justify-content:center;align-items:center;padding:8px 4px;margin:0;font-size:0;max-width:none}
+ .nav-ico{width:auto;font-size:23px}
+ .center{width:100%;min-height:calc(100vh - 56px);border-right:0;border-left:0}
+ .rightbar{display:block!important;width:100%;max-width:600px;margin:0 auto;padding:14px 13px 24px;border-top:1px solid var(--line)}
+ .topbar{padding:8px 10px}
+ .top-actions{flex-wrap:wrap;justify-content:flex-end}
+ .message-layout{grid-template-columns:34% 66%;min-width:0}
+ .conversation-list button{font-size:11px;padding:7px 5px}
+ .chat-scroll{min-width:0}
+}
+
+/* 游客界面：保留原 X 风格，不显示开发者控件 */
+.post-dm-shortcut{margin-left:auto;flex-shrink:0;border:1px solid var(--line);background:var(--bg);color:var(--btn);border-radius:999px;font-size:11px;font-weight:750;padding:5px 9px;white-space:nowrap}
+.post-dm-shortcut:hover{background:var(--hover)}
+.profile-avatar-row>div{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.profile-head{padding-bottom:14px}.profile-name{margin-top:11px}
+.post-image{object-fit:contain;background:var(--surface);height:auto}
+@media(max-width:600px){.post-dm-shortcut{padding:5px 7px;font-size:10px}.post .author{gap:4px}.post .author .handle{max-width:100%;overflow:hidden;text-overflow:ellipsis}.profile-avatar-row>div{max-width:64%}.small-outline{white-space:nowrap}}
+</style>
+
+<style>
+/* V28: pure-player UI matching the original four-tab character profile */
+.profile-topbar-title{display:flex;flex-direction:column;gap:2px;text-align:left}
+.profile-topbar-title strong{font-size:20px;line-height:1.2;color:var(--ink)}
+.profile-topbar-title small{font-size:12px;color:var(--sub);font-weight:400}
+.profile-head{padding:0 16px 20px;border-bottom:0}
+.profile-avatar-row{margin-top:-60px;position:relative;align-items:flex-end;min-height:124px}
+.profile-avatar-row .avatar.big{height:124px;width:124px;z-index:1}
+.profile-avatar-row>div{display:flex;gap:8px;align-self:flex-start;margin-top:70px;flex-wrap:wrap;justify-content:flex-end}
+.profile-name{margin-top:6px}
+.profile-meta{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.profile-meta .profile-meta-item{display:inline-flex;align-items:center;gap:5px}
+.profile-meta svg{height:17px;width:17px;stroke:currentColor;fill:none;stroke-width:1.7}
+.profile-follow-data{display:flex;gap:17px;font-size:14px;margin-top:12px;color:var(--sub)}
+.profile-follow-data strong{color:var(--ink)}
+.profile-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:0;border-bottom:1px solid var(--line)}
+.profile-tabs button{border-bottom:0;background:transparent;color:var(--sub);font-size:14px;padding:17px 4px;position:relative;font-weight:700}
+.profile-tabs button.active{color:var(--ink)}
+.profile-tabs button.active:after{content:'';position:absolute;width:50%;height:4px;border-radius:9px;background:var(--btn);left:25%;bottom:0}
+.profile-header-avatar{display:inline-flex;background:transparent;padding:0;border-radius:50%;position:relative;z-index:1}
+.profile-header-avatar:hover{filter:brightness(.96)}
+.profile-post-author{cursor:pointer}
+.profile-post-author:hover{text-decoration:underline}
+.profile-tabs-empty{padding:46px 18px;text-align:center;color:var(--sub);font-size:14px}
+.profile-tabs-empty strong{display:block;color:var(--ink);font-size:18px;margin-bottom:8px}
+.profile-post{padding-top:12px;padding-bottom:12px}
+.profile-post .post-image{object-fit:contain;max-height:410px}
+.profile-top-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+.profile-cover{height:190px}
+.profile-card .post-dm-shortcut{margin-left:0}
+.profile-card .post .author{gap:5px}
+.profile-card .post-actions{margin-top:15px}
+.profile-card .post-actions button{font-size:12px}
+.profile-card .post{padding-left:16px;padding-right:16px}
+@media(max-width:600px){.profile-head{padding:0 12px 16px}.profile-avatar-row{min-height:100px;margin-top:-48px}.profile-avatar-row .avatar.big{width:100px;height:100px}.profile-avatar-row>div{margin-top:56px;gap:5px}.profile-avatar-row>div button{font-size:12px;padding:7px 11px}.profile-tabs button{padding:14px 2px;font-size:13px}}
+</style>
+<style>
+.account-danger{color:#c83a51!important;border-color:#f4cdd3!important}.account-danger:hover{background:#fff1f2!important}
+body.dark .account-danger{background:#281316!important;color:#ff8496!important}
+.conversation-list{overflow-y:auto;max-height:85vh}
+.conversation-list button span:not(.avatar){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* V29 compact two-column contacts and readable inbox */
+#contact-card .contact-inline{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:7px!important;margin-top:10px}
+#contact-card .contact-chip{min-width:0;width:100%;display:flex!important;align-items:center;gap:7px;padding:7px!important;white-space:nowrap;text-align:left;overflow:hidden}
+#contact-card .contact-chip .avatar{width:30px;height:30px;flex:0 0 30px;font-size:11px}
+#contact-card .contact-chip span:last-child{display:block;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.contact-toggle{display:block;width:100%;margin:10px 0 2px;padding:9px;border:1px solid var(--line);background:var(--bg);color:var(--btn);border-radius:999px;font-size:12px;font-weight:700}
+.message-layout{grid-template-columns:minmax(195px,40%) minmax(0,1fr)!important}
+.conversation-list{min-width:0;max-height:75vh;overflow-y:auto;overflow-x:hidden}
+.conversation-list .contact-card{display:flex;min-width:0;gap:6px;padding:8px 5px}
+.conversation-list .contact-meta{overflow:hidden;min-width:0}
+.conversation-list .contact-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conversation-list .contact-start{padding:6px 8px;white-space:nowrap;font-size:11px}
+@media(max-width:600px){.message-layout{grid-template-columns:minmax(125px,39%) minmax(0,1fr)!important}.conversation-list .contact-meta .avatar{display:none}.conversation-list .contact-start{font-size:10px;padding:5px 6px}.conversation-list .contact-meta span{font-size:11px}}
+
+/* V30 player profile editing */
+.profile-editor-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.profile-editor-head strong{font-size:17px}
+.profile-editor-help{margin:0;color:var(--sub);font-size:12px;line-height:1.6}
+.profile-edit{gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;margin:14px;padding:16px}
+.profile-edit input,.profile-edit textarea,.profile-edit select{font-size:14px;width:100%;border:1px solid #ccd6dd;border-radius:9px;padding:11px 12px;color:var(--ink);background:var(--bg);min-width:0}
+.profile-edit label{font-weight:650;color:var(--ink)}
+.profile-edit input:focus,.profile-edit textarea:focus,.profile-edit select:focus{outline:2px solid var(--btn);outline-offset:1px}
+.profile-media-edit,.profile-save-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.profile-save-actions{justify-content:flex-end;padding-top:8px}
+.profile-media-edit button{flex:1;min-width:120px}
+#profile-save-status:not(:empty){font-size:12px;line-height:1.6;padding:9px 11px;border-radius:9px;background:var(--surface)}
+#profile-save-status.error{color:#c62b45}
+@media(max-width:600px){.profile-edit{margin:10px;padding:13px}.profile-save-actions button{flex:1}}
+</style>
+</head>
+<body>
+<div class="site" id="captureAll">
+  <nav class="leftnav" aria-label="主导航">
+    <div class="x-symbol" aria-hidden="true">𝕏</div>
+    <div id="nav-items">
+      <button class="nav-item active" data-view="feed"><span class="nav-ico">⌂</span><span>首页</span></button>
+      <button class="nav-item" data-view="explore"><span class="nav-ico">⌕</span><span>探索</span></button>
+      <button class="nav-item" data-view="messages"><span class="nav-ico">✉</span><span>私信</span></button>
+      <button class="nav-item" data-view="bookmarks"><span class="nav-ico">♧</span><span>书签</span></button>
+      <button class="nav-item" data-view="me"><span class="nav-ico">♙</span><span>个人资料</span></button>
+    </div>
+    <button class="nav-post" id="nav-post">发布</button>
+    <div class="nav-current" id="nav-current"><span class="avatar placeholder">?</span><span class="nav-user-name">游客模式<br><small>无需登录就能看剧情</small></span></div>
+  </nav>
+
+  <main id="captureMain" class="center">
+    <header class="topbar">
+      <div class="topbar-main"><button id="back-button" class="top-icon" aria-label="返回" hidden>‹</button><h1 id="page-title">首页</h1></div>
+      <div class="top-actions"><button class="icon-btn" id="theme-toggle" title="浅色/深色">◐</button><div class="hw-shot-wrap" data-noscreenshot><button class="small-outline hw-shot-launch" id="shot-toggle" aria-expanded="false" aria-controls="hw-shot-menu" type="button">📷 截图 ▾</button><div class="hw-shot-menu" id="hw-shot-menu" hidden><strong>选择截图范围</strong><button class="hw-shot-choice" id="shot-current" type="button">📄 当前内容（私信时只截当前对话）</button><button class="hw-shot-choice" id="shot-full" type="button">🖼️ 完整页面（含聊天列表与全部记录）</button><small>截图不包含按钮菜单、登录弹窗和外部悬浮条。</small></div></div></div>
+    </header>
+    <div class="brand-line"><button id="brand-button" class="brand-link" type="button">《今日霍格沃茨不宜恋爱》</button></div>
+    <div id="notice" role="status" class="notice" hidden></div>
+    <div id="content" aria-live="polite"><div class="loader">正在读取霍格沃茨时间线…</div></div>
+  </main>
+
+  <aside class="rightbar" aria-label="推荐与热门话题">
+    <div class="search-decor">⌕　搜索</div>
+    <div class="sidecard" id="identity-card"><h2>欢迎来到霍格沃茨</h2><p>游客直接看剧情，不用注册。要点赞、评论、私信时，编一个游戏账号和密码即可。<br><small>🎮 玩家登录与开发者后台独立，互不退出或覆盖。</small></p><button class="primary" id="sidebar-login">🎮 游戏账号 / 游客</button></div>
+    <div class="sidecard" id="public-trends"><h2>有什么新鲜事</h2><div class="trend"><small>校园 · 热门</small><b>#霍格沃茨表白墙</b><span>🦉 今日消息</span></div><div class="trend"><small>魁地奇 · 热门</small><b>学院杯与赛前垃圾话</b><span>格兰芬多 vs 斯莱特林</span></div><div class="trend"><small>互联网 · 热门</small><b>main character energy</b><span>💀😭✨</span></div><div class="trend"><small>霍格莫德 · 热门</small><b>#WeekendLore</b><span>周末讨论</span></div></div>
+    <div class="sidecard" id="contact-card"><h2>人物联系人</h2><p>从这里快速打开人物主页或发私信。</p><div class="muted">正在加载联系人…</div></div>
+    <div class="sidefoot">虚构霍格沃茨校园社交应用 · 非 X 官方网站</div>
+  </aside>
+</div>
+
+<div class="modal-backdrop" id="auth-modal" role="dialog" aria-modal="true" aria-label="登录" hidden>
+  <div class="modal-card"><div class="modal-head"><strong>进入霍格沃茨校园</strong><button class="icon-btn" id="auth-close" aria-label="关闭">✕</button></div>
+    <p>🎮 <b>随便编一个游戏账号和密码，就可以保存自己的冒险记录。</b>不用真实邮箱，不用收邮件。只想看剧情的话，直接游客浏览。</p>
+    <label for="auth-email">游戏账号 / 虚构邮箱</label><input id="auth-email" type="text" placeholder="例如 slytherin_cat 或 cat@hogwarts.game" autocomplete="username" maxlength="80">
+    <label for="auth-password">游戏密码（8 位以上）</label><input id="auth-password" type="password" placeholder="自己记得住的密码" autocomplete="current-password" minlength="8" maxlength="128">
+    <button id="auth-password-login" class="primary wide" type="button">🎮 进入游戏 / 第一次自动创建</button>
+    <button id="auth-guest-close" class="wide" type="button" style="border:1px solid var(--line);background:var(--hover);color:var(--ink);padding:12px;border-radius:10px;font-weight:700">先不登录，直接看剧情</button>
+    <div id="auth-status" class="status-text" role="status"></div>
+    <small>游戏账号不是真实邮箱。第一次会自动创建角色，下次用相同的游戏账号和密码进入；换设备也可以登录。忘记游戏密码目前无法通过邮件找回，请自己保存好。</small></div>
+</div>
+<input id="user-post-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+<input id="user-avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+<input id="user-cover-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+<input id="user-message-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+<div id="toast" class="toast" role="status"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"><\/script>')}</script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+/* 《今日霍格沃茨不宜恋爱》· V27.9 分离的 Supabase 客户端
+ * Publishable Key 是公开的前端密钥；所有写入权限必须由 Supabase RLS 强制执行。
+ */
+(function(){
+'use strict';
+const PROJECT_URL='https://jxviljkxbcucytmxqviu.supabase.co';
+const PUBLISHABLE_KEY='sb_publishable_t8sSeZpAwa3cyW2bj_vKqA_-qVP3jzP';
+const client=window.supabase&&typeof window.supabase.createClient==='function'
+ ?window.supabase.createClient(PROJECT_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'hogwarts-v279-player-auth'}})
+ :null;
+const CANONICAL_SITE='https://ceciliageng64-wq.github.io/hogwarts-social';
+const errMsg=e=>e?.message||String(e||'未知错误');
+let user=null,callbackError='';const authListeners=new Set();
+const notify=()=>{for(const cb of authListeners){try{cb(user)}catch(e){console.warn(e)}}};
+const redirectParams=new URLSearchParams(location.hash.slice(1));
+const queryParams=new URLSearchParams(location.search);
+const errCode=redirectParams.get('error_code')||queryParams.get('error_code');
+if(errCode)callbackError=(errCode==='otp_expired'||errCode==='access_denied')?'登录邮件链接已过期或已经使用。请在额度恢复后申请新的邮件。':'邮箱验证失败：'+errCode;
+// Player session is independent from developer session. Do not consume admin magic links here.
+// Native Supabase client: it processes redirect tokens and persists the session itself.
+// Do NOT manually exchange codes or call setSession a second time.
+const ready=(async()=>{
+ if(!client)return null;
+ const {data,error}=await client.auth.getSession();
+ if(error)throw error;
+ user=data?.session?.user||null;
+ notify();
+ return user;
+})().catch(e=>{callbackError='邮箱会话初始化失败：'+errMsg(e);user=null;notify();return null});
+if(client)client.auth.onAuthStateChange((event,session)=>{
+ user=session?.user||null;
+ if(event==='SIGNED_IN')callbackError='';
+ // Auth callbacks can hold a lock; defer all further data queries until after callback returns.
+ setTimeout(notify,0);
+});
+function onAuth(callback){authListeners.add(callback);ready.then(()=>callback(user));return()=>authListeners.delete(callback)}
+async function sendLogin(email){
+ // V27.9: player page never creates an administrator email login session.
+ throw Error('管理员邮箱登录请打开 index.html。玩家使用游戏账号，不需要邮箱邮件。');
+ if(!client)throw Error('Supabase 网络组件未加载，请刷新网页。');
+ if(location.origin+location.pathname.replace(/\/[^/]*$/, '')!==CANONICAL_SITE)throw Error('请在正式网站 '+CANONICAL_SITE+'/index.html 使用邮箱登录，不要在 Netlify 预览框登录。');
+ if(String(email||'').trim().toLowerCase()!=='ceciliageng64@gmail.com')throw Error('开发者入口仅接受指定管理员邮箱。');
+ const {error}=await client.auth.signInWithOtp({email:'ceciliageng64@gmail.com',options:{emailRedirectTo:CANONICAL_SITE+'/auth-callback.html',shouldCreateUser:false}});
+ if(error)throw error;
+ return true;
+}
+// V27.5: game-only accounts. No real email address or verification mail is used.
+// Player identities are verified by Supabase Auth with a synthetic email;
+// RLS continues to separate each player's posts, likes, follows and DMs.
+async function enterGame(alias,password){
+ if(!client)throw Error('云端连接组件没有加载，请刷新网页。');
+ if(location.origin+location.pathname.replace(/\/[^/]*$/, '')!==CANONICAL_SITE)throw Error('请打开正式网站 '+CANONICAL_SITE+'/user.html 登录，Netlify 的预览页不共用登录状态。');
+ alias=String(alias||'').trim().normalize('NFKC');
+ if(alias.length<3||alias.length>80)throw Error('游戏账号请填写 3–80 个字符（可以是虚构邮箱，也可以是昵称）。');
+ if(!password||password.length<8||password.length>128)throw Error('游戏密码请填写 8–128 位。');
+ const endpoint=PROJECT_URL+'/functions/v1/hogwarts-player-register';
+ const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','apikey':PUBLISHABLE_KEY},body:JSON.stringify({alias,password}),cache:'no-store',mode:'cors'});
+ const payload=await res.json().catch(()=>({}));
+ if(!res.ok||!payload.gameEmail)throw Error(payload.error||'玩家账号服务暂不可用，请稍后重试。');
+ const auth=await client.auth.signInWithPassword({email:payload.gameEmail,password});
+ if(auth.error)throw Error('登录失败：游戏密码不正确，或游戏账号已被其他人使用。请换一个名字重试。');
+ user=auth.data?.user||null;notify();
+ return {created:!!payload.created,user};
+}
+async function signOut(){if(client){const{error}=await client.auth.signOut({scope:'local'});if(error)throw error;}user=null;notify();}
+async function isAdmin(){if(!client||!user)return false;const{data,error}=await client.from('hw_admins').select('user_id').eq('user_id',user.id).maybeSingle();if(error)throw error;return !!data;}
+function imageBlobFromDataUrl(url){const parts=String(url).split(',');if(parts.length<2)throw Error('图片格式无效');const mime=/data:([^;]+)/.exec(parts[0])?.[1]||'image/png';const bytes=Uint8Array.from(atob(parts[1]),c=>c.charCodeAt(0));return new Blob([bytes],{type:mime});}
+function extForMime(mime){return ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'})[mime]||'png';}
+async function uploadPublic(file,role='user'){
+ if(!client||!user)throw Error('需要登录后上传图片。');
+ const type=file.type||'image/png';if(!['image/jpeg','image/png','image/webp','image/gif'].includes(type))throw Error('请上传 PNG / JPG / WEBP / GIF 图片');
+ if(file.size>10*1024*1024)throw Error('图片不可超过 10 MB');
+ const folder=role==='admin'?'admin/'+user.id:'user/'+user.id;
+ const filename=folder+'/'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random())+'.'+extForMime(type);
+ const{error}=await client.storage.from('hw-public').upload(filename,file,{cacheControl:'3600',upsert:false,contentType:type});if(error)throw error;
+ return client.storage.from('hw-public').getPublicUrl(filename).data.publicUrl;
+}
+async function uploadPrivate(file,conversationId){
+ if(!client||!user)throw Error('请先登录');const type=file.type||'image/png';
+ if(!['image/jpeg','image/png','image/webp','image/gif'].includes(type))throw Error('仅支持图片');
+ if(file.size>10*1024*1024)throw Error('图片不可超过 10 MB');
+ const path=conversationId+'/'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random())+'.'+extForMime(type);
+ const{error}=await client.storage.from('hw-private').upload(path,file,{cacheControl:'3600',contentType:type});if(error)throw error;return 'private:'+path;
+}
+async function signedPrivate(src){if(!src?.startsWith('private:'))return src||'';if(!client||!user)return '';
+ const{data,error}=await client.storage.from('hw-private').createSignedUrl(src.slice(8),3600);if(error)throw error;return data.signedUrl;}
+async function ensureUserProfile(){if(!user||!client)return null;
+ const{data:old,error:e}=await client.from('hw_profiles').select('*').eq('id',user.id).maybeSingle();if(e)throw e;if(old)return old;
+ let base=(user.email||'hogwarts').split('@')[0].toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,15);if(base.length<3)base='visitor';
+ for(let i=0;i<5;i++){const candidate=base+'_'+user.id.replace(/-/g,'').slice(0,6)+(i||'');const gameName=String(user.user_metadata?.game_name||'').trim();const row={id:user.id,handle:candidate.slice(0,32),display_name:gameName||'霍格沃茨访客',joined_label:'1991年9月'};
+  const{data,error}=await client.from('hw_profiles').insert(row).select('*').single();if(!error)return data;
+  if(error.code==='23505')continue;throw error;}
+ throw Error('无法建立个人资料，请检查数据库配置。');
+}
+function renderBadge(type='none'){
+ const fill={blue:'#1d9bf0',gold:'#f2b63d',grey:'#81919b',affiliate:'#587fa9'}[type];if(!fill)return '';
+ return `<svg class="hw-badge" width="17" height="17" viewBox="0 0 24 24" role="img" aria-label="认证标记"><path d="M12 1.5 14.4 3l2.8-.1 1.2 2.6 2.5 1.4-.2 2.8L22.5 12l-1.8 2.3.2 2.8-2.5 1.4-1.2 2.6-2.8-.1-2.4 1.5-2.4-1.5-2.8.1-1.2-2.6-2.5-1.4.2-2.8L1.5 12l1.8-2.3-.2-2.8 2.5-1.4 1.2-2.6L9.6 3Z" fill="${fill}"/><path d="M7.8 12.2 10.7 15l5.6-6" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+window.HWCloud={PROJECT_URL,PUBLISHABLE_KEY,client,ready,onAuth,get user(){return user;},get callbackError(){return callbackError;},CANONICAL_SITE,sendLogin,enterGame,signOut,isAdmin,uploadPublic,uploadPrivate,signedPrivate,ensureUserProfile,imageBlobFromDataUrl,renderBadge,escapeHtml,errMsg};
+})();
+
+</script>
+<script>
+/* V27 联网用户界面：游客可读，互动时 Supabase Auth 登录。
+ * 数据库的 RLS 才是真正的权限边界，不依赖隐藏按钮。
+ */
+(function(){
+'use strict';
+const H=window.HWCloud,$=id=>document.getElementById(id),E=H.escapeHtml;
+const C=H.client;
+const icons={
+ heart:'<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>',
+ reply:'<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5A8.5 8.5 0 1 1 21 11.5Z"/>',
+ repeat:'<path d="m17 2 4 4-4 4M3 10V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4M21 14v2a2 2 0 0 1-2 2H3"/>',
+ bookmark:'<path d="M5 4h14v18l-7-5-7 5z"/>',
+ view:'<path d="M4 20V12M9 20V7M14 20V14M19 20V3"/>'};
+const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[k]||''}</svg>`;
+const clientId=()=>typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,14);
+const cache={characters:[],posts:[],profiles:[],likes:[],follows:[],bookmarks:[],conversations:[],messages:[],dmImages:{}};
+const safeStorage={getItem(key){try{return localStorage.getItem(key)}catch{return null}},setItem(key,val){try{localStorage.setItem(key,val)}catch{}}};
+const state={view:'feed',profileKind:'character',profileId:'',postId:'',replyTo:'',quoteId:'',profileTab:'posts',theme:safeStorage.getItem('hw27-theme')||'light',user:null,myProfile:null,loggedIn:false,authReady:false,composerImage:null,dmConversationId:'',dmFile:null,uploading:false,editingProfile:false,dmLoading:false,bannerVisible:false,error:'',busy:false};
+let publicChannel=null,personalChannel=null,refreshTimer=0,toasterTimer=null,profileFileMode=false;
+function toast(t){const el=$('toast');el.textContent=t;el.classList.add('visible');clearTimeout(toasterTimer);toasterTimer=setTimeout(()=>el.classList.remove('visible'),4200)}
+function setNotice(s){state.error=s;const box=$('notice');if(!box)return;box.hidden=!s;box.textContent=s;}
+function showAuth(reason){const modal=$('auth-modal'),status=$('auth-status'),email=$('auth-email');if(modal)modal.hidden=false;if(status)status.textContent=reason||'';if(email)email.focus()}
+function closeAuth(){const modal=$('auth-modal');if(modal)modal.hidden=true}
+function needAuth(reason){if(state.user)return true;showAuth(reason||'想互动？随便取个游戏账号和密码就能进入，不用真实邮箱。');return false}
+function humanTime(raw){if(!raw)return '刚刚';const n=new Date(raw).getTime(),mins=Math.max(0,(Date.now()-n)/60000);if(mins<1)return '刚刚';if(mins<60)return Math.floor(mins)+'分钟前';if(mins<1440)return Math.floor(mins/60)+'小时前';if(mins<1440*14)return Math.floor(mins/1440)+'天前';return new Date(raw).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});}
+function shortName(s){return Array.from(String(s||'?')).slice(0,2).join('').toUpperCase()}
+function avatar(url,name,kind=''){const cls=kind==='big'?'avatar big':'avatar';return url?`<img class="${cls}" src="${E(url)}" alt="${E(name)}" crossorigin="anonymous">`:`<span class="${cls} placeholder" aria-label="${E(name)}">${E(shortName(name))}</span>`}
+function authorOf(post){if(post.author_kind==='character'){const c=cache.characters.find(x=>x.id===post.character_id);return c?{...c,kind:'character'}:{id:post.character_id||'',name:'校园账号',handle:'anonymous',kind:'character'};}
+ const p=cache.profiles.find(x=>x.id===post.user_id);return p?{...p,name:p.display_name,kind:'user',badge_type:p.badge_type}: {id:post.user_id||'',name:'用户',handle:'visitor',kind:'user'};}
+function authorBadge(a){return H.renderBadge(a.badge_type||'none')}
+function authorLink(a){return `<button class="avatar-click" data-action="profile" data-kind="${a.kind}" data-id="${E(a.id)}" title="查看 ${E(a.name)} 的主页" style="border:0;background:none;padding:0;align-self:start">${avatar(a.avatar_url,a.name)}</button>`}
+function visibleLocalePost(post){return !post.language||String(post.language).toLowerCase().startsWith('zh');}
+function profileAuthorMatches(post,kind,id){return kind==='character'?post.author_kind==='character'&&post.character_id===id:post.author_kind==='user'&&post.user_id===id;}
+const pinSvg='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V10m0 0 4 4m-4-4-4 4M5 3h14v5H5z"/></svg>';
+const calendarSvg='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 10h18"/></svg>';
+function localizedDate(label){const x=String(label||'1991年9月');const m=/^(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?$/.exec(x);return m?m[1]+'年'+Number(m[2])+'月'+(m[3]?Number(m[3])+'日':''):x;}
+const fullPosts=()=>cache.posts;
+const postById=id=>cache.posts.find(x=>x.id===id);
+const repliesTo=id=>cache.posts.filter(x=>x.parent_id===id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+function metricNumber(v){if(typeof v==='number')return v;const s=String(v||'0').replace(/,/g,'').toUpperCase();let n=parseFloat(s);if(!Number.isFinite(n))return 0;if(s.includes('万'))n*=10000;else if(s.includes('K'))n*=1000;else if(s.includes('M'))n*=1000000;return n;}
+function formatNum(n){if(n>=1000000)return (n/1000000).toFixed(1).replace('.0','')+'M';if(n>=10000)return (n/1000).toFixed(1).replace('.0','')+'K';if(n>=1000)return Math.round(n).toLocaleString('en-US');return String(n)}
+function likeCount(post){const base=metricNumber(post.metrics?.likes),cloudLikes=cache.likes.filter(x=>x.post_id===post.id).length;return formatNum(base+cloudLikes)}
+function ownLike(id){return !!state.user&&cache.likes.some(x=>x.user_id===state.user.id&&x.post_id===id)}
+function ownBookmark(id){return !!state.user&&cache.bookmarks.some(x=>x.user_id===state.user.id&&x.post_id===id)}
+function ownFollow(id){return !!state.user&&cache.follows.some(x=>x.user_id===state.user.id&&x.character_id===id)}
+function mentionLink(text){const safe=E(text);return safe.replace(/(@[a-z0-9_]{2,32})/gi,'<span style="color:var(--btn)">$1</span>')}
+function postActions(post){const liked=ownLike(post.id),saved=ownBookmark(post.id);const replyCount=repliesTo(post.id).length+metricNumber(post.metrics?.replies);
+ return `<div class="post-actions"><button data-action="reply" data-id="${E(post.id)}" title="回复"><span class="ic">${svg('reply')}</span>${formatNum(replyCount)}</button>
+ <button data-action="repost" data-id="${E(post.id)}" title="转发或引用"><span class="ic">${svg('repeat')}</span>${E(post.metrics?.reposts||'0')}</button>
+ <button data-action="like" data-id="${E(post.id)}" class="${liked?'liked':''}" title="${liked?'取消喜欢':'喜欢'}"><span class="ic">${svg('heart')}</span>${likeCount(post)}</button>
+ <button data-action="bookmark" data-id="${E(post.id)}" class="${saved?'saved':''}" title="${saved?'取消书签':'加入书签'}"><span class="ic">${svg('bookmark')}</span>${E(post.metrics?.bookmarks||'0')}</button>
+ <button data-action="post" data-id="${E(post.id)}" title="查看帖子"><span class="ic">${svg('view')}</span>${E(post.metrics?.views||'0')}</button></div>`;
+}
+function postCard(post,opts={}){const a=authorOf(post),self=state.user&&post.author_kind==='user'&&post.user_id===state.user.id;const quote=post.quote_id&&postById(post.quote_id);return `<article class="post" data-post-id="${E(post.id)}" style="${opts.depth?'padding-left:'+(10+Math.min(opts.depth,4)*11)+'px':''}">
+ ${authorLink(a)}<div class="post-body"><div class="author"><strong data-action="profile" data-kind="${a.kind}" data-id="${E(a.id)}">${E(a.name)}</strong>${authorBadge(a)}<span class="handle">@${E(a.handle)} · ${E(post.metrics?.time_label||humanTime(post.created_at))}</span>${a.kind==='character'?`<button class="post-dm-shortcut" data-action="start-dm" data-id="${E(a.id)}" title="给 ${E(a.name)} 发私信">✉ 私信</button>`:''}</div>
+ ${post.parent_id?`<div class="reply-banner">回复给 @${E(authorOf(postById(post.parent_id)||{}).handle||'')}</div>`:''}
+ <div class="bodytext" data-action="post" data-id="${E(post.id)}">${mentionLink(post.body)}</div>
+ ${post.image_url?`<img class="post-image" loading="lazy" crossorigin="anonymous" src="${E(post.image_url)}" alt="帖子配图" data-action="post" data-id="${E(post.id)}">`:''}
+ ${quote?`<div class="quoted" data-action="post" data-id="${E(quote.id)}"><small>${E(authorOf(quote).name)} · @${E(authorOf(quote).handle)}</small><div class="bodytext">${mentionLink(quote.body)}</div></div>`:''}
+ ${postActions(post)}</div>${self?`<div class="post-tools"><button data-action="delete" data-id="${E(post.id)}" title="删除自己的帖子">✕</button></div>`:''}</article>`;}
+function feedComposer(targetId=''){const me=state.myProfile;const target=targetId?postById(targetId):null;return `<div class="composer">${avatar(me?.avatar_url,me?.display_name||'游客')}<div class="compose-side"><textarea id="compose-body" maxlength="12000" rows="2" placeholder="${target?'回复这条帖子…':'有什么新鲜事？'}"></textarea>
+ ${target?`<div class="reply-banner">正在回复 @${E(authorOf(target).handle)}</div>`:''}
+ <div class="compose-actions"><label for="user-post-file">🖼 上传图片</label><span id="compose-file-label" class="time-tag"></span><button class="primary" data-action="submit-post" data-parent="${E(targetId)}">${target?'回复':'发布'}</button></div></div></div>`;}
+function renderFeed(){const tops=cache.posts.filter(x=>!x.parent_id&&visibleLocalePost(x)).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));return `<div>${state.user?feedComposer():`<div class="composer" style="align-items:center;justify-content:space-between"><span class="muted">游客可以浏览时间线，登录后发帖与互动。</span><button class="primary" data-action="login">登录</button></div>`}${tops.length?tops.map(x=>postCard(x)).join(''):`<div class="empty"><strong>霍格沃茨还没有公开动态</strong>校园动态尚未发布，请稍后再来看看。</div>`}</div>`;}
+function tree(parent,depth=0,seen=new Set()){if(depth>16)return '';return repliesTo(parent).map(r=>{if(seen.has(r.id))return '';const ns=new Set(seen);ns.add(r.id);return `<div class="threadline" style="margin-left:${Math.min(depth,4)*8+8}px">${postCard(r,{depth})}${tree(r.id,depth+1,ns)}</div>`}).join('')}
+function renderDetail(){const p=postById(state.postId);if(!p)return `<div class="empty">这条帖子尚不存在或已被删除。</div>`;return `${postCard(p)}${state.user?feedComposer(state.replyTo||p.id):`<div class="composer"><span class="muted">登录后可以参与楼中楼回复。</span><button class="primary" data-action="login">登录</button></div>`}${tree(p.id)}`;}
+function renderExplore(){return `<div><div class="sidecard" style="margin:15px"><h2>🏰 霍格沃茨校园</h2><p>从人物库找到喜欢的角色。点击人物头像可查看主页与动态，也可以直接一键发私信。</p></div>${cache.characters.map(c=>`<div class="post" style="align-items:center">${authorLink({...c,kind:'character'})}<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="character" data-id="${E(c.id)}" style="cursor:pointer">${E(c.name)} ${authorBadge(c)}</strong><div class="muted">@${E(c.handle)} · ${E(c.bio?.slice(0,75)||'Hogwarts')}</div></div><button class="small-outline" data-action="profile" data-kind="character" data-id="${E(c.id)}">主页</button><button class="small-outline" data-action="start-dm" data-id="${E(c.id)}">✉ 私信</button></div>`).join('')}</div>`;}
+function renderProfile(){
+ const kind=state.profileKind,id=state.profileId;
+ const isMe=kind==='user'&&state.user?.id===id;
+ const p=kind==='character'?cache.characters.find(x=>x.id===id):(cache.profiles.find(x=>x.id===id)||(isMe?state.myProfile:null));
+ if(!p)return '<div class="empty"><strong>没有找到这个账号</strong>请从首页或探索页面选择人物。</div>';
+ const a=kind==='character'?{...p,kind:'character'}:{...p,kind:'user',name:p.display_name};
+ const ownPosts=cache.posts.filter(x=>profileAuthorMatches(x,kind,id)&&visibleLocalePost(x));
+ const order=(rows)=>rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+ const posts=order(ownPosts.filter(x=>!x.parent_id));
+ const replies=order(ownPosts.filter(x=>!!x.parent_id));
+ const media=order(ownPosts.filter(x=>!!x.image_url&&!x.parent_id));
+ // hw_likes currently records user_id, not character_id. Do not fabricate character likes.
+ const likes=kind==='user'?order(cache.posts.filter(x=>visibleLocalePost(x)&&cache.likes.some(l=>l.user_id===id&&l.post_id===x.id))):[];
+ const tab=state.profileTab||'posts';
+ const contents={posts,replies,media,likes};
+ const title={posts:'帖子',replies:'回复',media:'媒体',likes:'喜欢'};
+ const selected=contents[tab]||posts;
+ const followers=kind==='character'?cache.follows.filter(x=>x.character_id===p.id).length:0;
+ const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:'';
+ const following=kind==='character'?p.meta?.following:'0';
+ const followersLabel=kind==='character'?p.meta?.followers:formatNum(followers);
+ const emptyText=tab==='likes'&&kind==='character'?'人物喜欢的内容尚未同步到云端。':tab==='replies'?'还没有公开回复。':tab==='media'?'还没有发布带图片的帖子。':tab==='likes'?'还没有喜欢的帖子。':'这里暂时没有动态。';
+ return `<div class="profile-card"><div class="banner profile-cover">${p.cover_url?`<img src="${E(p.cover_url)}" alt="${E(a.name)} 的封面图" crossorigin="anonymous">`:''}</div>
+ <div class="profile-head"><div class="profile-avatar-row"><button class="profile-header-avatar" data-action="profile" data-kind="${E(kind)}" data-id="${E(p.id)}" aria-label="查看${E(a.name)}的主页">${avatar(p.avatar_url,a.name,'big')}</button>${otherActions}</div>
+ <div class="profile-name">${E(a.name)} ${authorBadge(a)}</div><div class="profile-handle">@${E(p.handle)}</div>${p.bio?`<div class="profile-bio">${mentionLink(p.bio)}</div>`:''}
+ <div class="profile-meta"><span class="profile-meta-item">${pinSvg}${E(p.location||'霍格沃茨')}</span><span class="profile-meta-item">${calendarSvg}加入于 ${E(localizedDate(p.joined_label))}</span></div>
+ <div class="profile-follow-data"><span><strong>${E(following||'0')}</strong> 正在关注</span><span><strong>${E(followersLabel||'0')}</strong> 关注者</span></div></div>
+ ${state.editingProfile&&isMe?renderProfileEdit():''}
+ <div class="profile-tabs" role="tablist" aria-label="个人主页分类">${Object.entries(title).map(([key,text])=>`<button role="tab" aria-selected="${tab===key}" data-action="profile-tab" data-tab="${key}" class="${tab===key?'active':''}">${text}</button>`).join('')}</div>
+ ${isMe&&tab==='posts'?feedComposer():''}${selected.length?selected.map(post=>postCard(post)).join(''):`<div class="profile-tabs-empty"><strong>${title[tab]||'帖子'}</strong>${emptyText}</div>`}</div>`;
+}
+function renderProfileEdit(){
+ const p=state.myProfile||{};
+ return `<form id="profile-form" class="profile-edit" novalidate>
+ <div class="profile-editor-head"><strong>编辑个人资料</strong><button type="button" class="small-outline" data-action="cancel-profile">✕ 关闭</button></div>
+ <p class="profile-editor-help">修改后点击“保存资料”，所有信息会同步到自己的主页。头像和封面可单独更换。</p>
+ <label for="edit-display-name">昵称</label><input id="edit-display-name" name="display_name" value="${E(p.display_name||'')}" maxlength="80" required placeholder="你的显示名称">
+ <label for="edit-handle">用户名（3–32 位小写英文、数字或下划线）</label><input id="edit-handle" name="handle" value="${E(p.handle||'')}" minlength="3" maxlength="32" required autocapitalize="none" spellcheck="false" placeholder="example_123">
+ <label for="edit-bio">个人简介</label><textarea id="edit-bio" name="bio" maxlength="500" placeholder="介绍一下自己…">${E(p.bio||'')}</textarea>
+ <label for="edit-location">所在地</label><input id="edit-location" name="location" value="${E(p.location||'')}" maxlength="100" placeholder="霍格沃茨">
+ <label for="edit-joined">加入时间（小说设定）</label><input id="edit-joined" name="joined_label" value="${E(p.joined_label||'1991年9月')}" maxlength="100">
+ <label for="edit-badge">认证标记（虚构的游戏装饰）</label><select id="edit-badge" name="badge_type">${[['none','无认证'],['blue','蓝标'],['gold','金标'],['grey','灰标'],['affiliate','机构关联']].map(([v,t])=>`<option value="${v}" ${p.badge_type===v?'selected':''}>${t}</option>`).join('')}</select>
+ <div class="profile-media-edit"><button type="button" class="small-outline" data-action="upload-avatar">更换头像</button><button type="button" class="small-outline" data-action="upload-cover">更换主页封面</button></div>
+ <small id="profile-image-status" class="muted" role="status">图片单独保存到云端，其他资料点击下方保存。</small>
+ <div id="profile-save-status" class="status-text" role="status" aria-live="polite"></div>
+ <div class="profile-save-actions"><button type="button" class="small-outline" data-action="cancel-profile">取消</button><button type="submit" class="primary" id="profile-save-button">保存资料</button></div></form>`;
+}
+function renderBookmarks(){const ids=new Set(cache.bookmarks.filter(x=>x.user_id===state.user?.id).map(x=>x.post_id)),posts=cache.posts.filter(x=>ids.has(x.id));return posts.length?posts.map(postCard).join(''):'<div class="empty">还没有添加书签。</div>'}
+function renderContactsPanel(){
+ const box=$('contact-card');if(!box)return;
+ const contacts=[...cache.characters].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'zh-CN'));
+ if(!contacts.length){box.innerHTML='<h2>人物联系人</h2><p>暂时没有可用联系人。</p>';return;}
+ const visible=contacts.slice(0,state.showAllContacts?contacts.length:8);
+ box.innerHTML='<h2>人物联系人</h2><p>点击人物即可打开私信。</p><div class="contact-inline">'+visible.map(c=>`<button class="contact-chip" data-action="start-dm" data-id="${E(c.id)}" title="给 ${E(c.name)} 发私信">${avatar(c.avatar_url,c.name)}<span>${E(c.name)}</span></button>`).join('')+'</div>'+(contacts.length>8?`<button class="contact-toggle" data-action="toggle-contacts">${state.showAllContacts?'收起联系人':`查看全部 ${contacts.length} 位联系人`}</button>`:'');
+}
+function renderMessages(){if(!state.user)return `<div class="empty"><strong>你的私信仅登录后可见</strong><p style="margin:10px 0 16px">登录后可给人物联系人发私信，并在这里查看全部对话。</p><button class="primary" data-action="login">🎮 游戏账号 / 游客</button></div>`;
+ const convos=cache.conversations;
+ const selected=convos.find(c=>c.id===state.dmConversationId)||convos[0];
+ const list=convos.length?convos:[];
+ const recentBlock=list.map(c=>{const other=cache.characters.find(x=>x.id===c.character_id);return `<button class="${selected?.id===c.id?'active':''}" data-action="dm-select" data-id="${E(c.id)}">${avatar(other?.avatar_url,other?.name||'角色')}<span>${E(other?.name||'角色')}<br><small class="muted">@${E(other?.handle||'')}</small></span></button>`}).join('');
+ const sidebar=`<div class="conversation-list"><b style="display:block;padding:11px">最近会话</b>${recentBlock||'<div class="muted" style="padding:12px;font-size:12px;line-height:1.6">还没有聊天记录。可以在右侧「人物联系人」或「探索」页面选择人物发私信。</div>'}</div>`;
+ const other=selected&&cache.characters.find(x=>x.id===selected.character_id),msgs=cache.messages.filter(x=>x.conversation_id===selected?.id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+ const chat=selected?`<div class="chat-header">${E(other?.name||'角色')} ${authorBadge(other||{})}<br><small class="muted">仅你与角色的私信 · 私人会话</small></div><div class="chat-scroll" id="chat-scroll">${msgs.length?msgs.map(m=>{const mine=m.sender_kind==='user';return `<div class="bubble ${mine?'mine':''}">${m.recalled?'<em>消息已撤回</em>':`${mentionLink(m.body||'')}${m.image_resolved?`<img crossorigin="anonymous" src="${E(m.image_resolved)}" alt="私信配图">`:''}`}<small>${humanTime(m.created_at)} ${mine&&!m.recalled?`<button data-action="dm-recall" data-id="${E(m.id)}">撤回</button>`:''}</small></div>`}).join(''):'<div class="empty">这里还没有消息，开始聊天吧。</div>'}</div><div class="message-compose"><label for="user-message-file" title="添加私信图片">🖼</label><textarea id="message-body" class="message-input" rows="2" placeholder="发送私信…"></textarea><button class="primary" data-action="dm-send">发送</button></div><div id="dm-attachment-text" class="muted" style="font-size:12px;padding:0 12px 7px"></div>`:`<div class="empty"><strong>你的私信</strong><p style="margin:10px 0 0">从右侧「人物联系人」或「探索」点“发私信”，这里就会显示对话。</p></div>`;
+ return `<div class="message-layout">${sidebar}<div class="conversation-view">${chat}</div></div>`;
+}
+function renderPage(){document.body.classList.toggle('dark',state.theme==='dark');const titleEl=$('page-title'),backEl=$('back-button'),secretEl=$('brand-secret'),navCurrent=$('nav-current'),identity=$('identity-card'),content=$('content');if(titleEl){if(state.view==='profile'){const p=state.profileKind==='character'?cache.characters.find(x=>x.id===state.profileId):cache.profiles.find(x=>x.id===state.profileId);const name=p?.name||p?.display_name||'个人资料';const count=cache.posts.filter(x=>profileAuthorMatches(x,state.profileKind,state.profileId)&&!x.parent_id&&visibleLocalePost(x)).length;titleEl.innerHTML=`<span class="profile-topbar-title"><strong>${E(name)}</strong><small>${count} 条帖子</small></span>`;}else titleEl.textContent=({feed:'首页',post:'帖子',explore:'探索',me:'我的主页',messages:'私信',bookmarks:'书签'})[state.view]||'首页';}if(backEl)backEl.hidden=!['post','profile'].includes(state.view);
+ document.querySelectorAll('[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===state.view));
+ if(secretEl)secretEl.hidden=!state.bannerVisible;const brandLine=document.querySelector('.brand-line');if(brandLine)brandLine.hidden=state.view==='profile';
+ const me=state.myProfile;if(navCurrent)navCurrent.innerHTML=`${avatar(me?.avatar_url,me?.display_name||'游客')}<span class="nav-user-name">${E(me?.display_name||'游客模式')}<br><small>${E(me?'@'+me.handle:'登录后可互动')}</small></span>`;
+ if(identity)identity.innerHTML=me?`<h2>欢迎回来</h2><p>${E(me.display_name)} · @${E(me.handle)}</p><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="small-outline" data-action="edit-me">编辑我的资料</button><button class="small-outline" data-action="sign-out">退出登录</button><button class="small-outline account-danger" data-action="delete-account">注销账号</button></div>`:`<h2>欢迎来到霍格沃茨</h2><p>游客直接看剧情，不用注册。要点赞、评论、私信时，编一个游戏账号和密码即可。<br><small>🎮 玩家登录与开发者后台独立，互不退出或覆盖。</small></p><button class="primary" data-action="login">🎮 游戏账号 / 游客</button>`;
+ if(content)content.innerHTML=({feed:renderFeed,post:renderDetail,explore:renderExplore,profile:renderProfile,me:renderProfile,messages:renderMessages,bookmarks:renderBookmarks})[state.view]?.()||renderFeed();
+ renderContactsPanel();
+ const sc=$('chat-scroll');if(sc)sc.scrollTop=sc.scrollHeight;
+}
+function renderPublicTrends(){const box=$('public-trends');if(!box)return;const rows=cache.trends;if(!Array.isArray(rows))return;box.innerHTML='<h2>有什么新鲜事</h2>'+rows.map(t=>`<div class="trend"><small>${E(t.context||'热门')}</small><b>${E(t.title||'')}</b><span>${E(t.count||'0')} 条讨论</span></div>`).join('');}
+async function loadPublic(silent=false){if(!C){setNotice('Supabase 客户端未加载。请检查网络连接；站点需要加载 Supabase JavaScript SDK。');return;}
+ try{const [chars,posts,profiles,likes,follows,trends]=await Promise.all([
+ C.from('hw_characters').select('*').order('name').limit(1000),C.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),C.from('hw_profiles').select('*').limit(1000),C.from('hw_likes').select('post_id,user_id').limit(10000),C.from('hw_follows').select('character_id,user_id').limit(10000),C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle()]);
+ for(const r of [chars,posts,profiles,likes,follows,trends])if(r.error)throw r.error;
+ Object.assign(cache,{characters:chars.data||[],posts:posts.data||[],profiles:profiles.data||[],likes:likes.data||[],follows:follows.data||[],trends:Array.isArray(trends.data?.value)?trends.data.value:null});setNotice('');renderPublicTrends();
+ if(state.user){state.myProfile=cache.profiles.find(x=>x.id===state.user.id)||state.myProfile;}
+ if(!(state.editingProfile&&state.view==='profile'&&state.profileKind==='user'))renderPage();
+ }catch(e){const msg=H.errMsg(e);console.warn(e);setNotice('尚未连接到云端数据：'+msg+'。请检查网络连接或联系网站维护人员。');renderPage()}
+}
+async function loadPrivate(){if(!state.user||!C)return;
+ try{const[bookmarks,convs]=await Promise.all([C.from('hw_bookmarks').select('post_id,user_id').eq('user_id',state.user.id),C.from('hw_conversations').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false})]);
+ if(bookmarks.error||convs.error)throw bookmarks.error||convs.error;
+ cache.bookmarks=bookmarks.data||[];cache.conversations=convs.data||[];if(!cache.conversations.some(x=>x.id===state.dmConversationId))state.dmConversationId=cache.conversations[0]?.id||'';
+ if(cache.conversations.length){const ids=cache.conversations.map(x=>x.id);const msgs=await C.from('hw_messages').select('*').in('conversation_id',ids).order('created_at',{ascending:true}).limit(2000);if(msgs.error)throw msgs.error;cache.messages=msgs.data||[];
+  await Promise.all(cache.messages.filter(x=>x.image_url&&x.image_url.startsWith('private:')).map(async x=>{try{x.image_resolved=cache.dmImages[x.image_url]||await H.signedPrivate(x.image_url);cache.dmImages[x.image_url]=x.image_resolved}catch(e){console.warn(e)}}));
+ }else cache.messages=[];
+ if(state.view==='messages'||state.view==='bookmarks')renderPage();
+ }catch(e){toast('私有数据读取失败：'+H.errMsg(e))}
+}
+async function ensureSignedInReady(){if(!state.user)return false;if(state.myProfile)return true;try{state.myProfile=await H.ensureUserProfile();return true}catch(e){toast('建立个人资料失败：'+H.errMsg(e));return false}}
+function navigate(view,opts={}){state.view=view;if(view==='post'){state.postId=opts.id||state.postId;state.replyTo=opts.replyTo||'';}if(view==='profile'){state.profileKind=opts.kind||'character';state.profileId=opts.id||'';state.profileTab='posts';}if(view==='me'){if(!needAuth())return;state.view='profile';state.profileKind='user';state.profileId=state.user.id;state.profileTab='posts';state.editingProfile=false;}
+ const hash=state.view==='post'?'post:'+state.postId:state.view==='profile'?'profile:'+state.profileKind+':'+state.profileId:state.view;history.replaceState(null,'','#'+encodeURIComponent(hash));renderPage();window.scrollTo({top:0,behavior:'auto'});}
+async function toggleLike(id){if(!needAuth())return;if(!await ensureSignedInReady())return;
+ const active=ownLike(id);const query=C.from('hw_likes');const res=active?await query.delete().eq('user_id',state.user.id).eq('post_id',id):await query.insert({user_id:state.user.id,post_id:id});if(res.error){toast(H.errMsg(res.error));return}
+ if(active)cache.likes=cache.likes.filter(x=>!(x.post_id===id&&x.user_id===state.user.id));else cache.likes.push({post_id:id,user_id:state.user.id});renderPage()}
+async function toggleBookmark(id){if(!needAuth())return;if(!await ensureSignedInReady())return;
+ const active=ownBookmark(id);const query=C.from('hw_bookmarks');const res=active?await query.delete().eq('user_id',state.user.id).eq('post_id',id):await query.insert({user_id:state.user.id,post_id:id});if(res.error){toast(H.errMsg(res.error));return}
+ if(active)cache.bookmarks=cache.bookmarks.filter(x=>!(x.post_id===id&&x.user_id===state.user.id));else cache.bookmarks.push({post_id:id,user_id:state.user.id});renderPage();}
+async function toggleFollow(id){if(!needAuth())return;if(!await ensureSignedInReady())return;const active=ownFollow(id);const q=C.from('hw_follows');const res=active?await q.delete().eq('user_id',state.user.id).eq('character_id',id):await q.insert({user_id:state.user.id,character_id:id});if(res.error){toast(H.errMsg(res.error));return}
+ if(active)cache.follows=cache.follows.filter(x=>!(x.user_id===state.user.id&&x.character_id===id));else cache.follows.push({user_id:state.user.id,character_id:id});renderPage()}
+async function submitPost(parentId='',quoteId=''){if(!needAuth())return;if(!await ensureSignedInReady())return;
+ const el=$('compose-body');const body=(el?.value||'').trim();const file=$('user-post-file').files?.[0];if(!body&&!file){toast('请先输入文字或选择图片。');return;}if(state.busy)return;state.busy=true;
+ try{const image_url=file?await H.uploadPublic(file,'user'):null;const row={id:clientId(),author_kind:'user',user_id:state.user.id,character_id:null,parent_id:parentId||null,quote_id:quoteId||null,body,image_url,language:'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}};
+ const{error}=await C.from('hw_posts').insert(row);if(error)throw error;state.replyTo='';state.composerImage=null;$('user-post-file').value='';toast('发布成功，已同步到云端。');await loadPublic();if(parentId)navigate('post',{id:parentId});else navigate('feed');
+ }catch(e){toast('发布失败：'+H.errMsg(e))}finally{state.busy=false}}
+async function deletePost(id){if(!needAuth())return;const p=postById(id);if(!p||p.user_id!==state.user.id){toast('只能删除自己的帖子。');return}if(!confirm('删除这条帖子以及下面所有回复？'))return;
+ const{error}=await C.from('hw_posts').delete().eq('id',id).eq('user_id',state.user.id);if(error){toast(H.errMsg(error));return;}toast('已删除。');await loadPublic();if(state.view==='post')navigate('feed')}
+async function saveProfile(e){
+ e.preventDefault();
+ if(!needAuth()||state.busy)return;
+ const form=e.target;
+ if(!(form instanceof HTMLFormElement))return;
+ const f=new FormData(form);
+ const obj={
+  display_name:String(f.get('display_name')||'').trim(),
+  handle:String(f.get('handle')||'').normalize('NFKC').toLowerCase().trim().replace(/^@/,''),
+  bio:String(f.get('bio')||'').trim(),
+  location:String(f.get('location')||'').trim(),
+  joined_label:String(f.get('joined_label')||'').trim(),
+  badge_type:String(f.get('badge_type')||'none')
+ };
+ const status=form.querySelector('#profile-save-status'),button=form.querySelector('#profile-save-button');
+ const tell=(message,error=false)=>{if(status){status.textContent=message;status.classList.toggle('error',error)}};
+ if(!obj.display_name||obj.display_name.length>80){tell('请输入 1–80 字的昵称。',true);return;}
+ if(!/^[a-z0-9_]{3,32}$/.test(obj.handle)){tell('用户名需要 3–32 位小写英文字母、数字或下划线。',true);return;}
+ if(!['none','blue','gold','grey','affiliate'].includes(obj.badge_type)){tell('认证类型无效，请重新选择。',true);return;}
+ if(obj.bio.length>500||obj.location.length>100||obj.joined_label.length>100){tell('内容过长，请缩短后保存。',true);return;}
+ state.busy=true;if(button){button.disabled=true;button.textContent='保存中…';}tell('正在同步个人资料…');
+ try{
+  const {data,error}=await C.from('hw_profiles').update(obj).eq('id',state.user.id).select('*').single();
+  if(error)throw error;
+  state.myProfile=data;
+  cache.profiles=cache.profiles.filter(x=>x.id!==state.user.id).concat([data]);
+  state.editingProfile=false;
+  toast('✅ 资料修改成功，已同步到主页');
+  renderPage();
+ }catch(error){
+  let m=H.errMsg(error);
+  if(error?.code==='23505'||/duplicate key|unique constraint/i.test(m))m='这个 @用户名已被其他玩家使用，请换一个。';
+  if(/permission denied|row-level security|RLS/i.test(m))m='账号暂时没有资料编辑权限，请检查登录状态。';
+  tell('保存失败：'+m,true);
+ }finally{state.busy=false;if(button?.isConnected){button.disabled=false;button.textContent='保存资料';}}
+}
+async function startConversation(characterId){if(!needAuth())return;if(!await ensureSignedInReady())return;if(!cache.characters.some(x=>x.id===characterId)){toast('暂时找不到这位人物，请刷新人物库。');return;}
+ const{data,error}=await C.from('hw_conversations').upsert({user_id:state.user.id,character_id:characterId},{onConflict:'user_id,character_id'}).select('*').single();if(error){toast('无法建立对话：'+H.errMsg(error));return}
+ state.dmConversationId=data.id;await loadPrivate();navigate('messages');}
+async function sendMessage(){if(!needAuth())return;const convo=cache.conversations.find(x=>x.id===state.dmConversationId);if(!convo)return;
+ const body=($('message-body')?.value||'').trim(),file=$('user-message-file').files?.[0];if(!body&&!file){toast('请输入文字或发送图片');return}
+ if(state.busy)return;state.busy=true;try{const image_url=file?await H.uploadPrivate(file,convo.id):null;const{error}=await C.from('hw_messages').insert({conversation_id:convo.id,sender_kind:'user',body,image_url});if(error)throw error;
+ $('user-message-file').value='';await loadPrivate();toast('消息已发送');}catch(e){toast('发送失败：'+H.errMsg(e))}finally{state.busy=false}}
+async function recallMessage(id){if(!needAuth())return;const m=cache.messages.find(x=>x.id===id);if(!m||m.sender_kind!=='user')return;
+ const{error}=await C.from('hw_messages').update({recalled:true,body:'',image_url:null}).eq('id',id);if(error){toast(H.errMsg(error));return;}await loadPrivate();toast('消息已撤回。')}
+async function repost(id){if(!needAuth())return;if(!await ensureSignedInReady())return;const target=postById(id);if(!target)return;
+ const text=prompt('引用转发文案（可以留空直接转发）','');if(text===null)return;
+ const row={id:clientId(),author_kind:'user',user_id:state.user.id,body:text,quote_id:id,language:'zh',metrics:{likes:'0',reposts:'0',replies:'0',views:'0',bookmarks:'0'}};
+ const{error}=await C.from('hw_posts').insert(row);if(error){toast(H.errMsg(error));return}toast('已转发到你的主页。');await loadPublic();}
+async function saveProfileImage(file,field,label){
+ if(!needAuth()||!file)return;
+ if(!await ensureSignedInReady())return;
+ const status=$('profile-image-status');
+ if(status)status.textContent='正在上传'+label+'…';
+ try{
+  const url=await H.uploadPublic(file,'user');
+  const{data,error}=await C.from('hw_profiles').update({[field]:url}).eq('id',state.user.id).select('*').single();
+  if(error)throw error;
+  state.myProfile=data;
+  cache.profiles=cache.profiles.filter(x=>x.id!==state.user.id).concat([data]);
+  if(status)status.textContent='✅ '+label+'已更新。其他未保存的文字不会丢失。';
+  const picture=field==='avatar_url'?document.querySelector('.profile-header-avatar img'):document.querySelector('.profile-cover img');
+  if(picture)picture.src=url;
+  else if(field==='cover_url'){const cover=document.querySelector('.profile-cover');if(cover){const img=document.createElement('img');img.src=url;img.alt='主页封面';cover.append(img);}}
+  toast(label+'上传成功');
+  if(!state.editingProfile)renderPage();
+ }catch(e){const m='上传失败：'+H.errMsg(e);if(status)status.textContent=m;toast(m);}
+}
+async function saveImageAvatar(file){return saveProfileImage(file,'avatar_url','头像')}
+async function saveImageCover(file){return saveProfileImage(file,'cover_url','封面')}
+
+async function takeScreenshot(mode){
+ let holder=null;
+ if(typeof window.html2canvas!=='function'){toast('截图组件没有加载，请检查网络后重试。');return}
+ const full=mode==='full', chat=state.view==='messages', isolated=chat&&!full;
+ if(isolated&&!cache.conversations.some(c=>c.id===state.dmConversationId)){toast('请先选择一位联系人，才能截取当前对话。');return}
+ const original=full?$('captureAll'):isolated?document.querySelector('.conversation-view'):$('captureMain');
+ if(!original)return;
+ try{
+  $('hw-shot-menu').hidden=true;$('shot-toggle').setAttribute('aria-expanded','false');
+  await document.fonts?.ready;
+  // Render a temporary, expanded copy so the entire chat history is captured,
+  // without resizing the live website or exposing unrelated conversations.
+  const width=full?1320:600;
+  holder=document.createElement('div');holder.dataset.noscreenshot='';
+  holder.style.cssText='position:absolute;left:0;top:0;z-index:2147483000;overflow:visible;pointer-events:none;background:var(--bg);';
+  const copy=original.cloneNode(true);
+  const screen=holder.appendChild(copy);document.body.appendChild(holder);
+  const dark=state.theme==='dark';
+  if(full){
+   screen.style.cssText+=';display:grid!important;grid-template-columns:270px 600px 350px!important;width:1320px!important;max-width:none!important;height:auto!important;min-height:0!important;overflow:visible!important;';
+   const left=screen.querySelector('.leftnav'),right=screen.querySelector('.rightbar');
+   if(left)left.style.cssText+=';position:static!important;height:auto!important;display:flex!important;';
+   if(right)right.style.cssText+=';display:block!important;';
+  }else{
+   screen.style.cssText+=';width:600px!important;max-width:none!important;min-width:600px!important;height:auto!important;min-height:0!important;overflow:visible!important;';
+   if(isolated)screen.style.cssText+=';display:flex!important;flex-direction:column!important;';
+  }
+  for(const el of [screen,...screen.querySelectorAll('.chat-scroll,.conversation-view,.message-layout,.conversation-list,.center,.site')]){
+   el.style.setProperty('height','auto','important');el.style.setProperty('max-height','none','important');el.style.setProperty('min-height','0','important');el.style.setProperty('overflow','visible','important');
+  }
+  const hdr=screen.querySelector('.topbar');if(hdr)hdr.style.setProperty('position','static','important');
+  for(const el of screen.querySelectorAll('.leftnav,.rightbar')){el.style.setProperty('position','static','important');el.style.setProperty('height','auto','important');}
+  // The original chat scroll box clips everything except the last messages.
+  // Explicitly lay out its message rows at natural height for complete export.
+  for(const el of screen.querySelectorAll('.chat-scroll')){el.style.setProperty('display','flex','important');el.style.setProperty('max-height','none','important');el.style.setProperty('height','auto','important');el.style.setProperty('overflow','visible','important');el.style.setProperty('flex','none','important');}
+  for(const el of screen.querySelectorAll('.conversation-view'))el.style.setProperty('min-height','0','important');
+  for(const el of screen.querySelectorAll('[data-noscreenshot],.hw-shot-wrap,.toast,.modal-backdrop'))el.remove();
+  if(isolated){const compose=screen.querySelector('.message-compose');if(compose)compose.remove();const hint=screen.querySelector('#dm-attachment-text');if(hint)hint.remove();}
+  // Wait for the cloned layout and local images to settle.
+  await Promise.race([Promise.all([...screen.querySelectorAll('img')].map(img=>img.decode?.().catch(()=>{})||Promise.resolve())),new Promise(r=>setTimeout(r,3500))]);
+  // Reset scrolling in the staging copy so the start of each conversation is included.
+  for(const el of screen.querySelectorAll('*'))if(el.scrollTop)el.scrollTop=0;
+  const height=Math.ceil(Math.max(160,screen.scrollHeight,screen.getBoundingClientRect().height));
+  if(height>14500)throw Error('聊天记录过长，截图高度超过限制，请分段保存。');
+  const canvas=await window.html2canvas(screen,{useCORS:true,allowTaint:false,logging:false,backgroundColor:dark?'#000':'#fff',scale:height>4800?1:Math.min(2,window.devicePixelRatio||2),width,height,windowWidth:full?1320:600,windowHeight:Math.min(1200,height),scrollX:0,scrollY:0,removeContainer:true});
+  if(!canvas.width||!canvas.height)throw Error('没有生成有效图片');
+  const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('生成 PNG 失败')),'image/png'));
+  const link=document.createElement('a'),url=URL.createObjectURL(blob);
+  link.href=url;link.download=`霍格沃茨-${isolated?'当前对话':full?'完整页面':'当前内容'}-${Date.now()}.png`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);toast('截图已保存。');
+ }catch(e){toast('截图失败：'+H.errMsg(e));console.error(e)}finally{if(holder)holder.remove()}
+}
+async function deleteMyAccount(){
+ if(!state.user||!C){showAuth();return;}
+ const nickname=state.myProfile?.display_name||'当前玩家';
+ if(!confirm(`确定注销游戏账号「${nickname}」吗？\n\n注销后将无法使用原账号登录，个人资料、帖子、点赞、书签和私信会话将被删除。此操作不可撤销。`))return;
+ const phrase=prompt('请再次输入「注销」确认永久删除账号（输入其他内容将取消）：','');
+ if(phrase!=='注销'){if(phrase!==null)toast('未确认注销，账号已保留。');return;}
+ if(state.busy)return;state.busy=true;
+ try{
+  const {data:{session},error}=await C.auth.getSession();
+  if(error||!session?.access_token)throw Error('登录状态已过期，请重新登录。');
+  const resp=await fetch(H.PROJECT_URL+'/functions/v1/hogwarts-player-delete',{method:'POST',headers:{'Authorization':'Bearer '+session.access_token,'apikey':H.PUBLISHABLE_KEY,'Content-Type':'application/json'},body:'{}',cache:'no-store'});
+  const result=await resp.json().catch(()=>({}));
+  if(!resp.ok||!result.ok)throw Error(result.error||'服务器未能完成注销。');
+  await H.signOut().catch(()=>{});
+  // After the server confirms deletion, clear the player-only persisted session even if signOut fails.
+  try{localStorage.removeItem('hogwarts-v279-player-auth');}catch{}
+  state.user=null;state.myProfile=null;state.view='feed';state.profileKind='character';state.profileId='';
+  cache.conversations=[];cache.messages=[];cache.bookmarks=[];cache.likes=[];cache.follows=[];
+  toast('账号已永久注销，正在返回游客首页。');
+  // Remove private cached data and stale profile hash before returning to visitor mode.
+  window.location.replace(window.location.pathname+'#feed');
+  window.location.reload();
+ }catch(e){toast('注销失败：'+H.errMsg(e));}finally{state.busy=false;}
+}
+async function handleAction(action,el){const id=el.dataset.id;
+ switch(action){case 'login':showAuth();break;case 'sign-out':await H.signOut();toast('已退出');break;case 'delete-account':await deleteMyAccount();break;case 'post':navigate('post',{id});break;case 'profile':navigate('profile',{id,kind:el.dataset.kind});break;case 'like':await toggleLike(id);break;case 'bookmark':await toggleBookmark(id);break;case 'follow':await toggleFollow(id);break;case 'reply':if(!needAuth())return;navigate('post',{id,replyTo:id});break;case 'repost':await repost(id);break;case 'delete':await deletePost(id);break;case 'submit-post':await submitPost(el.dataset.parent||'');break;
+ case 'toggle-dm-contacts':state.showAllDMContacts=!state.showAllDMContacts;renderPage();break;case 'toggle-contacts':state.showAllContacts=!state.showAllContacts;renderContactsPanel();break;case 'profile-tab':state.profileTab=el.dataset.tab||'posts';renderPage();break;case 'edit-me':if(!needAuth())return;navigate('me');state.editingProfile=true;renderPage();break;case 'edit-profile':if(!needAuth())return;state.editingProfile=true;renderPage();break;case 'cancel-profile':state.editingProfile=false;renderPage();break;case 'upload-avatar':$('user-avatar-file').click();break;case 'upload-cover':$('user-cover-file').click();break;
+ case 'start-dm':await startConversation(id);break;case 'dm-select':state.dmConversationId=id;renderPage();break;case 'dm-send':await sendMessage();break;case 'dm-recall':await recallMessage(id);break;
+ default:break;
+ }}
+async function setAuthState(user){state.user=user||null;state.loggedIn=!!user;state.authReady=true;state.myProfile=null;
+ if(user){try{state.myProfile=await H.ensureUserProfile();await loadPrivate();}catch(e){setNotice('已登录，但建立个人资料失败：'+H.errMsg(e)+'。请确认 SQL 已运行。')}}else{cache.bookmarks=[];cache.conversations=[];cache.messages=[];state.dmConversationId='';if(state.view==='profile'&&state.profileKind==='user')state.view='feed';}
+ await loadPublic();renderPage();}
+function subscribe(){if(!C)return;
+ if(publicChannel)C.removeChannel(publicChannel);
+ publicChannel=C.channel('hw-public-v27').on('postgres_changes',{event:'*',schema:'public',table:'hw_posts'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_characters'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_profiles'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_likes'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_follows'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_trends'},refreshPublicTrends).subscribe();
+ if(personalChannel)C.removeChannel(personalChannel);
+ if(state.user)personalChannel=C.channel('hw-personal-'+state.user.id).on('postgres_changes',{event:'*',schema:'public',table:'hw_messages'},()=>loadPrivate()).on('postgres_changes',{event:'*',schema:'public',table:'hw_conversations'},()=>loadPrivate()).subscribe();}
+function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>loadPublic(true),500)}
+/* V39: refresh only the trend widget, not the entire page/chat, on cloud changes. */
+let trendFetchInProgress=false;
+async function refreshPublicTrends(){
+ if(!C||trendFetchInProgress)return;
+ trendFetchInProgress=true;
+ try{
+  const {data,error}=await C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle();
+  if(error)throw error;
+  cache.trends=Array.isArray(data?.value)?data.value:null;
+  renderPublicTrends();
+ }catch(e){console.warn('热点刷新失败',e)}finally{trendFetchInProgress=false}
+}
+window.addEventListener('focus',refreshPublicTrends);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshPublicTrends()});
+setInterval(()=>{if(!document.hidden)refreshPublicTrends()},25000);
+
+function restoreHash(){const h=decodeURIComponent(location.hash.replace(/^#/,''));if(h.startsWith('post:')){state.postId=h.slice(5);state.view='post'}else if(h.startsWith('profile:')){const match=/^profile:(character|user):(.+)$/.exec(h);if(match){state.profileKind=match[1];state.profileId=match[2];state.view='profile';}}else if(['feed','explore','messages','bookmarks'].includes(h))state.view=h;}
+// GUI events
+$('nav-items').addEventListener('click',e=>{const v=e.target.closest('[data-view]')?.dataset.view;if(v)navigate(v)});
+$('content').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b){e.preventDefault();e.stopPropagation();await handleAction(b.dataset.action,b)}});
+$('content').addEventListener('submit',e=>{if(e.target.id==='profile-form')saveProfile(e)});
+$('identity-card').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b)await handleAction(b.dataset.action,b)});if($('contact-card'))$('contact-card').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b)await handleAction(b.dataset.action,b)});
+if($('nav-current'))$('nav-current').onclick=()=>navigate('me');if($('nav-post'))$('nav-post').onclick=()=>{if(needAuth())navigate('feed')};
+if($('back-button'))$('back-button').onclick=()=>navigate('feed');
+$('brand-button').onclick=()=>navigate('feed');
+if($('theme-toggle'))$('theme-toggle').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';safeStorage.setItem('hw27-theme',state.theme);renderPage()};
+if($('sidebar-login'))$('sidebar-login').onclick=()=>showAuth();
+if($('shot-toggle'))$('shot-toggle').onclick=()=>{const menu=$('hw-shot-menu');if(!menu)return;menu.hidden=!menu.hidden;$('shot-toggle').setAttribute('aria-expanded',String(!menu.hidden))};
+document.addEventListener('click',e=>{if(!e.target.closest('.hw-shot-wrap')){const menu=$('hw-shot-menu'),toggle=$('shot-toggle');if(menu)menu.hidden=true;if(toggle)toggle.setAttribute('aria-expanded','false')}},true);
+if($('auth-close'))$('auth-close').onclick=closeAuth;if($('auth-modal'))$('auth-modal').onclick=e=>{if(e.target===$('auth-modal'))closeAuth()};
+$('auth-password-login').onclick=async()=>{
+ const btn=$('auth-password-login');btn.disabled=true;
+ try{
+  const result=await H.enterGame($('auth-email').value,$('auth-password').value);
+  $('auth-password').value='';
+  $('auth-status').textContent=result.created?'✅ 新游戏账号已创建，欢迎来到霍格沃茨！':'✅ 已恢复你的游戏账号和互动记录。';
+  toast(result.created?'欢迎新玩家，游戏账号已建立！':'欢迎回来！');
+ }catch(e){$('auth-status').textContent='无法进入游戏：'+H.errMsg(e)}finally{btn.disabled=false}
+};
+if($('auth-password'))$('auth-password').addEventListener('keydown',e=>{if(e.key==='Enter'&&$('auth-password-login'))$('auth-password-login').click()});
+if($('auth-guest-close'))$('auth-guest-close').onclick=closeAuth;
+if($('shot-current'))$('shot-current').onclick=()=>takeScreenshot('current');if($('shot-full'))$('shot-full').onclick=()=>takeScreenshot('full');
+if($('user-post-file'))$('user-post-file').onchange=e=>{const f=e.target.files?.[0];const el=$('compose-file-label');if(el)el.textContent=f?f.name:''};
+if($('user-avatar-file'))$('user-avatar-file').onchange=async e=>{const f=e.target.files?.[0];e.target.value='';await saveImageAvatar(f)};
+if($('user-cover-file'))$('user-cover-file').onchange=async e=>{const f=e.target.files?.[0];e.target.value='';await saveImageCover(f)};
+if($('user-message-file'))$('user-message-file').onchange=e=>{const f=e.target.files?.[0];const hint=$('dm-attachment-text');if(hint)hint.textContent=f?'已选择：'+f.name:''};
+window.addEventListener('hashchange',()=>{restoreHash();renderPage()});
+H.onAuth(async u=>{if(state.user?.id===u?.id&&state.authReady)return;try{await setAuthState(u);subscribe();if(u)closeAuth()}catch(e){console.warn(e);setNotice('登录状态加载失败：'+H.errMsg(e))}});
+restoreHash();renderPage();loadPublic();
+})();
+
+</script>
+</body>
+</html>
