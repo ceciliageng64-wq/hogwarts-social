@@ -401,6 +401,27 @@ body.u23-user .compact-note{display:none}
 </style>
 
 <style id="hw-v40-sticky-toolbar">
+/* V40.3: Small center tab toggles the developer toolbar without hiding it permanently. */
+body:not(.u23-user)>.toolbar{transition:min-height .18s ease,padding .18s ease;overflow:visible}
+body:not(.u23-user)>.toolbar .hw-toolbar-toggle{
+ position:absolute;left:50%;bottom:-29px;transform:translateX(-50%);
+ display:flex;align-items:center;justify-content:center;
+ width:80px;height:29px;border:1px solid var(--toolborder);
+ border-top:0;border-radius:0 0 14px 14px;
+ background:var(--toolcard);color:var(--tooltext);font-size:22px;
+ font-weight:800;line-height:1;cursor:pointer;z-index:210;
+ box-shadow:0 5px 9px #00000012;
+}
+body:not(.u23-user)>.toolbar .hw-toolbar-toggle:hover{background:var(--toolbg)}
+body:not(.u23-user)>.toolbar.hw-toolbar-collapsed{
+ height:7px!important;min-height:7px!important;max-height:7px!important;
+ padding:0!important;gap:0!important;border-bottom:1px solid var(--toolborder);
+}
+body:not(.u23-user)>.toolbar.hw-toolbar-collapsed>.toolbar-title,
+body:not(.u23-user)>.toolbar.hw-toolbar-collapsed>.toolbar-right{display:none!important}
+body:not(.u23-user)>.toolbar.hw-toolbar-collapsed .hw-toolbar-toggle{bottom:-29px}
+body.u23-user .hw-toolbar-toggle{display:none!important}
+@media print{.hw-toolbar-toggle{display:none!important}}
 /* Keep the full developer toolbar in view while the timeline scrolls. */
 body:not(.u23-user)>.toolbar{
   position:sticky!important;
@@ -445,6 +466,7 @@ body:not(.u23-user)>.toolbar{
     <button class="toolbtn" id="exportFullBtn" type="button" data-i18n="exportFull">导出整页 PNG</button>
     <input id="restoreInput" type="file" accept=".json,application/json">
   </div>
+  <button type="button" id="hwToolbarToggle" class="hw-toolbar-toggle" aria-expanded="true" aria-controls="hwToolbarContent" title="收起顶部开发工具栏">⌃</button>
 </header>
 <div class="workspace" id="workspace">
   <aside class="controls" id="controls">
@@ -4213,7 +4235,24 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
 (function(){
  const toolbar=document.querySelector('body>.toolbar');
  if(!toolbar)return;
+ const toggle=document.getElementById('hwToolbarToggle');
+ const storageKey='hw-v40-developer-toolbar-collapsed';
  const update=()=>document.documentElement.style.setProperty('--hw-editor-toolbar-height',Math.ceil(toolbar.getBoundingClientRect().height)+'px');
+ const setCollapsed=(collapsed)=>{
+  toolbar.classList.toggle('hw-toolbar-collapsed',collapsed);
+  if(toggle){
+   toggle.textContent=collapsed?'⌄':'⌃';
+   toggle.setAttribute('aria-expanded',String(!collapsed));
+   toggle.setAttribute('aria-label',collapsed?'展开开发工具栏':'收起开发工具栏');
+   toggle.title=collapsed?'展开开发工具栏':'收起开发工具栏';
+  }
+  try{localStorage.setItem(storageKey,collapsed?'1':'0')}catch{}
+  requestAnimationFrame(update);
+ };
+ let collapsed=false;
+ try{collapsed=localStorage.getItem(storageKey)==='1'}catch{}
+ setCollapsed(collapsed);
+ toggle?.addEventListener('click',()=>setCollapsed(!toolbar.classList.contains('hw-toolbar-collapsed')));
  update();
  if(typeof ResizeObserver!=='undefined'){const observer=new ResizeObserver(update);observer.observe(toolbar);}
  window.addEventListener('resize',update);
