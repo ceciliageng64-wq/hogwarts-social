@@ -428,6 +428,45 @@ body.u23-user .hw-toolbar-toggle{display:none!important}
  body:not(.u23-user)>.toolbar.hw-toolbar-collapsed .hw-toolbar-toggle{top:6px;left:50%;right:auto;transform:translateX(-50%)}
 }
 @media print{.hw-toolbar-toggle{display:none!important}}
+/* V40.5 compact toolbar: no unused editor heading; tools move into its space.
+   Toggle occupies a real flex slot so it never overlays buttons or timeline. */
+body:not(.u23-user)>.toolbar{
+ display:flex!important;flex-direction:row!important;align-items:center!important;
+ flex-wrap:nowrap!important;justify-content:flex-start!important;
+ min-height:0!important;padding:7px 12px!important;gap:9px!important;
+}
+body:not(.u23-user)>.toolbar .toolbar-right{
+ display:flex;flex:1 1 auto;min-width:0;width:auto!important;
+ align-items:center;justify-content:flex-start!important;
+ gap:7px;flex-wrap:wrap;
+}
+body:not(.u23-user)>.toolbar .hw-toolbar-toggle{
+ position:static!important;left:auto!important;right:auto!important;
+ top:auto!important;bottom:auto!important;transform:none!important;
+ flex:0 0 52px;width:52px;height:35px;margin:0 0 0 auto;
+ border:1px solid var(--toolborder);border-radius:999px;
+ background:var(--toolbg);box-shadow:none;
+}
+body:not(.u23-user)>.toolbar.hw-toolbar-collapsed{
+ height:40px!important;min-height:40px!important;max-height:40px!important;
+ justify-content:center!important;padding:3px 12px!important;
+}
+body:not(.u23-user)>.toolbar.hw-toolbar-collapsed .hw-toolbar-toggle{
+ width:80px;flex-basis:80px;height:31px;margin:0 auto;
+}
+@media(max-width:870px){
+ body:not(.u23-user)>.toolbar{padding:6px 9px!important;gap:5px!important;max-height:none!important}
+ body:not(.u23-user)>.toolbar .toolbar-right{
+  flex-wrap:nowrap!important;overflow-x:auto!important;overflow-y:hidden!important;
+  max-height:none!important;scrollbar-width:thin;
+ }
+ body:not(.u23-user)>.toolbar .hw-toolbar-toggle{
+  flex-basis:42px;width:42px;height:32px;margin-left:3px;
+ }
+ body:not(.u23-user)>.toolbar.hw-toolbar-collapsed .hw-toolbar-toggle{
+  flex-basis:80px;width:80px;margin:0 auto;
+ }
+}
 /* Keep the full developer toolbar in view while the timeline scrolls. */
 body:not(.u23-user)>.toolbar{
   position:sticky!important;
@@ -459,8 +498,7 @@ body:not(.u23-user)>.toolbar{
 </head>
 <body>
 <header class="toolbar">
-  <div class="toolbar-title"><span class="mini-x">𝕏</span><div><span data-i18n="toolName">帖子编辑台</span><small data-i18n="toolSubtitle">内容编辑区不会进入图片</small></div></div>
-  <div class="toolbar-right">
+  <div class="toolbar-right" id="hwToolbarContent">
     <div class="seg pv-view-switch" role="group" aria-label="页面模式"><button type="button" id="pvThreadMode" class="active">帖子</button><button type="button" id="pvProfileMode">个人主页</button><button type="button" id="dmMode">私信</button></div>
     <div class="seg" role="group" aria-label="Template / 模板"><button type="button" data-lang="zh" class="active">中文模板</button><button type="button" data-lang="en">English</button></div>
     <div class="seg" role="group" aria-label="Theme / 主题"><button type="button" data-theme="light" class="active" data-i18n="light">浅色</button><button type="button" data-theme="dark" data-i18n="dark">深色</button></div>
