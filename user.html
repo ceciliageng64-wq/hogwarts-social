@@ -13,6 +13,12 @@
 @media(max-width:600px){.site{display:block;padding-bottom:60px}.leftnav{position:fixed;top:auto;left:0;bottom:0;width:100%;height:55px;z-index:50;background:var(--bg);border-right:0;border-top:1px solid var(--line);padding:0 4px;display:block}.x-symbol,.nav-post,.nav-current{display:none}.leftnav #nav-items{display:flex;justify-content:space-around}.nav-item{padding:8px 11px;margin:0}.nav-ico{font-size:27px}.topbar h1{font-size:17px}.brand-line{padding:9px 14px}.topbar{padding:8px 10px}.post{padding:11px}.message-layout{grid-template-columns:37% 63%}.conversation-list button{font-size:11px}.conversation-list .avatar{display:none}.chat-scroll{padding:9px}.profile-avatar-row .avatar.big{width:98px;height:98px}.profile-avatar-row{margin-top:-46px}.banner{height:155px}}
 
 
+.message-layout .chat-header{display:flex;align-items:center;gap:7px;justify-content:space-between;min-width:0}
+.message-layout .dm-header-info{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.message-layout .dm-header-info small{display:block;font-size:11px;margin-top:3px}
+.message-layout .dm-delete-conversation{background:#fff1f2;color:#b42335;border:1px solid #e79aa4;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:750;white-space:nowrap;flex-shrink:0}
+body.dark .message-layout .dm-delete-conversation{background:#40141d;color:#ffb4bf;border-color:#934357}
+@media(max-width:600px){.message-layout .dm-delete-conversation{padding:6px;font-size:10px}.message-layout .chat-header{gap:4px}}
 /* V39.7 - bounded client chat with independently scrollable history. */
 .message-layout{height:clamp(390px,calc(100dvh - 160px),740px);min-height:0;max-height:740px;overflow:hidden;grid-template-rows:minmax(0,1fr)}
 .message-layout .conversation-list{min-height:0;height:100%;overflow-y:auto;overscroll-behavior:contain}
@@ -431,7 +437,7 @@ function renderMessages(){if(!state.user)return `<div class="empty"><strong>你�
  const recentBlock=list.map(c=>{const other=cache.characters.find(x=>x.id===c.character_id);return `<button class="${selected?.id===c.id?'active':''}" data-action="dm-select" data-id="${E(c.id)}">${avatar(other?.avatar_url,other?.name||'角色')}<span>${E(other?.name||'角色')}<br><small class="muted">@${E(other?.handle||'')}</small></span></button>`}).join('');
  const sidebar=`<div class="conversation-list"><b style="display:block;padding:11px">最近会话</b>${recentBlock||'<div class="muted" style="padding:12px;font-size:12px;line-height:1.6">还没有聊天记录。可以在右侧「人物联系人」或「探索」页面选择人物发私信。</div>'}</div>`;
  const other=selected&&cache.characters.find(x=>x.id===selected.character_id),msgs=cache.messages.filter(x=>x.conversation_id===selected?.id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
- const chat=selected?`<div class="chat-header">${E(other?.name||'角色')} ${authorBadge(other||{})}<br><small class="muted">仅你与角色的私信 · 私人会话</small></div><div class="chat-scroll" id="chat-scroll">${msgs.length?msgs.map(m=>{const mine=m.sender_kind==='user';return `<div class="bubble ${mine?'mine':''}">${m.recalled?'<em>消息已撤回</em>':`${mentionLink(m.body||'')}${m.image_resolved?`<img crossorigin="anonymous" src="${E(m.image_resolved)}" alt="私信配图">`:''}`}<small>${humanTime(m.created_at)} ${mine&&!m.recalled?`<button data-action="dm-recall" data-id="${E(m.id)}">撤回</button>`:''}</small></div>`}).join(''):'<div class="empty">这里还没有消息，开始聊天吧。</div>'}</div><div class="message-compose"><label for="user-message-file" title="添加私信图片">🖼</label><textarea id="message-body" class="message-input" rows="2" placeholder="发送私信…"></textarea><button class="primary" data-action="dm-send">发送</button></div><div id="dm-attachment-text" class="muted" style="font-size:12px;padding:0 12px 7px"></div>`:`<div class="empty"><strong>你的私信</strong><p style="margin:10px 0 0">从右侧「人物联系人」或「探索」点“发私信”，这里就会显示对话。</p></div>`;
+ const chat=selected?`<div class="chat-header"><div class="dm-header-info">${E(other?.name||'角色')} ${authorBadge(other||{})}<small class="muted">仅你与角色的私信 · 私人会话</small></div><button type="button" class="dm-delete-conversation" data-action="dm-delete-conversation" data-id="${E(selected.id)}" title="点击一次永久删除当前整段会话">🗑 删除会话</button></div><div class="chat-scroll" id="chat-scroll">${msgs.length?msgs.map(m=>{const mine=m.sender_kind==='user';return `<div class="bubble ${mine?'mine':''}">${m.recalled?'<em>消息已撤回</em>':`${mentionLink(m.body||'')}${m.image_resolved?`<img crossorigin="anonymous" src="${E(m.image_resolved)}" alt="私信配图">`:''}`}<small>${humanTime(m.created_at)} ${mine&&!m.recalled?`<button data-action="dm-recall" data-id="${E(m.id)}">撤回</button>`:''}</small></div>`}).join(''):'<div class="empty">这里还没有消息，开始聊天吧。</div>'}</div><div class="message-compose"><label for="user-message-file" title="添加私信图片">🖼</label><textarea id="message-body" class="message-input" rows="2" placeholder="发送私信…"></textarea><button class="primary" data-action="dm-send">发送</button></div><div id="dm-attachment-text" class="muted" style="font-size:12px;padding:0 12px 7px"></div>`:`<div class="empty"><strong>你的私信</strong><p style="margin:10px 0 0">从右侧「人物联系人」或「探索」点“发私信”，这里就会显示对话。</p></div>`;
  return `<div class="message-layout">${sidebar}<div class="conversation-view">${chat}</div></div>`;
 }
 function renderPage(){document.body.classList.toggle('dark',state.theme==='dark');const titleEl=$('page-title'),backEl=$('back-button'),secretEl=$('brand-secret'),navCurrent=$('nav-current'),identity=$('identity-card'),content=$('content');if(titleEl){if(state.view==='profile'){const p=state.profileKind==='character'?cache.characters.find(x=>x.id===state.profileId):cache.profiles.find(x=>x.id===state.profileId);const name=p?.name||p?.display_name||'个人资料';const count=cache.posts.filter(x=>profileAuthorMatches(x,state.profileKind,state.profileId)&&!x.parent_id&&visibleLocalePost(x)).length;titleEl.innerHTML=`<span class="profile-topbar-title"><strong>${E(name)}</strong><small>${count} 条帖子</small></span>`;}else titleEl.textContent=({feed:'首页',post:'帖子',explore:'探索',me:'我的主页',messages:'私信',bookmarks:'书签'})[state.view]||'首页';}if(backEl)backEl.hidden=!['post','profile'].includes(state.view);
@@ -524,6 +530,25 @@ async function sendMessage(){if(!needAuth())return;const convo=cache.conversatio
  const body=($('message-body')?.value||'').trim(),file=$('user-message-file').files?.[0];if(!body&&!file){toast('请输入文字或发送图片');return}
  if(state.busy)return;state.busy=true;try{const image_url=file?await H.uploadPrivate(file,convo.id):null;const{error}=await C.from('hw_messages').insert({conversation_id:convo.id,sender_kind:'user',body,image_url});if(error)throw error;
  $('user-message-file').value='';await loadPrivate();toast('消息已发送');}catch(e){toast('发送失败：'+H.errMsg(e))}finally{state.busy=false}}
+async function deleteConversation(id){
+ if(!state.user||!C)return;
+ const convo=cache.conversations.find(c=>c.id===id&&c.user_id===state.user.id);
+ if(!convo){toast('这段会话已不存在，请刷新');return;}
+ if(state.busy)return;state.busy=true;
+ try{
+  // A player may delete only their own conversation (also enforced by Supabase RLS).
+  const {data,error}=await C.from('hw_conversations').delete().eq('id',id).eq('user_id',state.user.id).select('id');
+  if(error)throw error;
+  if(!data?.some(row=>row.id===id))throw Error('没有删除权限或会话已不存在');
+  cache.conversations=cache.conversations.filter(c=>c.id!==id);
+  cache.messages=cache.messages.filter(m=>m.conversation_id!==id);
+  state.dmConversationId=cache.conversations[0]?.id||'';
+  renderPage();
+  toast('✅ 当前整段聊天已删除');
+  // Reconcile with cloud after a successful verified deletion.
+  await loadPrivate();
+ }catch(e){toast('删除会话失败：'+H.errMsg(e));}finally{state.busy=false;}
+}
 async function recallMessage(id){if(!needAuth())return;const m=cache.messages.find(x=>x.id===id);if(!m||m.sender_kind!=='user')return;
  const{error}=await C.from('hw_messages').update({recalled:true,body:'',image_url:null}).eq('id',id);if(error){toast(H.errMsg(error));return;}await loadPrivate();toast('消息已撤回。')}
 async function repost(id){if(!needAuth())return;if(!await ensureSignedInReady())return;const target=postById(id);if(!target)return;
@@ -630,7 +655,7 @@ async function deleteMyAccount(){
 async function handleAction(action,el){const id=el.dataset.id;
  switch(action){case 'login':showAuth();break;case 'sign-out':await H.signOut();toast('已退出');break;case 'delete-account':await deleteMyAccount();break;case 'post':navigate('post',{id});break;case 'profile':navigate('profile',{id,kind:el.dataset.kind});break;case 'like':await toggleLike(id);break;case 'bookmark':await toggleBookmark(id);break;case 'follow':await toggleFollow(id);break;case 'reply':if(!needAuth())return;navigate('post',{id,replyTo:id});break;case 'repost':await repost(id);break;case 'delete':await deletePost(id);break;case 'submit-post':await submitPost(el.dataset.parent||'');break;
  case 'toggle-dm-contacts':state.showAllDMContacts=!state.showAllDMContacts;renderPage();break;case 'toggle-contacts':state.showAllContacts=!state.showAllContacts;renderContactsPanel();break;case 'profile-tab':state.profileTab=el.dataset.tab||'posts';renderPage();break;case 'edit-me':if(!needAuth())return;navigate('me');state.editingProfile=true;renderPage();break;case 'edit-profile':if(!needAuth())return;state.editingProfile=true;renderPage();break;case 'cancel-profile':state.editingProfile=false;renderPage();break;case 'upload-avatar':$('user-avatar-file').click();break;case 'upload-cover':$('user-cover-file').click();break;
- case 'start-dm':await startConversation(id);break;case 'dm-select':state.dmConversationId=id;renderPage();break;case 'dm-send':await sendMessage();break;case 'dm-recall':await recallMessage(id);break;
+ case 'start-dm':await startConversation(id);break;case 'dm-delete-conversation':await deleteConversation(id);break;case 'dm-select':state.dmConversationId=id;renderPage();break;case 'dm-send':await sendMessage();break;case 'dm-recall':await recallMessage(id);break;
  default:break;
  }}
 async function setAuthState(user){state.user=user||null;state.loggedIn=!!user;state.authReady=true;state.myProfile=null;
