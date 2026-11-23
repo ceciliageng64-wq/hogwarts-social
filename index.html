@@ -4328,7 +4328,9 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
   if(e.target.closest('#hwHomeRefresh,#hwHomeRetry,.hw-home-post,#hwHomeHome'))return;
   if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child),#navUser,#pvThreadMode,#pvProfileMode,#dmMode')){homeVisible=false;requestId++;}
  },true);
- // Load the REAL cloud timeline by default in developer mode.
+ // Expose a stable developer-home command for boot and mode changes.
+ window.hwShowDeveloperHome=showHome;
+  // Load the REAL cloud timeline by default in developer mode.
  // Previously it was only opened by clicking Home; every reload showed the old Adrian draft.
  const startDeveloperHome=()=>{
    if(state.clientMode==='user'||document.documentElement.dataset.u23ViewerOnly==='true')return;
@@ -4609,5 +4611,43 @@ body:not(.u23-user) #hw-v41-nav-plus,
 body:not(.u23-user) #hwV35Choose,
 body:not(.u23-user) #v276AuthorBox{display:none!important}
 </style>
+<script id="hw-v46-home-boot">
+(function(){
+  const version='V46-cloud-home';
+  const statusKey='hw-developer-home-active';
+  const shouldOpen=()=>document.documentElement.dataset.u23ViewerOnly!=='true'&&
+    !document.body.classList.contains('u23-user')&&
+    document.getElementById('controls')?.offsetParent!==null;
+  function openHome(){
+    if(!shouldOpen())return;
+    const fn=window.hwShowDeveloperHome;
+    if(typeof fn==='function'){
+      fn();
+      document.documentElement.dataset.homeVersion=version;
+      try{sessionStorage.setItem(statusKey,'1')}catch(_){}
+    }else{
+      const home=document.querySelector('#xNavLinks .x-nav-link:first-child');
+      home?.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
+    }
+  }
+  function boot(){
+    // Run after the legacy initial render; do not allow that initialization to win.
+    setTimeout(openHome,0);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
+  document.getElementById('u23DevBtn')?.addEventListener('click',()=>{
+    setTimeout(openHome,0);
+  });
+  // The home icon must always lead to the cloud timeline in developer mode.
+  document.getElementById('xNavLinks')?.addEventListener('click',e=>{
+    const first=document.querySelector('#xNavLinks .x-nav-link:first-child');
+    if(!first||!e.target.closest('.x-nav-link')?.isSameNode(first)||!shouldOpen())return;
+    if(typeof window.hwShowDeveloperHome==='function'){
+      e.preventDefault();e.stopImmediatePropagation();window.hwShowDeveloperHome();
+    }
+  },true);
+})();
+</script>
 </body>
 </html>
