@@ -4134,17 +4134,18 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
  const area=document.getElementById('feedContent');
  const head=document.getElementById('postHeader');
  if(!nav||!area||!head)return;
- let requestId=0,homeVisible=false,homeLoading=false;
+ let requestId=0,homeVisible=false,homeLoading=false,homeMode='home',selectedPostId='',profileKey='';
  window.hwDeveloperHomeOpen=()=>homeVisible;
  const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const attr=(v)=>esc(v);
  function activateHome(){
-  nav.querySelectorAll('.x-nav-link').forEach((n,i)=>n.classList.toggle('active',i===0));
-  head.textContent='首页 · 云端时间线';
+  nav.querySelectorAll('.x-nav-link').forEach((n,i)=>n.classList.toggle('active',homeMode==='profile'?i===5:i===0));
+  head.textContent=homeMode==='profile'?'人物主页 · 云端帖子':homeMode==='detail'?'帖子详情 · 完整评论':'首页 · 云端时间线';
   const back=document.getElementById('backArrow');if(back)back.textContent='';
   area.innerHTML='<div class="hw-home-loading">正在读取大家发布的帖子…</div>';
  }
- async function showHome(){
+ async function showHome(mode=homeMode){
+  homeMode=mode;
   const token=++requestId;homeVisible=true;homeLoading=true;
   // Home has its own view state. Never allow a stale DM state to control editor redraws.
   if(state.clientMode!=='user'){
@@ -4169,7 +4170,18 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    const users=new Map((us.data||[]).map(x=>[String(x.id),x]));
    const posts=ps.data||[];
    const byId=new Map(posts.map(p=>[p.id,p]));
-   const visible=posts.filter(p=>!p.parent_id&&(!p.language||String(p.language).toLowerCase().startsWith('zh')));
+   const allRootPosts=posts.filter(p=>!p.parent_id);
+   const selectedLocal=typeof pvBaseOwner==='function'?pvBaseOwner():null;
+   const cloudAuthors=[...(cs.data||[]).map(p=>({kind:'character',id:String(p.id),name:p.name,handle:p.handle})),
+     ...(us.data||[]).map(p=>({kind:'user',id:String(p.id),name:p.display_name,handle:p.handle}))];
+   if(homeMode==='profile'&&!cloudAuthors.some(p=>p.kind+':'+p.id===profileKey)){
+     const match=cloudAuthors.find(p=>p.kind==='character'&&String(p.handle).toLowerCase()===String(selectedLocal?.handle||'').toLowerCase());
+     profileKey=match?match.kind+':'+match.id:(cloudAuthors[0]?cloudAuthors[0].kind+':'+cloudAuthors[0].id:'');
+   }
+   const visible=allRootPosts.filter(p=>
+     homeMode==='detail'?String(p.id)===String(selectedPostId):
+     homeMode==='profile'?p.author_kind+':'+String(p.author_kind==='character'?p.character_id:p.user_id)===profileKey:true
+   );
    const editable=!!(cloud.user&&await cloud.isAdmin());
    const publishedCast=await client.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle();
    const officialIds=Array.isArray(publishedCast.data?.value)?new Set(publishedCast.data.value.map(String)):null;
@@ -4184,7 +4196,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
      (p.author_kind==='character'?'<div class="hw-home-editmetrics">'+[['replies','评论'],['reposts','转发'],['likes','喜欢'],['views','浏览'],['bookmarks','收藏']].map(([k,l])=>'<label>'+l+'<input data-home-metric="'+k+'" value="'+attr(p.metrics?.[k]??'0')+'"></label>').join('')+'</div><div class="hw-home-actions"><button type="button" data-home-action="random-metrics">🎲 随机互动数字</button><button type="button" data-home-action="save">☁ 保存正文和数据</button></div>':'')+
      '<label>选择评论作者<select data-home-author>'+options(candidateAuthors)+'</select></label>'+
      '<label>新增评论<textarea data-home-reply rows="2" placeholder="输入人物评论或随机生成…"></textarea></label>'+
-     '<div class="hw-home-actions"><button type="button" data-home-action="random-reply">🎲 随机评论</button><button type="button" data-home-action="send-reply">☁ 发布评论</button></div>'+
+     '<div class="hw-home-actions"><button type="button" data-home-action="random-reply">🎲 随机评论文案</button><button type="button" data-home-action="add-one">🎲 随机评论 +1</button><button type="button" data-home-action="add-five">🎲 随机评论 +5</button><button type="button" data-home-action="send-reply">☁ 发布评论</button></div>'+
      '</details>';
 
    const author=p=>{
@@ -4218,15 +4230,30 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    };
       const number=(p,k)=>esc(p.metrics?.[k]??'0');
    const replies=posts.reduce((a,p)=>{if(p.parent_id)a.set(p.parent_id,(a.get(p.parent_id)||0)+1);return a},new Map());
-   area.innerHTML='<div class="hw-home-top"><strong>🏰 霍格沃茨实时首页</strong><small>云端全站编辑模式 · 直接修改互动数字、添加评论和随机评论</small><button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
-    (visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post">'+
+   const selectedProfile=cloudAuthors.find(p=>p.kind+':'+p.id===profileKey);
+   const headerTitle=homeMode==='profile'?'👤 '+(selectedProfile?.name||'人物主页'):homeMode==='detail'?'帖子详情':'🏰 霍格沃茨实时首页';
+   const profileOptions=cloudAuthors.map(p=>'<option value="'+attr(p.kind+':'+p.id)+'" '+(profileKey===p.kind+':'+p.id?'selected':'')+'>'+esc(p.name||p.handle)+' @'+esc(p.handle||'')+'</option>').join('');
+   area.innerHTML='<div class="hw-home-top"><strong>'+esc(headerTitle)+'</strong><small>全站共用云端帖子 · 逐帖编辑与真实评论</small>'+
+     (homeMode==='detail'?'<button type="button" data-home-nav="back">← 返回时间线</button>':'')+
+     (homeMode==='profile'?'<select id="hwCloudProfileSelect" aria-label="选择人物主页">'+profileOptions+'</select>':'')+
+     '<button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
+    (visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post" data-hw-post-id="'+attr(p.id)+'">'+
     '<div class="hw-home-by">'+(a.avatar?'<img class="hw-home-avatar" src="'+attr(a.avatar)+'" alt="">':'<span class="hw-home-avatar hw-home-default">✦</span>')+
-    '<div><strong>'+esc(a.name)+'</strong><span>@'+esc(a.handle)+' · '+esc(p.metrics?.time_label||new Date(p.created_at).toLocaleString('zh-CN'))+'</span></div></div>'+
+    '<div><button class="hw-home-author-link" type="button" data-home-nav="profile" data-profile-key="'+attr(p.author_kind+':'+(p.author_kind==='character'?p.character_id:p.user_id))+'"><strong>'+esc(a.name)+'</strong></button><span>@'+esc(a.handle)+' · '+esc(p.metrics?.time_label||new Date(p.created_at).toLocaleString('zh-CN'))+'</span></div></div>'+
     '<div class="hw-home-body">'+esc(p.body||'')+'</div>'+pic(p.image_url)+snapshot(p)+
     '<div class="hw-home-metrics"><span>💬 '+esc(replies.get(p.id)||p.metrics?.replies||0)+'</span><span>↻ '+number(p,'reposts')+'</span><span>♡ '+number(p,'likes')+'</span><span>▥ '+number(p,'views')+'</span></div>'+
-    '<details class="hw-home-thread"><summary>💬 查看全部评论与回复 ('+esc(replies.get(p.id)||0)+')</summary><div class="hw-home-thread-body">'+(allRepliesFor(p.id)||'<p class="hw-home-hint">暂无评论</p>')+'</div></details>'+editor(p)+
+    (homeMode==='detail'?'':'<button type="button" class="hw-home-open" data-home-nav="detail" data-post-id="'+attr(p.id)+'">查看帖子详情与全部评论</button>')+
+    '<details class="hw-home-thread" '+(homeMode==='detail'?'open':'')+'><summary>💬 查看全部评论与回复 ('+esc(replies.get(p.id)||0)+')</summary><div class="hw-home-thread-body">'+(allRepliesFor(p.id)||'<p class="hw-home-hint">暂无评论</p>')+'</div></details>'+editor(p)+
     '</article>'}).join(''):'<div class="hw-home-loading">云端暂时没有公开帖子。</div>');
    area.onclick=async function onEdit(e){
+    const navAction=e.target.closest('[data-home-nav]');
+    if(navAction){
+      e.preventDefault();e.stopPropagation();
+      if(navAction.dataset.homeNav==='detail'){selectedPostId=navAction.dataset.postId;await showHome('detail')}
+      if(navAction.dataset.homeNav==='profile'){profileKey=navAction.dataset.profileKey;await showHome('profile')}
+      if(navAction.dataset.homeNav==='back'){await showHome('home')}
+      return;
+    }
     const replySave=e.target.closest('[data-home-reply-save]');
     if(replySave){
       e.preventDefault();e.stopPropagation();
@@ -4264,6 +4291,21 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
     }
     button.disabled=true;
     try{
+      if(action==='add-one'||action==='add-five'){
+        const pool=randomAuthors.length?randomAuthors:candidateAuthors;
+        if(!pool.length)throw Error('云端没有可用的评论人物账号');
+        const count=action==='add-five'?5:1;
+        const rows=Array.from({length:count},()=>({
+          id:'home:'+crypto.randomUUID(),author_kind:'character',
+          character_id:pool[Math.floor(Math.random()*pool.length)].id,
+          user_id:null,parent_id:post.id,quote_id:null,
+          body:presetComments[Math.floor(Math.random()*presetComments.length)],
+          language:post.language||'zh',
+          metrics:{likes:'0',reposts:'0',replies:'0',views:'0',bookmarks:'0',time_label:randomRelativeTime()}
+        }));
+        const {error}=await client.from('hw_posts').insert(rows);
+        if(error)throw error;
+      }
       if(action==='save'){
         if(post.author_kind!=='character')throw Error('不能修改玩家本人的帖子');
         const body=panel.querySelector('[data-home-body]').value.trim(),updated=metrics();
@@ -4281,7 +4323,8 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
     }catch(err){alert('操作未完成：'+(err?.message||err))}
     finally{button.disabled=false}
    };
-   area.querySelector('#hwHomeRefresh')?.addEventListener('click',showHome);
+   area.querySelector('#hwHomeRefresh')?.addEventListener('click',()=>showHome());
+   area.querySelector('#hwCloudProfileSelect')?.addEventListener('change',e=>{profileKey=e.target.value;showHome('profile')});
    document.getElementById('captureArea')?.scrollTo({top:0});
   }catch(e){if(homeVisible&&token===requestId)area.innerHTML='<div class="hw-home-loading">读取首页失败：'+esc(e.message||e)+'<p>请确认网络连接和开发者登录状态。</p><button id="hwHomeRetry" type="button">重试</button></div>';area.querySelector('#hwHomeRetry')?.addEventListener('click',showHome);}
   finally{if(token===requestId)homeLoading=false;}
@@ -4290,10 +4333,10 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
  const previousPreviewRenderer=renderPreviewOnly;
  renderPreviewOnly=function(){
    if(homeVisible&&state.clientMode!=='user'){
-     head.textContent='首页 · 云端时间线';
+     head.textContent=homeMode==='profile'?'人物主页 · 云端帖子':homeMode==='detail'?'帖子详情 · 完整评论':'首页 · 云端时间线';
      const back=document.getElementById('backArrow');
      if(back)back.textContent='';
-     nav.querySelectorAll('.x-nav-link').forEach((link,i)=>link.classList.toggle('active',i===0));
+     nav.querySelectorAll('.x-nav-link').forEach((link,i)=>link.classList.toggle('active',homeMode==='profile'?i===5:i===0));
      return;
    }
    return previousPreviewRenderer();
@@ -4305,24 +4348,47 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    showHome();
  });
  homeObserver.observe(area,{childList:true});
- window.hwShowDeveloperHome=showHome;
+ window.hwShowDeveloperHome=()=>{profileKey='';return showHome('home')};
+ window.hwShowDeveloperProfile=()=>showHome('profile');
  nav.addEventListener('click',e=>{
   const link=e.target.closest('.x-nav-link');
   if(!link||[...nav.querySelectorAll('.x-nav-link')].indexOf(link)!==0)return;
-  e.preventDefault();e.stopImmediatePropagation();showHome();
+  e.preventDefault();e.stopImmediatePropagation();showHome('home');
  },true);
  nav.addEventListener('keydown',e=>{
   if(e.key!=='Enter'&&e.key!==' ')return;
   const link=e.target.closest('.x-nav-link');
   if(!link||[...nav.querySelectorAll('.x-nav-link')].indexOf(link)!==0)return;
-  e.preventDefault();e.stopImmediatePropagation();showHome();
+  e.preventDefault();e.stopImmediatePropagation();showHome('home');
  },true);
  document.addEventListener('click',e=>{
   if(!homeVisible)return;
   if(e.target.closest('#hwHomeRefresh,#hwHomeRetry,.hw-home-post,#hwHomeHome'))return;
-  if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child),#navUser,#pvThreadMode,#pvProfileMode,#dmMode')){homeVisible=false;requestId++;}
+  if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child):not(:nth-child(6)),#dmMode')){homeVisible=false;requestId++;}
  },true);
- // Start in the editable V40.1 cloud home, instead of the previous stored DM screen.
+ // Capture navigation before the old local profile handlers.
+ // Cloud Home, Profile and Detail are views over one Supabase dataset.
+ document.addEventListener('click',e=>{
+   if(state.clientMode==='user')return;
+   const navLink=e.target.closest('#xNavLinks .x-nav-link');
+   const index=navLink?[...nav.querySelectorAll('.x-nav-link')].indexOf(navLink):-1;
+   if(index!==0&&index!==5&&!e.target.closest('#pvProfileMode,#navUser'))return;
+   e.preventDefault();e.stopImmediatePropagation();
+   if(index===0)window.hwShowDeveloperHome();
+   else showHome('profile');
+ },true);
+ document.addEventListener('keydown',e=>{
+   if(state.clientMode==='user'||(e.key!=='Enter'&&e.key!==' '))return;
+   const index=[...nav.querySelectorAll('.x-nav-link')].indexOf(e.target.closest('.x-nav-link'));
+   if(index!==0&&index!==5)return;
+   e.preventDefault();e.stopImmediatePropagation();
+   if(index===0)window.hwShowDeveloperHome();else showHome('profile');
+ },true);
+ // Left-side character picker changes the cloud profile filter, not the dataset.
+ document.getElementById('pvPersonSelect')?.addEventListener('change',()=>{
+   if(homeVisible&&homeMode==='profile'){profileKey='';setTimeout(()=>showHome('profile'),0)}
+ });
+  // Start in the editable V40.1 cloud home, instead of the previous stored DM screen.
  const startHome=()=>{if(state.clientMode!=='user'&&document.documentElement.dataset.u23ViewerOnly!=='true'&&!homeVisible)showHome()};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(startHome,0),{once:true});
  else setTimeout(startHome,0);
@@ -4688,5 +4754,12 @@ body:not(.u23-user) #v276AuthorBox .hw-v51-publish{margin-top:14px;padding-top:1
   };
 })();
 </script>
+<style id="hw-v52-unified-cloud-views">
+.hw-home-author-link{background:transparent;border:0;color:inherit;font:inherit;cursor:pointer;padding:0;text-align:left}
+.hw-home-author-link:hover{text-decoration:underline}
+.hw-home-open{background:transparent;border:0;color:var(--accent);font-weight:650;cursor:pointer;padding:9px 0}
+#hwCloudProfileSelect{max-width:210px;min-width:135px;padding:8px;border:1px solid var(--stroke);background:var(--surface);color:var(--ink);border-radius:10px}
+.hw-home-thread[open]{margin-bottom:14px}
+</style>
 </body>
 </html>
