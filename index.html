@@ -4315,7 +4315,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
  document.addEventListener('click',e=>{
   if(!homeVisible)return;
   if(e.target.closest('#hwHomeRefresh,#hwHomeRetry,.hw-home-post,#hwHomeHome'))return;
-  if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child),#navUser,#pvProfileMode,#dmMode')){homeVisible=false;requestId++;}
+  if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child),#navUser,#pvThreadMode,#pvProfileMode,#dmMode')){homeVisible=false;requestId++;}
  },true);
 })();
 </script>
