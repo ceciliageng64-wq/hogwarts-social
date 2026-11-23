@@ -312,6 +312,10 @@ function needAuth(reason){if(state.user)return true;showAuth(reason||'想互动�
 function humanTime(raw){if(!raw)return '刚刚';const n=new Date(raw).getTime(),mins=Math.max(0,(Date.now()-n)/60000);if(mins<1)return '刚刚';if(mins<60)return Math.floor(mins)+'分钟前';if(mins<1440)return Math.floor(mins/60)+'小时前';if(mins<1440*14)return Math.floor(mins/1440)+'天前';return new Date(raw).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});}
 function shortName(s){return Array.from(String(s||'?')).slice(0,2).join('').toUpperCase()}
 function avatar(url,name,kind=''){const cls=kind==='big'?'avatar big':'avatar';return url?`<img class="${cls}" src="${E(url)}" alt="${E(name)}" crossorigin="anonymous">`:`<span class="${cls} placeholder" aria-label="${E(name)}">${E(shortName(name))}</span>`}
+// V39.3: Generated random commenters are not discoverable cast or suggested contacts.
+// Keep them in cache.characters so existing replies retain their names and avatars.
+function isRandomCommenter(c){return /^legacy_commenter_/i.test(String(c?.id||''));}
+function discoverableCharacters(){return cache.characters.filter(c=>!isRandomCommenter(c));}
 function authorOf(post){if(post.author_kind==='character'){const c=cache.characters.find(x=>x.id===post.character_id);return c?{...c,kind:'character'}:{id:post.character_id||'',name:'校园账号',handle:'anonymous',kind:'character'};}
  const p=cache.profiles.find(x=>x.id===post.user_id);return p?{...p,name:p.display_name,kind:'user',badge_type:p.badge_type}: {id:post.user_id||'',name:'用户',handle:'visitor',kind:'user'};}
 function authorBadge(a){return H.renderBadge(a.badge_type||'none')}
@@ -339,7 +343,7 @@ function postActions(post){const liked=ownLike(post.id),saved=ownBookmark(post.i
  <button data-action="post" data-id="${E(post.id)}" title="查看帖子"><span class="ic">${svg('view')}</span>${E(post.metrics?.views||'0')}</button></div>`;
 }
 function postCard(post,opts={}){const a=authorOf(post),self=state.user&&post.author_kind==='user'&&post.user_id===state.user.id;const quote=post.quote_id&&postById(post.quote_id);return `<article class="post" data-post-id="${E(post.id)}" style="${opts.depth?'padding-left:'+(10+Math.min(opts.depth,4)*11)+'px':''}">
- ${authorLink(a)}<div class="post-body"><div class="author"><strong data-action="profile" data-kind="${a.kind}" data-id="${E(a.id)}">${E(a.name)}</strong>${authorBadge(a)}<span class="handle">@${E(a.handle)} · ${E(post.metrics?.time_label||humanTime(post.created_at))}</span>${a.kind==='character'?`<button class="post-dm-shortcut" data-action="start-dm" data-id="${E(a.id)}" title="给 ${E(a.name)} 发私信">✉ 私信</button>`:''}</div>
+ ${authorLink(a)}<div class="post-body"><div class="author"><strong data-action="profile" data-kind="${a.kind}" data-id="${E(a.id)}">${E(a.name)}</strong>${authorBadge(a)}<span class="handle">@${E(a.handle)} · ${E(post.metrics?.time_label||humanTime(post.created_at))}</span>${a.kind==='character'&&!isRandomCommenter(a)?`<button class="post-dm-shortcut" data-action="start-dm" data-id="${E(a.id)}" title="给 ${E(a.name)} 发私信">✉ 私信</button>`:''}</div>
  ${post.parent_id?`<div class="reply-banner">回复给 @${E(authorOf(postById(post.parent_id)||{}).handle||'')}</div>`:''}
  <div class="bodytext" data-action="post" data-id="${E(post.id)}">${mentionLink(post.body)}</div>
  ${post.image_url?`<img class="post-image" loading="lazy" crossorigin="anonymous" src="${E(post.image_url)}" alt="帖子配图" data-action="post" data-id="${E(post.id)}">`:''}
@@ -351,7 +355,7 @@ function feedComposer(targetId=''){const me=state.myProfile;const target=targetI
 function renderFeed(){const tops=cache.posts.filter(x=>!x.parent_id&&visibleLocalePost(x)).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));return `<div>${state.user?feedComposer():`<div class="composer" style="align-items:center;justify-content:space-between"><span class="muted">游客可以浏览时间线，登录后发帖与互动。</span><button class="primary" data-action="login">登录</button></div>`}${tops.length?tops.map(x=>postCard(x)).join(''):`<div class="empty"><strong>霍格沃茨还没有公开动态</strong>校园动态尚未发布，请稍后再来看看。</div>`}</div>`;}
 function tree(parent,depth=0,seen=new Set()){if(depth>16)return '';return repliesTo(parent).map(r=>{if(seen.has(r.id))return '';const ns=new Set(seen);ns.add(r.id);return `<div class="threadline" style="margin-left:${Math.min(depth,4)*8+8}px">${postCard(r,{depth})}${tree(r.id,depth+1,ns)}</div>`}).join('')}
 function renderDetail(){const p=postById(state.postId);if(!p)return `<div class="empty">这条帖子尚不存在或已被删除。</div>`;return `${postCard(p)}${state.user?feedComposer(state.replyTo||p.id):`<div class="composer"><span class="muted">登录后可以参与楼中楼回复。</span><button class="primary" data-action="login">登录</button></div>`}${tree(p.id)}`;}
-function renderExplore(){return `<div><div class="sidecard" style="margin:15px"><h2>🏰 霍格沃茨校园</h2><p>从人物库找到喜欢的角色。点击人物头像可查看主页与动态，也可以直接一键发私信。</p></div>${cache.characters.map(c=>`<div class="post" style="align-items:center">${authorLink({...c,kind:'character'})}<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="character" data-id="${E(c.id)}" style="cursor:pointer">${E(c.name)} ${authorBadge(c)}</strong><div class="muted">@${E(c.handle)} · ${E(c.bio?.slice(0,75)||'Hogwarts')}</div></div><button class="small-outline" data-action="profile" data-kind="character" data-id="${E(c.id)}">主页</button><button class="small-outline" data-action="start-dm" data-id="${E(c.id)}">✉ 私信</button></div>`).join('')}</div>`;}
+function renderExplore(){return `<div><div class="sidecard" style="margin:15px"><h2>🏰 霍格沃茨校园</h2><p>从人物库找到喜欢的角色。点击人物头像可查看主页与动态，也可以直接一键发私信。</p></div>${discoverableCharacters().map(c=>`<div class="post" style="align-items:center">${authorLink({...c,kind:'character'})}<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="character" data-id="${E(c.id)}" style="cursor:pointer">${E(c.name)} ${authorBadge(c)}</strong><div class="muted">@${E(c.handle)} · ${E(c.bio?.slice(0,75)||'Hogwarts')}</div></div><button class="small-outline" data-action="profile" data-kind="character" data-id="${E(c.id)}">主页</button><button class="small-outline" data-action="start-dm" data-id="${E(c.id)}">✉ 私信</button></div>`).join('')}</div>`;}
 function renderProfile(){
  const kind=state.profileKind,id=state.profileId;
  const isMe=kind==='user'&&state.user?.id===id;
@@ -370,7 +374,7 @@ function renderProfile(){
  const title={posts:'帖子',replies:'回复',media:'媒体',likes:'喜欢'};
  const selected=contents[tab]||posts;
  const followers=kind==='character'?cache.follows.filter(x=>x.character_id===p.id).length:0;
- const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:'';
+ const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'&&!isRandomCommenter(p)?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:'';
  const following=kind==='character'?p.meta?.following:'0';
  const followersLabel=kind==='character'?p.meta?.followers:formatNum(followers);
  const emptyText=tab==='likes'&&kind==='character'?'人物喜欢的内容尚未同步到云端。':tab==='replies'?'还没有公开回复。':tab==='media'?'还没有发布带图片的帖子。':tab==='likes'?'还没有喜欢的帖子。':'这里暂时没有动态。';
@@ -402,7 +406,7 @@ function renderProfileEdit(){
 function renderBookmarks(){const ids=new Set(cache.bookmarks.filter(x=>x.user_id===state.user?.id).map(x=>x.post_id)),posts=cache.posts.filter(x=>ids.has(x.id));return posts.length?posts.map(postCard).join(''):'<div class="empty">还没有添加书签。</div>'}
 function renderContactsPanel(){
  const box=$('contact-card');if(!box)return;
- const contacts=[...cache.characters].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'zh-CN'));
+ const contacts=discoverableCharacters().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'zh-CN'));
  if(!contacts.length){box.innerHTML='<h2>人物联系人</h2><p>暂时没有可用联系人。</p>';return;}
  const visible=contacts.slice(0,state.showAllContacts?contacts.length:8);
  box.innerHTML='<h2>人物联系人</h2><p>点击人物即可打开私信。</p><div class="contact-inline">'+visible.map(c=>`<button class="contact-chip" data-action="start-dm" data-id="${E(c.id)}" title="给 ${E(c.name)} 发私信">${avatar(c.avatar_url,c.name)}<span>${E(c.name)}</span></button>`).join('')+'</div>'+(contacts.length>8?`<button class="contact-toggle" data-action="toggle-contacts">${state.showAllContacts?'收起联系人':`查看全部 ${contacts.length} 位联系人`}</button>`:'');
@@ -500,7 +504,7 @@ async function saveProfile(e){
   tell('保存失败：'+m,true);
  }finally{state.busy=false;if(button?.isConnected){button.disabled=false;button.textContent='保存资料';}}
 }
-async function startConversation(characterId){if(!needAuth())return;if(!await ensureSignedInReady())return;if(!cache.characters.some(x=>x.id===characterId)){toast('暂时找不到这位人物，请刷新人物库。');return;}
+async function startConversation(characterId){if(!needAuth())return;if(!await ensureSignedInReady())return;if(!discoverableCharacters().some(x=>x.id===characterId)){toast('此账号仅用于随机评论，不能作为人物联系人发起私信。');return;}
  const{data,error}=await C.from('hw_conversations').upsert({user_id:state.user.id,character_id:characterId},{onConflict:'user_id,character_id'}).select('*').single();if(error){toast('无法建立对话：'+H.errMsg(error));return}
  state.dmConversationId=data.id;await loadPrivate();navigate('messages');}
 async function sendMessage(){if(!needAuth())return;const convo=cache.conversations.find(x=>x.id===state.dmConversationId);if(!convo)return;
