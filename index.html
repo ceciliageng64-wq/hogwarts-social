@@ -3692,6 +3692,9 @@ async function publish(){
    const page=snapshot.profilePages?.[p.id]||{};
    chars.push({id:p.id,handle:p.handle,name:p.name,avatar_url:await cloudImage(p.avatar),cover_url:await cloudImage(page.cover),bio:page.bio||'',location:page.location||'Hogwarts',joined_label:page.joined||'1991年9月',badge_type:cloudBadgeType(p.badgeType,p.verified),meta:{following:page.following,followers:page.followers}});
   }
+  // Public directory membership: exactly the developer's saved People library,
+  // never anonymous/random commenters later added for post author rendering.
+  const publishedCastIds=chars.map(c=>c.id);
   // Comments by random visitors may not live in the saved character directory.
   // Preserve their author identities in the cloud without modifying the V26 directory.
   for(const lang of ['zh','en']){
@@ -3782,6 +3785,9 @@ async function publish(){
   status(`同步 ${chars.length} 位人物、${docPostRows.length} 条内容…`);
   // admin required by RLS even though the key is public
   for(let i=0;i<chars.length;i+=60){const{error}=await u().from('hw_characters').upsert(chars.slice(i,i+60),{onConflict:'id'});if(error)throw error;}
+  // Persist the official directory only after all referenced character rows exist.
+  const {error:castError}=await u().from('hw_site_settings').upsert({key:'public_cast_ids',value:publishedCastIds,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(castError)throw Error('同步人物搜索名单失败：'+castError.message);
   // Postgres FK parent/quote rows must exist first. Sort by ancestor depth.
   const rank=new Map(docPostRows.map(p=>[p.id,p]));const depths=new Map();function depth(p,seen=new Set()){if(!p||seen.has(p.id))return 0;if(depths.has(p.id))return depths.get(p.id);seen.add(p.id);const dep=1+Math.max(depth(rank.get(p.parent_id),seen),depth(rank.get(p.quote_id),seen));depths.set(p.id,dep);seen.delete(p.id);return dep;}
   for(const post of docPostRows){const edited=v32Overrides[post.id];if(edited){post.body=edited.body;post.metrics=edited.metrics;if(edited.created_at)post.created_at=edited.created_at;}}
