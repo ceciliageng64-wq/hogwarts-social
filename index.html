@@ -3978,6 +3978,82 @@ window.addEventListener('focus',()=>{if(admin){refreshIntegratedDM().catch(conso
 setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
 })();
 
+
+/* V39.9 developer house feed */
+const hwHomeOldPreview=renderPreviewOnly;
+let hwHomeExpanded='',hwHomeBusy=false,hwHomeFetched=false;
+function hwHomeMarkup(){
+ const cloud=admin?v32.posts.filter(p=>!p.parent_id&&!p.quote_id):[];
+ const local=u23Refs();
+ const es=x=>esc(String(x??''));
+ let out='<div class="hw-home-head"><b>🏠 全站帖子 · 开发者首页</b><small>浏览人物和玩家的帖子；下方按钮仅供开发者管理</small><button data-hwh="refresh">↻ 刷新云端</button></div>';
+ if(admin){
+  out+='<div class="hw-home-label">☁️ 云端真实帖子 · 人物及玩家 ('+cloud.length+')</div>';
+  if(!cloud.length)out+='<div class="hw-home-empty">'+(hwHomeBusy?'正在读取…':'暂无帖子，点击刷新重试')+'</div>';
+  for(const p of cloud){
+   const person=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id),name=v32PostAuthor(p),m=p.metrics||{},replies=v32.posts.filter(x=>x.parent_id===p.id),open=hwHomeExpanded==='c:'+p.id;
+   out+='<article class="hw-home-post"><header><b>'+es(name)+'</b><small> · '+(p.author_kind==='character'?'人物':'玩家')+' · '+es(new Date(p.created_at).toLocaleString('zh-CN'))+'</small></header><p>'+es(p.body||'[图片]').replace(/\n/g,'<br>')+'</p><div class="hw-home-count">💬 '+es(m.replies??replies.length)+'　⇄ '+es(m.reposts||0)+'　♥ '+es(m.likes||0)+'　◉ '+es(m.views||0)+'</div><div class="hw-home-buttons"><button data-hwh="cloud-comments" data-id="'+es(p.id)+'">查看评论 ('+replies.length+')</button><button data-hwh="cloud-manage" data-id="'+es(p.id)+'">✎ '+(p.author_kind==='character'?'编辑数字 / 添加评论':'管理评论')+'</button></div>';
+   if(open)out+='<div class="hw-home-comments">'+(replies.map(r=>'<div><b>'+es(v32PostAuthor(r))+'</b>：'+es(r.body||'[图片]')+'</div>').join('')||'暂无评论')+'</div>';
+   out+='</article>';
+  }
+ }else out+='<div class="hw-home-label">登录开发者账号后可读取云端真实玩家帖子</div>';
+ out+='<div class="hw-home-label">✎ 本地人物及测试帖子 ('+local.length+')</div>';
+ for(const ref of local){
+  const replies=u23Comments(ref),open=hwHomeExpanded==='l:'+ref.key,k=es(ref.key);
+  out+='<div class="hw-home-local">'+u23PostCard(ref)+'<div class="hw-home-buttons"><button data-hwh="local-comments" data-key="'+k+'">查看评论 ('+replies.length+')</button><button data-hwh="local-edit" data-key="'+k+'">✎ 完整编辑</button><button data-hwh="local-comment-one" data-key="'+k+'">🎲 评论 +1</button><button data-hwh="local-comment-five" data-key="'+k+'">🎲 评论 +5</button><button data-hwh="local-metrics" data-key="'+k+'">🎲 随机数字</button></div>';
+  if(open)out+='<div class="hw-home-comments">'+(replies.map(r=>'<div><b>'+es(r.name||r.handle)+'</b>：'+es(r.text||'')+'</div>').join('')||'暂无评论')+'</div>';
+  out+='</div>';
+ }
+ return out;
+}
+renderPreviewOnly=function(){
+ if(state.clientMode==='developer'&&state.viewMode==='hw-home'){
+  renderShell();$('feedContent').innerHTML=hwHomeMarkup();$('postHeader').textContent='全站首页 · 开发者管理';$('backArrow').innerHTML='';
+  $('xNavLinks').querySelectorAll('.x-nav-link').forEach((node,i)=>node.classList.toggle('active',i===0));return;
+ }
+ hwHomeOldPreview();
+};
+function hwHomeOpen(){
+ state.viewMode='hw-home';hwHomeExpanded='';render();persist();
+ if(admin&&!hwHomeFetched&&!hwHomeBusy)hwHomeRefresh();
+}
+function hwHomeRefresh(){
+ if(!admin){toast('请先登录开发者账号');return;}
+ hwHomeBusy=true;renderPreviewOnly();
+ v32Reload().then(()=>{hwHomeFetched=true}).catch(e=>toast('云端读取失败：'+(e.message||e))).finally(()=>{hwHomeBusy=false;if(state.viewMode==='hw-home')renderPreviewOnly()});
+}
+$('xNavLinks').addEventListener('click',e=>{
+ if(state.clientMode!=='developer')return;
+ const house=$('xNavLinks').querySelector('.x-nav-link');
+ if(house?.contains(e.target)){e.preventDefault();e.stopImmediatePropagation();hwHomeOpen()}
+},true);
+$('xNavLinks').addEventListener('keydown',e=>{
+ if(state.clientMode==='developer'&&(e.key==='Enter'||e.key===' ')&&e.target===$('xNavLinks').querySelector('.x-nav-link')){e.preventDefault();e.stopImmediatePropagation();hwHomeOpen()}
+},true);
+$('feedContent').addEventListener('click',e=>{
+ if(state.clientMode!=='developer'||state.viewMode!=='hw-home')return;
+ const b=e.target.closest('[data-hwh],[data-u23]');if(!b)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ const action=b.dataset.hwh||(b.dataset.u23==='thread'?'local-comments':'');if(!action)return;
+ const key=b.dataset.key,id=b.dataset.id;
+ if(action==='refresh'){hwHomeRefresh();return}
+ if(action==='cloud-comments'||action==='local-comments'){let v=(action==='cloud-comments'?'c:'+id:'l:'+key);hwHomeExpanded=hwHomeExpanded===v?'':v;renderPreviewOnly();return}
+ if(action==='cloud-manage'){
+  v32.selected=id;v32RenderPostList();v32RenderDetail();
+  $('workspace')?.classList.remove('editor-closed');
+  const details=$('hwTimelineDetail')?.closest('details');if(details)details.open=true;
+  $('hwTimelineDetail')?.scrollIntoView({behavior:'smooth',block:'center'});
+  toast('已打开此云端帖子的编辑与评论管理区');return;
+ }
+ const ref=u23Find(key);if(!ref)return;
+ const selected=ref.type==='main'?null:{lang:state.lang,kind:ref.type==='repost'?'repost':'post',owner:ref.ownerId,id:String(ref.post.id)};
+ const operation={'local-edit':'edit','local-comment-one':'comment-one','local-comment-five':'comment-five','local-metrics':'metrics'}[action];
+ if(operation)hw38Open(selected,operation);
+},true);
+const hwHomeCSS=document.createElement('style');
+hwHomeCSS.textContent='.hw-home-head{padding:17px;display:flex;flex-wrap:wrap;gap:9px;align-items:center;border-bottom:1px solid var(--stroke)}.hw-home-head b{font-size:18px;width:100%}.hw-home-head small{color:var(--muted);flex:1}.hw-home-head button,.hw-home-buttons button{background:var(--surface);border:1px solid var(--stroke);border-radius:20px;color:var(--ink);padding:8px 10px;cursor:pointer;font-size:12px}.hw-home-label{padding:12px 16px;font-size:13px;font-weight:bold;color:var(--muted);border-bottom:1px solid var(--stroke)}.hw-home-empty{padding:16px}.hw-home-post,.hw-home-local{border-bottom:1px solid var(--stroke);padding:15px 14px;background:var(--surface)}.hw-home-post header small,.hw-home-count{font-size:12px;color:var(--muted)}.hw-home-post p{white-space:normal;overflow-wrap:anywhere;line-height:1.5}.hw-home-buttons{display:flex;gap:6px;flex-wrap:wrap;padding:9px 0}.hw-home-comments{border-top:1px solid var(--stroke);padding:10px 4px;max-height:360px;overflow:auto;font-size:13px}.hw-home-comments>div{padding:7px;border-bottom:1px solid var(--stroke)}.hw-home-local{padding:0}.hw-home-local>.u23-card{border:0}.hw-home-local>.hw-home-buttons,.hw-home-local>.hw-home-comments{margin:0 14px}';
+document.head.append(hwHomeCSS);
+
 </script>
 
 <script>
