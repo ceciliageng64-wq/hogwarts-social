@@ -4233,10 +4233,17 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    const selectedProfile=cloudAuthors.find(p=>p.kind+':'+p.id===profileKey);
    const headerTitle=homeMode==='profile'?'👤 '+(selectedProfile?.name||'人物主页'):homeMode==='detail'?'帖子详情':'🏰 霍格沃茨实时首页';
    const profileOptions=cloudAuthors.map(p=>'<option value="'+attr(p.kind+':'+p.id)+'" '+(profileKey===p.kind+':'+p.id?'selected':'')+'>'+esc(p.name||p.handle)+' @'+esc(p.handle||'')+'</option>').join('');
+   const profileRecord=selectedProfile?(selectedProfile.kind==='character'?people.get(selectedProfile.id):users.get(selectedProfile.id)):null;
+   const profileAvatar=profileRecord?.avatar_url;
+   const profileHeader=homeMode==='profile'&&selectedProfile?
+     '<section class="hw-cloud-profile-head">'+
+       (profileAvatar?'<img src="'+attr(profileAvatar)+'" class="hw-cloud-profile-avatar" alt="">':'<span class="hw-cloud-profile-avatar hw-home-default">✦</span>')+
+       '<div><h2>'+esc(selectedProfile.name||'人物主页')+'</h2><p>@'+esc(selectedProfile.handle||'')+'</p><small>'+visible.length+' 条已发布主帖 · 与首页实时同步</small></div>'+
+     '</section>':'';
    area.innerHTML='<div class="hw-home-top"><strong>'+esc(headerTitle)+'</strong><small>全站共用云端帖子 · 逐帖编辑与真实评论</small>'+
      (homeMode==='detail'?'<button type="button" data-home-nav="back">← 返回时间线</button>':'')+
      (homeMode==='profile'?'<select id="hwCloudProfileSelect" aria-label="选择人物主页">'+profileOptions+'</select>':'')+
-     '<button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
+     '<button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+profileHeader+
     (visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post" data-hw-post-id="'+attr(p.id)+'">'+
     '<div class="hw-home-by">'+(a.avatar?'<img class="hw-home-avatar" src="'+attr(a.avatar)+'" alt="">':'<span class="hw-home-avatar hw-home-default">✦</span>')+
     '<div><button class="hw-home-author-link" type="button" data-home-nav="profile" data-profile-key="'+attr(p.author_kind+':'+(p.author_kind==='character'?p.character_id:p.user_id))+'"><strong>'+esc(a.name)+'</strong></button><span>@'+esc(a.handle)+' · '+esc(p.metrics?.time_label||new Date(p.created_at).toLocaleString('zh-CN'))+'</span></div></div>'+
@@ -4760,6 +4767,13 @@ body:not(.u23-user) #v276AuthorBox .hw-v51-publish{margin-top:14px;padding-top:1
 .hw-home-open{background:transparent;border:0;color:var(--accent);font-weight:650;cursor:pointer;padding:9px 0}
 #hwCloudProfileSelect{max-width:210px;min-width:135px;padding:8px;border:1px solid var(--stroke);background:var(--surface);color:var(--ink);border-radius:10px}
 .hw-home-thread[open]{margin-bottom:14px}
+</style>
+<style id="hw-v53-profile-look">
+.hw-cloud-profile-head{display:flex;align-items:center;gap:15px;padding:22px 18px;border-bottom:1px solid var(--stroke);background:var(--surface);color:var(--ink)}
+.hw-cloud-profile-avatar{height:74px;width:74px;flex:0 0 74px;object-fit:cover;border-radius:50%}
+.hw-cloud-profile-head h2{font-size:21px;margin:0 0 5px}
+.hw-cloud-profile-head p{font-size:13px;color:var(--muted);margin:0 0 6px}
+.hw-cloud-profile-head small{font-size:12px;color:var(--muted)}
 </style>
 </body>
 </html>
