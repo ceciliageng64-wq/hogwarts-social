@@ -4652,5 +4652,37 @@ body:not(.u23-user) #v276AuthorBox{display:none!important}
   },true);
 })();
 </script>
+<style id="hw-v48-nav-three">
+/* Developer-only compact X navigation. Keep original nodes in DOM because
+   existing click handlers identify home/DM/profile by their original indices. */
+body:not(.u23-user) #xNav .x-logo,
+body:not(.u23-user) #xNavLinks>.x-nav-link:nth-child(2),
+body:not(.u23-user) #xNavLinks>.x-nav-link:nth-child(3),
+body:not(.u23-user) #xNavLinks>.x-nav-link:nth-child(5),
+body:not(.u23-user) #xNavLinks>.x-nav-link:nth-child(7),
+body:not(.u23-user) #xNav #fakeNavPost,
+body:not(.u23-user) #xNav #hw-v41-nav-plus{
+ display:none!important;
+}
+body:not(.u23-user) #xNav{padding-top:13px!important;gap:12px!important}
+body:not(.u23-user) #xNavLinks{
+ display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:8px!important
+}
+body:not(.u23-user) #xNavLinks>.x-nav-link:is(:nth-child(1),:nth-child(4),:nth-child(6)){
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ width:56px!important;min-width:56px!important;max-width:56px!important;
+ min-height:56px!important;margin:0!important;padding:12px!important;
+ cursor:pointer
+}
+@media(max-width:700px){
+ body:not(.u23-user) #xNavLinks{
+  flex-direction:row!important;justify-content:space-around!important;align-items:center!important;
+  width:100%!important
+ }
+ body:not(.u23-user) #xNavLinks>.x-nav-link:is(:nth-child(1),:nth-child(4),:nth-child(6)){
+  flex:0 0 56px!important;
+ }
+}
+</style>
 </body>
 </html>
