@@ -3652,6 +3652,7 @@ const v32={posts:[],people:new Map(),users:new Map(),selected:'',expanded:false}
 // Keep direct cloud edits through subsequent local draft publishing, rather than silently reverting them.
 let v32Overrides={};try{v32Overrides=JSON.parse(localStorage.getItem('hw-v32-cloud-overrides')||'{}')||{}}catch{}
 function v32RememberOverride(id,body,metrics,created_at){if(!/^v26:/.test(id))return;v32Overrides[id]={body,metrics,created_at};try{localStorage.setItem('hw-v32-cloud-overrides',JSON.stringify(v32Overrides))}catch{}}
+window.hwRememberCloudPostOverride=v32RememberOverride;
 
 const cloudPostText=p=>String(p.body||'').slice(0,130);
 function v32PostAuthor(p){if(p.author_kind==='character'){const x=v32.people.get(p.character_id);return x?.name||'人物账号'}return v32.users.get(p.user_id)?.display_name||'玩家';}
@@ -4048,6 +4049,23 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    const posts=ps.data||[];
    const byId=new Map(posts.map(p=>[p.id,p]));
    const visible=posts.filter(p=>!p.parent_id&&(!p.language||String(p.language).toLowerCase().startsWith('zh')));
+   const editable=!!(cloud.user&&await cloud.isAdmin());
+   const publishedCast=await client.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle();
+   const officialIds=Array.isArray(publishedCast.data?.value)?new Set(publishedCast.data.value.map(String)):null;
+   const authors=(cs.data||[]).filter(c=>officialIds?officialIds.has(String(c.id)):!String(c.id).startsWith('legacy_commenter_'));
+   const randomAuthors=(cs.data||[]).filter(c=>String(c.id).startsWith('legacy_commenter_'));
+   const candidateAuthors=[...authors,...randomAuthors];
+   const options=(list)=>list.map(a=>'<option value="'+attr(a.id)+'">'+esc(a.name)+' @'+esc(a.handle)+'</option>').join('');
+   const presetComments=['这条我必须留下评论😭','等一下，事情居然是这样发展的吗？','救命哈哈哈哈笑死了','有人能解释一下到底发生了什么吗？','前排吃瓜，先收藏了🍿','我决定把这条转给全寝室看','很难不支持这一句！','霍格沃茨今天也太热闹了'];
+   const editor=p=>!editable?'<div class="hw-home-hint">登录管理员后可直接编辑帖子与评论</div>':
+     '<details class="hw-home-editor" data-editor="'+attr(p.id)+'"><summary>✎ 管理这条帖子 · 数字 / 评论 / 随机互动</summary>'+
+     (p.author_kind==='character'?'<label>修改主帖正文<textarea data-home-body rows="3">'+esc(p.body||'')+'</textarea></label>':'<p class="hw-home-hint">这是玩家主帖：不可替玩家修改正文，但可以添加人物评论。</p>')+
+     (p.author_kind==='character'?'<div class="hw-home-editmetrics">'+[['replies','评论'],['reposts','转发'],['likes','喜欢'],['views','浏览'],['bookmarks','收藏']].map(([k,l])=>'<label>'+l+'<input data-home-metric="'+k+'" value="'+attr(p.metrics?.[k]??'0')+'"></label>').join('')+'</div><div class="hw-home-actions"><button type="button" data-home-action="random-metrics">🎲 随机互动数字</button><button type="button" data-home-action="save">☁ 保存正文和数据</button></div>':'')+
+     '<label>选择评论作者<select data-home-author>'+options(candidateAuthors)+'</select></label>'+
+     '<label>新增评论<textarea data-home-reply rows="2" placeholder="输入人物评论或随机生成…"></textarea></label>'+
+     '<div class="hw-home-actions"><button type="button" data-home-action="random-reply">🎲 随机评论</button><button type="button" data-home-action="send-reply">☁ 发布评论</button></div>'+
+     '</details>';
+
    const author=p=>{
     const a=p.author_kind==='character'?people.get(String(p.character_id)):users.get(String(p.user_id));
     return {name:a?.name||a?.display_name||(p.author_kind==='user'?'玩家':'校园账号'),handle:a?.handle||'unknown',avatar:a?.avatar_url||''};
@@ -4063,13 +4081,52 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    };
    const number=(p,k)=>esc(p.metrics?.[k]??'0');
    const replies=posts.reduce((a,p)=>{if(p.parent_id)a.set(p.parent_id,(a.get(p.parent_id)||0)+1);return a},new Map());
-   area.innerHTML='<div class="hw-home-top"><strong>🏰 霍格沃茨实时首页</strong><small>正式角色与玩家已经发布的帖子 · 只读预览</small><button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
+   area.innerHTML='<div class="hw-home-top"><strong>🏰 霍格沃茨实时首页</strong><small>云端全站编辑模式 · 直接修改互动数字、添加评论和随机评论</small><button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
     (visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post">'+
     '<div class="hw-home-by">'+(a.avatar?'<img class="hw-home-avatar" src="'+attr(a.avatar)+'" alt="">':'<span class="hw-home-avatar hw-home-default">✦</span>')+
     '<div><strong>'+esc(a.name)+'</strong><span>@'+esc(a.handle)+' · '+esc(p.metrics?.time_label||new Date(p.created_at).toLocaleString('zh-CN'))+'</span></div></div>'+
     '<div class="hw-home-body">'+esc(p.body||'')+'</div>'+pic(p.image_url)+snapshot(p)+
     '<div class="hw-home-metrics"><span>💬 '+esc(replies.get(p.id)||p.metrics?.replies||0)+'</span><span>↻ '+number(p,'reposts')+'</span><span>♡ '+number(p,'likes')+'</span><span>▥ '+number(p,'views')+'</span></div>'+
+    '<div class="hw-home-replies">'+posts.filter(x=>x.parent_id===p.id).slice(0,8).map(r=>{const a=author(r);return '<div><b>'+esc(a.name)+'</b>：'+esc(r.body||'[图片]')+'</div>'}).join('')+'</div>'+editor(p)+
     '</article>'}).join(''):'<div class="hw-home-loading">云端暂时没有公开帖子。</div>');
+   area.addEventListener('click',async function onEdit(e){
+    const button=e.target.closest('[data-home-action]');if(!button)return;
+    const panel=button.closest('[data-editor]');if(!panel)return;
+    e.preventDefault();e.stopPropagation();
+    const post=byId.get(panel.dataset.editor),action=button.dataset.homeAction;
+    if(!post)return;
+    if(!cloud.user||!await cloud.isAdmin()){alert('请先登录开发者管理员账号');return;}
+    const metrics=()=>{const m={...(post.metrics||{})};panel.querySelectorAll('[data-home-metric]').forEach(el=>m[el.dataset.homeMetric]=el.value.trim()||'0');return m};
+    if(action==='random-metrics'){
+      const keys=['replies','reposts','likes','views','bookmarks'];
+      const toNum=v=>{const x=String(v||0).replace(/,/g,'').toUpperCase();let n=parseFloat(x)||0;if(x.includes('万'))n*=10000;else if(x.includes('K'))n*=1000;else if(x.includes('M'))n*=1000000;return n};
+      const format=v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=10000?(v/1000).toFixed(1)+'K':String(Math.round(v));
+      for(const key of keys){const inp=panel.querySelector('[data-home-metric="'+key+'"]');if(!inp)continue;const inc=key==='views'?Math.floor(Math.random()*500+100):Math.floor(Math.random()*5+1);inp.value=format(toNum(inp.value)+inc)}
+      return;
+    }
+    if(action==='random-reply'){
+      const input=panel.querySelector('[data-home-reply]');input.value=presetComments[Math.floor(Math.random()*presetComments.length)];
+      const select=panel.querySelector('[data-home-author]');const source=randomAuthors.length?randomAuthors:authors;if(source.length)select.value=source[Math.floor(Math.random()*source.length)].id;return;
+    }
+    button.disabled=true;
+    try{
+      if(action==='save'){
+        if(post.author_kind!=='character')throw Error('不能修改玩家本人的帖子');
+        const body=panel.querySelector('[data-home-body]').value.trim(),updated=metrics();
+        const {data,error}=await client.from('hw_posts').update({body,metrics:updated}).eq('id',post.id).eq('author_kind','character').select('id');
+        if(error)throw error;if(!data?.length)throw Error('云端没有更新到这条帖子，请确认管理员权限');
+        window.hwRememberCloudPostOverride?.(post.id,body,updated,post.created_at);
+      }
+      if(action==='send-reply'){
+        const body=panel.querySelector('[data-home-reply]').value.trim(),character_id=panel.querySelector('[data-home-author]').value;
+        if(!body||!character_id)throw Error('请选择评论作者并输入内容');
+        const {error}=await client.from('hw_posts').insert({id:'home:'+crypto.randomUUID(),author_kind:'character',character_id,user_id:null,parent_id:post.id,quote_id:null,body,language:post.language||'zh',metrics:{likes:'0',reposts:'0',replies:'0',views:'0',bookmarks:'0'}});
+        if(error)throw error;
+      }
+      await showHome();
+    }catch(err){alert('操作未完成：'+(err?.message||err))}
+    finally{button.disabled=false}
+   },{once:true});
    area.querySelector('#hwHomeRefresh')?.addEventListener('click',showHome);
    document.getElementById('captureArea')?.scrollTo({top:0});
   }catch(e){if(homeVisible&&token===requestId)area.innerHTML='<div class="hw-home-loading">读取首页失败：'+esc(e.message||e)+'<p>请确认网络连接和开发者登录状态。</p><button id="hwHomeRetry" type="button">重试</button></div>';area.querySelector('#hwHomeRetry')?.addEventListener('click',showHome);}
@@ -4104,6 +4161,21 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
 .hw-home-img{display:block;width:100%;max-height:500px;object-fit:contain;border-radius:14px;margin:10px 0}
 .hw-home-quote{border:1px solid var(--stroke);border-radius:13px;padding:12px;margin:10px 0}.hw-home-quote strong{font-size:13px}.hw-home-quote p{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0}
 .hw-home-metrics{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;gap:8px;margin-top:13px}
+.hw-home-editor{border-top:1px solid var(--stroke);margin-top:12px;padding:10px 0;background:var(--surface);border-radius:10px}
+.hw-home-editor summary{cursor:pointer;font-size:13px;font-weight:750;color:#1d9bf0;padding:7px 10px}
+.hw-home-editor label{display:block;font-size:12px;font-weight:650;margin:9px 10px;color:var(--ink)}
+.hw-home-editor input,.hw-home-editor textarea,.hw-home-editor select{display:block;width:100%;margin:4px 0;border:1px solid var(--stroke);padding:8px;border-radius:9px;background:var(--surface);color:var(--ink);font:inherit;resize:vertical}
+.hw-home-editmetrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.hw-home-editmetrics label{min-width:0;margin:5px 3px}.hw-home-editmetrics input{padding:6px 3px;text-align:center}
+.hw-home-actions{display:flex;gap:7px;flex-wrap:wrap;padding:5px 10px}
+.hw-home-actions button{background:var(--highlight);border:1px solid var(--stroke);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
+.hw-home-actions button:last-child{background:#1d9bf0;color:#fff;border-color:#1d9bf0}
+.hw-home-actions button:disabled{opacity:.5}
+.hw-home-replies{margin-top:10px;font-size:12px;color:var(--muted);display:grid;gap:5px}
+.hw-home-replies>div{padding:6px 9px;background:var(--highlight);border-radius:7px}
+.hw-home-hint{font-size:12px;color:var(--muted);padding:8px 12px}
+@media(max-width:700px){.hw-home-editmetrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
 </style>
 
 </body>
