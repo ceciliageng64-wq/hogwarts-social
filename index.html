@@ -2252,14 +2252,33 @@ function dmStartEdit(id){const m=dmThread()?.messages?.find(m=>m.id===id);if(!m)
 function dmExportTime(){return dmt('today')}
 async function dmExport(mode='post'){
  const btn=$(mode==='all'?'exportFullBtn':'exportBtn'),old=btn.textContent;btn.disabled=true;btn.textContent=T('working');
- try{const thread=dmThread(),other=dmOther(thread),imgs={},viewer=viewerPerson();const allImgs=[avatarSrc(viewer),avatarSrc(other),...((thread?.messages||[]).map(x=>x.media))].filter(validImg);await Promise.all([...new Set(allImgs)].map(async src=>{try{imgs[src]=await loadImage(src)}catch{}}));
+ try{
+ // Export the live cloud conversation shown on screen, not stale demo threads.
+ const liveChats=hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId));
+ const live=liveChats.find(c=>c.id===hwCloudView.selected)||liveChats[0]||null;
+ const cloud=!!live;
+ const thread=cloud?{relation:'request',messages:(live.messages||[]).map(m=>({
+  from:m.sender_kind==='character'?'me':'them',
+  text:m.recalled?'消息已撤回':(m.body||''),
+  time:m.time||'',media:m.image_resolved||''
+ }))}:dmThread();
+ if(!thread)throw Error('请先选择一段私信，再导出截图');
+ const other=cloud?{name:live.playerName||'玩家',handle:'player',avatar:live.avatar_url||''}:dmOther(thread);
+ const exportList=cloud?liveChats.map(c=>({other:{name:c.playerName||'玩家',handle:'player',avatar:c.avatar_url||''},messages:c.messages.map(m=>({text:m.recalled?'消息已撤回':(m.body||'[图片]')}))})):state.dmThreads.map(t=>({other:dmOther(t),messages:t.messages||[]}));
+ const imgs={},viewer=viewerPerson();
+ const allImgs=[avatarSrc(viewer),avatarSrc(other),...exportList.map(t=>avatarSrc(t.other)),...(thread.messages||[]).map(x=>x.media)].filter(src=>validImg(src)||(cloud&&/^https:\/\//.test(String(src))));
+ await Promise.all([...new Set(allImgs)].map(async src=>{
+  try{if(validImg(src))imgs[src]=await loadImage(src);
+  else{imgs[src]=await new Promise((resolve,reject)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>resolve(im);im.onerror=reject;im.src=src;});}}
+  catch(e){console.warn('截图图片无法读取',e)}
+ }));
  const dark=state.theme==='dark',bg=dark?'#000':'#fff',ink=dark?'#e7e9ea':'#0f1419',sub=dark?'#71767b':'#536471',border=dark?'#2f3336':'#eff3f4',accent='#1d9bf0';let temp=document.createElement('canvas').getContext('2d');const messages=thread?.messages||[];const rows=messages.map(m=>{const lines=splitLine(temp,m.text||'',265,14),photoH=imageHeight(imgs,m.media,265,220);return {m,lines,h:Math.max(44,lines.length*19+22)+(photoH?photoH+9:0)+24,photoH}});
  let height=Math.max(620,132+rows.reduce((a,r)=>a+r.h+8,0)+70);if(height>11500)throw Error('DM export too long');let cv=document.createElement('canvas');cv.width=1200;cv.height=Math.ceil(height*2);const c=cv.getContext('2d');c.scale(2,2);c.fillStyle=bg;c.fillRect(0,0,600,height);
  const icons={};await Promise.all(['back','home','search','bell','mail','user','more','share'].map(async name=>icons[name]=await loadedSvg(name,sub)));
  // Split 600px post width into message inbox and a complete chat transcript.
- c.strokeStyle=border;c.beginPath();c.moveTo(227,0);c.lineTo(227,height);c.stroke();write(c,dmt('title'),17,19,19,ink,750);write(c,dmt('all')+' · '+state.dmThreads.length,17,48,12,sub);horLine(c,73,border);
- let iy=89;for(const each of state.dmThreads.slice(0,10)){let q=dmOther(each),last=each.messages?.[each.messages.length-1],name=q.name;drawAvatar(c,imgs,avatarSrc(q),12,iy,36);write(c,name,55,iy+3,13,ink,700,153);write(c,last?.text||'',55,iy+23,11,sub,400,155);iy+=70;c.strokeStyle=border;c.beginPath();c.moveTo(0,iy+.5);c.lineTo(227,iy+.5);c.stroke()}
- drawAvatar(c,imgs,avatarSrc(other),244,15,38);write(c,other.name,291,14,17,ink,750,280);if(other.verified){c.font=font(17,750);const nameW=Math.min(245,c.measureText(other.name).width);drawVerified(c,294+nameW,13,16,other.badgeType)}write(c,dmRelationText(thread)+ ' · @'+other.handle,291,40,12,sub,400,290);c.strokeStyle=border;c.beginPath();c.moveTo(227,74);c.lineTo(600,74);c.stroke();write(c,dmExportTime(),374,88,11,sub,400);
+ c.strokeStyle=border;c.beginPath();c.moveTo(227,0);c.lineTo(227,height);c.stroke();write(c,dmt('title'),17,19,19,ink,750);write(c,(cloud?'真实玩家会话':'本地模拟会话')+' · '+exportList.length,17,48,12,sub);horLine(c,73,border);
+ let iy=89;for(const each of exportList.slice(0,10)){let q=each.other,last=each.messages?.[each.messages.length-1],name=q.name;drawAvatar(c,imgs,avatarSrc(q),12,iy,36);write(c,name,55,iy+3,13,ink,700,153);write(c,last?.text||'',55,iy+23,11,sub,400,155);iy+=70;c.strokeStyle=border;c.beginPath();c.moveTo(0,iy+.5);c.lineTo(227,iy+.5);c.stroke()}
+ drawAvatar(c,imgs,avatarSrc(other),244,15,38);write(c,other.name,291,14,17,ink,750,280);if(other.verified){c.font=font(17,750);const nameW=Math.min(245,c.measureText(other.name).width);drawVerified(c,294+nameW,13,16,other.badgeType)}write(c,cloud?'真实玩家私信 · '+live.characterName:dmRelationText(thread)+ ' · @'+other.handle,291,40,12,sub,400,290);c.strokeStyle=border;c.beginPath();c.moveTo(227,74);c.lineTo(600,74);c.stroke();write(c,dmExportTime(),374,88,11,sub,400);
  let yy=112;for(const row of rows){const {m,lines,h,photoH}=row,me=m.from==='me';let max=270,w=Math.min(max,Math.max(95,...lines.map(line=>{c.font=font(14);return c.measureText(line).width+22}))),x=me?584-w:242;
  c.fillStyle=me?accent:(dark?'#202327':'#eff3f4');rounded(c,x,yy,w,Math.max(29,lines.length*19+20),15);c.fill();textLines(c,lines,x+11,yy+10,14,19,me?'#fff':ink);let photoY=yy+Math.max(29,lines.length*19+20)+7;if(photoH){drawMedia(c,imgs,m.media,me?584-265:242,photoY,265,photoH,border)}write(c,m.time||'',me?547:242,yy+h-16,11,sub,400,36);yy+=h+8}
  if(mode==='all')cv=renderFullPageCanvas(cv,height,icons,imgs,{bg,ink,sub,border,accent,dark});await new Promise((res,rej)=>cv.toBlob(b=>{if(!b)return rej(Error('PNG failed'));downloadBlob(b,mode==='all'?'X私信_整页.png':'X私信_对话.png');res()},'image/png'));toast(T('exported'));
@@ -3257,13 +3276,16 @@ function hwCloudDraw(){
  const app=$('feedContent')?.querySelector('.dm-app'),list=app?.querySelector('.dm-scroll');
  if(!list)return;
  const chats=hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId));
- if(!chats.length)return;
+ if(!chats.length){hwCloudView.selected='';return;}
+ // Live inbox is authoritative if present. Do not mix old local mock chats.
+ if(!chats.some(c=>c.id===hwCloudView.selected))hwCloudView.selected=chats[0].id;
+ list.innerHTML='';
  const container=document.createElement('section');container.className='hw-cloud-chat-list';
  container.innerHTML='<div class="hw-cloud-chat-title">☁ 玩家来信 · '+chats.length+'</div>'+chats.map(c=>{
   const last=c.messages?.at(-1);
   return `<button type="button" class="dm-conversation hw-cloud-chat ${hwCloudView.selected===c.id?'active':''}" data-cloud-chat="open" data-id="${esc(c.id)}"><span class="dm-conv-avatar" aria-hidden="true">${c.avatar_url?`<img class="x-avatar sm" src="${esc(c.avatar_url)}" alt="">`:`<span class="x-avatar sm" style="background:#d5e3e9;color:#526674;display:grid;place-items:center">${esc((c.playerName||'玩家').slice(0,1))}</span>`}</span><span class="dm-conv-lines"><span class="dm-conv-top"><b>${esc(c.playerName||'玩家')}</b><small>${esc(last?.time||'')}</small></span><span class="dm-conv-snippet">${esc(last?.body||'图片消息')}</span></span></button>`;
  }).join('');
- list.prepend(container);
+ list.append(container);
  if(hwCloudView.selected){
   const c=chats.find(row=>row.id===hwCloudView.selected);
   if(!c){hwCloudView.selected='';return}
@@ -3644,8 +3666,11 @@ async function refreshIntegratedDM(){
   const rows=[];
   for(const c of convos.data||[]){const messages=(grouped.get(c.id)||[]).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));if(!messages.length)continue;
    const user=byUser.get(String(c.user_id)),char=byPerson.get(String(c.character_id));
-   rows.push({id:c.id,character_id:String(c.character_id),playerName:user?.display_name||user?.handle||'玩家',avatar_url:user?.avatar_url||'',characterName:char?.name||'人物',messages:messages.map(m=>({sender_kind:m.sender_kind,body:m.body||'',time:new Date(m.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),image_url:m.image_url||'',recalled:!!m.recalled}))});
+   rows.push({id:c.id,character_id:String(c.character_id),playerName:user?.display_name||user?.handle||'玩家',avatar_url:user?.avatar_url||'',characterName:char?.name||'人物',messages:messages.map(m=>({sender_kind:m.sender_kind,body:m.body||'',time:new Date(m.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),image_url:m.image_url||'',image_resolved:m.image_url&&!String(m.image_url).startsWith('private:')?m.image_url:'',recalled:!!m.recalled}))});
   }
+  await Promise.all(rows.flatMap(c=>c.messages.filter(m=>m.image_url?.startsWith('private:')).map(async m=>{
+    try{m.image_resolved=await H.signedPrivate(m.image_url);}catch(e){console.warn('私信附件暂无法预览',e);}
+  })));
   window.hwCloudDMUpdate(rows.sort((a,b)=>new Date(grouped.get(b.id)?.at(-1)?.created_at||0)-new Date(grouped.get(a.id)?.at(-1)?.created_at||0)));
  }catch(e){status('私信同步失败：'+H.errMsg(e));console.warn(e)}finally{hwCloudLoading=false}
 }
