@@ -3706,7 +3706,14 @@ async function publish(){
   if(existingResp.error)throw existingResp.error;const existing=new Map((existingResp.data||[]).map(row=>[row.id,row]));
   async function createPost(src,lang,key,authorId,parentId=null,quoteId=null){if(!authorId)return;
    const id='v26:'+key,old=existing.get(id);
-   docPostRows.push({id,source_key:id,author_kind:'character',character_id:authorId,user_id:null,parent_id:parentId,quote_id:quoteId,body:String(src.text||'').slice(0,12000),image_url:await cloudImage(src.media),language:lang,metrics:{replies:src.replies||'0',reposts:src.reposts||'0',likes:src.likes||'0',views:src.views||'0',bookmarks:src.bookmarks||'0',time_label:src.time||''},created_at:legacyCreatedAt(src.time,old?.created_at)});
+   const metrics={replies:src.replies||'0',reposts:src.reposts||'0',likes:src.likes||'0',views:src.views||'0',bookmarks:src.bookmarks||'0',time_label:src.time||''};
+   // Editor reposts contain an embedded quote (including a picture). Preserve it in
+   // the cloud post's metrics so it can be rendered without creating a fake feed post.
+   if(src.isRepost&&src.quote&&typeof src.quote==='object'){
+    const q=src.quote;
+    metrics.quote_snapshot={author_id:String(q.authorId||''),author_name:String(q.authorName||''),author_handle:String(q.authorHandle||''),author_verified:!!q.authorVerified,text:String(q.text||'').slice(0,12000),image_url:await cloudImage(q.media),time_label:String(q.time||'')};
+   }
+   docPostRows.push({id,source_key:id,author_kind:'character',character_id:authorId,user_id:null,parent_id:parentId,quote_id:quoteId,body:String(src.text||'').slice(0,12000),image_url:await cloudImage(src.media),language:lang,metrics,created_at:legacyCreatedAt(src.time,old?.created_at)});
   }
   // main posts first: comment foreign keys rely on them
   for(const lang of ['zh','en']){const doc=snapshot.drafts?.[lang];if(!doc?.post)continue;const charId=personIdByPost(doc.post,people);await createPost(doc.post,lang,lang+':main',charId,null)}
