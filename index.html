@@ -3719,11 +3719,11 @@ const style=document.createElement('style');style.textContent=`
 `;document.head.append(style);
 const cloudShortcut=document.createElement('button');
 cloudShortcut.type='button';cloudShortcut.id='hwCloudShortcut';
-cloudShortcut.textContent='☁ V27.9 开发者邮箱登录 / 发布';
+cloudShortcut.textContent='☁ 打开 V27 云端管理';
 cloudShortcut.setAttribute('aria-label','打开 V27 云端管理员面板');
 cloudShortcut.style.cssText='position:relative;right:auto;top:auto;z-index:3;background:#1d9bf0;color:#fff;border:1px solid #c5e2f5;border-radius:999px;padding:11px 16px;font:700 14px system-ui,-apple-system,sans-serif;box-shadow:0 5px 25px #083b6633;cursor:pointer;max-width:calc(100vw - 28px);';
 (document.querySelector('.toolbar-right')||document.body).append(cloudShortcut);
-const panel=document.createElement('section');panel.id='hw-cloud-panel';panel.dataset.collapsed='false';panel.innerHTML=`
+const panel=document.createElement('section');panel.id='hw-cloud-panel';panel.hidden=true;panel.dataset.collapsed='false';panel.innerHTML=`
 <div class="hw-head"><h3>☁ V27.9 · 独立开发者登录</h3><button id="hwCloudCollapse" type="button" aria-label="收起云端面板">收起</button></div>
 <div class="hw-body"><div class="hw-mini">保留原版主贴与随机评论编辑器（GitHub V39）。只有点击云端发布，游客才会看到更新。</div><div class="hw-mini" style="padding:9px;border:1px solid #d7e9f7;border-radius:10px;background:#f4faff">🔐 当前是<strong>开发者独立登录</strong>。玩家账号在 user.html 使用另一份会话；切换页面不会替换本后台的登录身份。</div>
 <div class="hw-status" id="hwCloudStatus">云端连接中…</div>
