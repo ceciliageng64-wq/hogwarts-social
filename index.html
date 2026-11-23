@@ -4011,5 +4011,100 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
 })();
 </script>
 
+
+<script>
+/* V39.10: Developer home button shows the published shared timeline.
+   This is read-only and never changes the V26 editing draft. */
+(function(){
+ const nav=document.getElementById('xNavLinks');
+ const area=document.getElementById('feedContent');
+ const head=document.getElementById('postHeader');
+ if(!nav||!area||!head)return;
+ let requestId=0,homeVisible=false;
+ const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const attr=(v)=>esc(v);
+ function activateHome(){
+  nav.querySelectorAll('.x-nav-link').forEach((n,i)=>n.classList.toggle('active',i===0));
+  head.textContent='首页 · 云端时间线';
+  const back=document.getElementById('backArrow');if(back)back.textContent='';
+  area.innerHTML='<div class="hw-home-loading">正在读取大家发布的帖子…</div>';
+ }
+ async function showHome(){
+  const token=++requestId;homeVisible=true;activateHome();
+  try{
+   const cloud=window.HWCloud;
+   await cloud?.ready;
+   if(!cloud?.client)throw Error('云端连接未就绪，请刷新后重试');
+   const client=cloud.client;
+   const [ps,cs,us]=await Promise.all([
+    client.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),
+    client.from('hw_characters').select('id,name,handle,avatar_url,badge_type').limit(1000),
+    client.from('hw_profiles').select('id,display_name,handle,avatar_url').limit(1000)
+   ]);
+   for(const v of [ps,cs,us])if(v.error)throw v.error;
+   if(!homeVisible||token!==requestId)return;
+   const people=new Map((cs.data||[]).map(x=>[String(x.id),x]));
+   const users=new Map((us.data||[]).map(x=>[String(x.id),x]));
+   const posts=ps.data||[];
+   const byId=new Map(posts.map(p=>[p.id,p]));
+   const visible=posts.filter(p=>!p.parent_id&&(!p.language||String(p.language).toLowerCase().startsWith('zh')));
+   const author=p=>{
+    const a=p.author_kind==='character'?people.get(String(p.character_id)):users.get(String(p.user_id));
+    return {name:a?.name||a?.display_name||(p.author_kind==='user'?'玩家':'校园账号'),handle:a?.handle||'unknown',avatar:a?.avatar_url||''};
+   };
+   const pic=(src,cls='hw-home-img')=>src&&/^https:\/\//i.test(src)?'<img class="'+cls+'" src="'+attr(src)+'" loading="lazy" alt="帖子图片">':'';
+   const snapshot=p=>{
+    const q=p.metrics?.quote_snapshot;
+    if(p.quote_id&&byId.has(p.quote_id)){
+     const x=byId.get(p.quote_id),a=author(x);
+     return '<div class="hw-home-quote"><strong>'+esc(a.name)+' · @'+esc(a.handle)+'</strong><p>'+esc(x.body||'')+'</p>'+pic(x.image_url)+'</div>';
+    }
+    return q?'<div class="hw-home-quote"><strong>'+esc(q.author_name||'引用帖子')+' · @'+esc(q.author_handle||'')+'</strong><p>'+esc(q.text||'')+'</p>'+pic(q.image_url)+'</div>':'';
+   };
+   const number=(p,k)=>esc(p.metrics?.[k]??'0');
+   const replies=posts.reduce((a,p)=>{if(p.parent_id)a.set(p.parent_id,(a.get(p.parent_id)||0)+1);return a},new Map());
+   area.innerHTML='<div class="hw-home-top"><strong>🏰 霍格沃茨实时首页</strong><small>正式角色与玩家已经发布的帖子 · 只读预览</small><button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
+    (visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post">'+
+    '<div class="hw-home-by">'+(a.avatar?'<img class="hw-home-avatar" src="'+attr(a.avatar)+'" alt="">':'<span class="hw-home-avatar hw-home-default">✦</span>')+
+    '<div><strong>'+esc(a.name)+'</strong><span>@'+esc(a.handle)+' · '+esc(p.metrics?.time_label||new Date(p.created_at).toLocaleString('zh-CN'))+'</span></div></div>'+
+    '<div class="hw-home-body">'+esc(p.body||'')+'</div>'+pic(p.image_url)+snapshot(p)+
+    '<div class="hw-home-metrics"><span>💬 '+esc(replies.get(p.id)||p.metrics?.replies||0)+'</span><span>↻ '+number(p,'reposts')+'</span><span>♡ '+number(p,'likes')+'</span><span>▥ '+number(p,'views')+'</span></div>'+
+    '</article>'}).join(''):'<div class="hw-home-loading">云端暂时没有公开帖子。</div>');
+   area.querySelector('#hwHomeRefresh')?.addEventListener('click',showHome);
+   document.getElementById('captureArea')?.scrollTo({top:0});
+  }catch(e){if(homeVisible&&token===requestId)area.innerHTML='<div class="hw-home-loading">读取首页失败：'+esc(e.message||e)+'<p>请确认网络连接和开发者登录状态。</p><button id="hwHomeRetry" type="button">重试</button></div>';area.querySelector('#hwHomeRetry')?.addEventListener('click',showHome);}
+ }
+ nav.addEventListener('click',e=>{
+  const link=e.target.closest('.x-nav-link');
+  if(!link||[...nav.querySelectorAll('.x-nav-link')].indexOf(link)!==0)return;
+  e.preventDefault();e.stopImmediatePropagation();showHome();
+ },true);
+ nav.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  const link=e.target.closest('.x-nav-link');
+  if(!link||[...nav.querySelectorAll('.x-nav-link')].indexOf(link)!==0)return;
+  e.preventDefault();e.stopImmediatePropagation();showHome();
+ },true);
+ document.addEventListener('click',e=>{
+  if(!homeVisible)return;
+  if(e.target.closest('#hwHomeRefresh,#hwHomeRetry,.hw-home-post,#hwHomeHome'))return;
+  if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child),#navUser,#pvProfileMode,#dmMode')){homeVisible=false;requestId++;}
+ },true);
+})();
+</script>
+<style>
+.hw-home-loading{padding:34px 18px;text-align:center;color:var(--muted);line-height:1.8}
+.hw-home-top{padding:16px;border-bottom:1px solid var(--stroke);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.hw-home-top strong{font-size:17px}.hw-home-top small{font-size:12px;color:var(--muted);flex:1;min-width:150px}
+.hw-home-top button{background:var(--highlight);border:1px solid var(--stroke);border-radius:20px;padding:7px 13px;color:var(--ink);cursor:pointer}
+.hw-home-post{padding:16px;border-bottom:1px solid var(--stroke);color:var(--ink)}
+.hw-home-by{display:flex;align-items:center;gap:10px}.hw-home-by>div{min-width:0;display:flex;flex-wrap:wrap;gap:5px;align-items:center}.hw-home-by span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.hw-home-avatar{width:43px;height:43px;object-fit:cover;border-radius:50%;flex-shrink:0}.hw-home-default{display:grid;place-items:center;background:var(--highlight)}
+.hw-home-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;font-size:15px;line-height:1.55}
+.hw-home-img{display:block;width:100%;max-height:500px;object-fit:contain;border-radius:14px;margin:10px 0}
+.hw-home-quote{border:1px solid var(--stroke);border-radius:13px;padding:12px;margin:10px 0}.hw-home-quote strong{font-size:13px}.hw-home-quote p{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0}
+.hw-home-metrics{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;gap:8px;margin-top:13px}
+</style>
+
 </body>
 </html>
