@@ -4128,9 +4128,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
  const area=document.getElementById('feedContent');
  const head=document.getElementById('postHeader');
  if(!nav||!area||!head)return;
- let requestId=0,homeVisible=false,homeLoading=false;
- // The cloud timeline is the authoritative developer home, not the legacy single-post preview.
- window.hwDeveloperHomeOpen=()=>homeVisible;
+ let requestId=0,homeVisible=false;
  const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const attr=(v)=>esc(v);
  function activateHome(){
@@ -4140,18 +4138,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
   area.innerHTML='<div class="hw-home-loading">正在读取大家发布的帖子…</div>';
  }
  async function showHome(){
-  const token=++requestId;homeVisible=true;homeLoading=true;
-  // Home must be a real view transition, not just a temporary HTML replacement.
-  // Otherwise a draft edit rerenders the previously selected DM page.
-  if(state.clientMode!=='user'){
-    state.viewMode='thread';
-    state.devViewMode='thread';
-    document.getElementById('pvThreadMode')?.classList.add('active');
-    document.getElementById('pvProfileMode')?.classList.remove('active');
-    document.getElementById('dmMode')?.classList.remove('active');
-    persist();
-  }
-  activateHome();
+  const token=++requestId;homeVisible=true;activateHome();
   try{
    const cloud=window.HWCloud;
    await cloud?.ready;
@@ -4177,17 +4164,6 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    const candidateAuthors=[...authors,...randomAuthors];
    const options=(list)=>list.map(a=>'<option value="'+attr(a.id)+'">'+esc(a.name)+' @'+esc(a.handle)+'</option>').join('');
    const presetComments=['这条我必须留下评论😭','等一下，事情居然是这样发展的吗？','救命哈哈哈哈笑死了','有人能解释一下到底发生了什么吗？','前排吃瓜，先收藏了🍿','我决定把这条转给全寝室看','很难不支持这一句！','霍格沃茨今天也太热闹了'];
-   const presetPosts=['今天礼堂的气氛真的很奇怪，有人知道发生什么了吗？','刚从图书馆出来，感觉错过了整个世界。','有人周末一起去霍格莫德吗？','我宣布今天的南瓜汁值得一个专门的帖子。','有些事情还是当面说比较好。','魁地奇训练结束，累到不想动了。','这件事先不下结论，我再观察一下。','所以现在整个学校都知道了吗？'];
-   const createCard=editable?
-    '<section class="hw-home-create hw-client-composer" id="hwHomeCreate">'+
-    '<div class="hw-home-create-head"><strong>✎ 发布新动态</strong><span>开发者预览 · 发布后同步到玩家端</span></div>'+
-    '<div class="hw-home-compose-row"><select data-new-author aria-label="选择发帖人物">'+options(authors.length?authors:candidateAuthors)+'</select>'+
-    '<textarea data-new-body rows="3" placeholder="有什么新鲜事？以所选人物的身份发布…"></textarea></div>'+
-    '<div class="hw-home-create-tools"><button type="button" data-home-create="random-body">🎲 随机生成正文</button><button type="button" data-home-create="time">🕒 随机时间</button><button type="button" data-home-create="all">🎲 随机互动数据</button><button type="button" data-home-create="publish" class="hw-primary">发布主帖</button></div>'+
-    '<details class="hw-home-create-extra"><summary>更多设置：时间与互动数字</summary>'+
-    '<div class="hw-home-create-grid"><label>发布时间<input data-new-time value="刚刚"></label>'+
-    [['views','浏览量'],['likes','点赞'],['replies','评论'],['reposts','转发'],['bookmarks','收藏']].map(([key,label])=>'<label>'+label+'<input data-new-metric="'+key+'" value="0"></label>').join('')+'</div></details></section>':
-    '<div class="hw-home-hint">登录开发者管理员账号后，可在这里直接新增主帖。</div>';
    const editor=p=>!editable?'<div class="hw-home-hint">登录管理员后可直接编辑帖子与评论</div>':
      '<details class="hw-home-editor" data-editor="'+attr(p.id)+'"><summary>✎ 管理这条帖子 · 数字 / 评论 / 随机互动</summary>'+
      (p.author_kind==='character'?'<label>修改主帖正文<textarea data-home-body rows="3">'+esc(p.body||'')+'</textarea></label>':'<p class="hw-home-hint">这是玩家主帖：不可替玩家修改正文，但可以添加人物评论。</p>')+
@@ -4213,7 +4189,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    const number=(p,k)=>esc(p.metrics?.[k]??'0');
    const replies=posts.reduce((a,p)=>{if(p.parent_id)a.set(p.parent_id,(a.get(p.parent_id)||0)+1);return a},new Map());
    area.innerHTML='<div class="hw-home-top"><strong>🏰 霍格沃茨实时首页</strong><small>云端全站编辑模式 · 直接修改互动数字、添加评论和随机评论</small><button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
-    createCard+(visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post">'+
+    (visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post">'+
     '<div class="hw-home-by">'+(a.avatar?'<img class="hw-home-avatar" src="'+attr(a.avatar)+'" alt="">':'<span class="hw-home-avatar hw-home-default">✦</span>')+
     '<div><strong>'+esc(a.name)+'</strong><span>@'+esc(a.handle)+' · '+esc(p.metrics?.time_label||new Date(p.created_at).toLocaleString('zh-CN'))+'</span></div></div>'+
     '<div class="hw-home-body">'+esc(p.body||'')+'</div>'+pic(p.image_url)+snapshot(p)+
@@ -4221,40 +4197,6 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
     '<div class="hw-home-replies">'+posts.filter(x=>x.parent_id===p.id).slice(0,8).map(r=>{const a=author(r);return '<div><b>'+esc(a.name)+'</b>：'+esc(r.body||'[图片]')+'</div>'}).join('')+'</div>'+editor(p)+
     '</article>'}).join(''):'<div class="hw-home-loading">云端暂时没有公开帖子。</div>');
    area.onclick=async function onEdit(e){
-    const createBtn=e.target.closest('[data-home-create]');
-    if(createBtn){
-      e.preventDefault();e.stopPropagation();
-      const panel=area.querySelector('#hwHomeCreate'),action=createBtn.dataset.homeCreate;
-      if(!panel)return;
-      const field=k=>panel.querySelector('[data-new-metric="'+k+'"]');
-      if(action==='random-body'){panel.querySelector('[data-new-body]').value=presetPosts[Math.floor(Math.random()*presetPosts.length)];return}
-      if(action==='time'){panel.querySelector('[data-new-time]').value=randomRelativeTime();return}
-      if(action==='views'){field('views').value=rollViews('post');return}
-      if(action==='all'){
-        const pack=randomMetricPack('post');
-        for(const [key,value] of Object.entries(pack))if(field(key))field(key).value=value;
-        panel.querySelector('[data-new-time]').value=randomRelativeTime();
-        return;
-      }
-      if(action==='publish'){
-        const body=panel.querySelector('[data-new-body]').value.trim();
-        const character_id=panel.querySelector('[data-new-author]').value;
-        if(!body||!character_id){alert('请选择人物并填写帖子正文');return}
-        createBtn.disabled=true;
-        try{
-          if(!cloud.user||!await cloud.isAdmin())throw Error('请先登录开发者管理员账号');
-          const metrics={time_label:panel.querySelector('[data-new-time]').value.trim()||'刚刚'};
-          for(const key of ['views','likes','replies','reposts','bookmarks'])metrics[key]=field(key).value.trim()||'0';
-          const row={id:'home:'+crypto.randomUUID(),author_kind:'character',character_id,user_id:null,
-            parent_id:null,quote_id:null,body,language:'zh',metrics,created_at:new Date().toISOString()};
-          const {error}=await client.from('hw_posts').insert(row);
-          if(error)throw error;
-          await showHome();
-        }catch(err){alert('发布失败：'+(err?.message||err))}
-        finally{createBtn.disabled=false}
-        return;
-      }
-    }
     const button=e.target.closest('[data-home-action]');if(!button)return;
     const panel=button.closest('[data-editor]');if(!panel)return;
     e.preventDefault();e.stopPropagation();
@@ -4295,73 +4237,23 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    area.querySelector('#hwHomeRefresh')?.addEventListener('click',showHome);
    document.getElementById('captureArea')?.scrollTo({top:0});
   }catch(e){if(homeVisible&&token===requestId)area.innerHTML='<div class="hw-home-loading">读取首页失败：'+esc(e.message||e)+'<p>请确认网络连接和开发者登录状态。</p><button id="hwHomeRetry" type="button">重试</button></div>';area.querySelector('#hwHomeRetry')?.addEventListener('click',showHome);}
-  finally{if(token===requestId)homeLoading=false;}
  }
- // Restore home if another legacy handler repaints the feed while an editor is active.
- // Unlike the old code, this never turns Home into the original single-post page.
- const homeObserver=new MutationObserver(()=>{
-   if(!homeVisible||state.clientMode==='user')return;
-   // Legacy renders can replace the homepage even while its cloud request
-   // is pending. Restore the loading shell immediately rather than abandoning Home.
-   if(area.querySelector('.hw-home-top,#hwHomeRetry'))return;
-   if(homeLoading){
-     if(!area.querySelector('.hw-home-loading'))activateHome();
-     return;
-   }
-   // A completed Home request must never leave the old single-post template.
-   showHome();
- });
- homeObserver.observe(area,{childList:true});
-  // Keep the live home visible while editing data on the left.
- // The normal render pipeline is for native post/profile/DM pages only.
- const previousPreviewRenderer=renderPreviewOnly;
- renderPreviewOnly=function(){
-   if(homeVisible&&state.clientMode!=='user'){
-     head.textContent='首页 · 云端时间线';
-     const back=document.getElementById('backArrow');
-     if(back)back.textContent='';
-     nav.querySelectorAll('.x-nav-link').forEach((n,i)=>n.classList.toggle('active',i===0));
-     return;
-   }
-   return previousPreviewRenderer();
- };
- // Capture the actual Home click before legacy post/profile routing can run.
- function isHomeTarget(target){
-   const link=target?.closest?.('#xNavLinks .x-nav-link');
-   return !!link && link===nav.querySelector('.x-nav-link:first-child');
- }
- document.addEventListener('click',e=>{
-   if(state.clientMode==='user'||!isHomeTarget(e.target))return;
-   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-   showHome();
+ nav.addEventListener('click',e=>{
+  const link=e.target.closest('.x-nav-link');
+  if(!link||[...nav.querySelectorAll('.x-nav-link')].indexOf(link)!==0)return;
+  e.preventDefault();e.stopImmediatePropagation();showHome();
  },true);
- document.addEventListener('keydown',e=>{
-   if(state.clientMode==='user'||!['Enter',' '].includes(e.key)||!isHomeTarget(e.target))return;
-   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-   showHome();
+ nav.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  const link=e.target.closest('.x-nav-link');
+  if(!link||[...nav.querySelectorAll('.x-nav-link')].indexOf(link)!==0)return;
+  e.preventDefault();e.stopImmediatePropagation();showHome();
  },true);
  document.addEventListener('click',e=>{
   if(!homeVisible)return;
   if(e.target.closest('#hwHomeRefresh,#hwHomeRetry,.hw-home-post,#hwHomeHome'))return;
-  if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child),#navUser,#pvThreadMode,#pvProfileMode,#dmMode')){homeVisible=false;requestId++;}
+  if(e.target.closest('#xNavLinks .x-nav-link:not(:first-child),#navUser,#pvProfileMode,#dmMode')){homeVisible=false;requestId++;}
  },true);
- // Expose a stable developer-home command for boot and mode changes.
- window.hwShowDeveloperHome=showHome;
-  // Load the REAL cloud timeline by default in developer mode.
- // Previously it was only opened by clicking Home; every reload showed the old Adrian draft.
- const startDeveloperHome=()=>{
-   if(document.documentElement.dataset.u23ViewerOnly==='true'||state.clientMode==='user')return;
-   // Run after initial legacy render; cloud Home becomes the real default.
-   if(!homeVisible)showHome();
-   else if(!area.querySelector('.hw-home-top,.hw-home-loading,#hwHomeRetry')){
-     if(homeLoading)activateHome();else showHome();
-   }
- };
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(startDeveloperHome,0),{once:true});
- else setTimeout(startDeveloperHome,0);
- document.getElementById('u23DevBtn')?.addEventListener('click',()=>{
-   setTimeout(()=>{if(state.clientMode!=='user')showHome()},0);
- });
 })();
 </script>
 <style>
@@ -4668,29 +4560,7 @@ body:not(.u23-user) #xNavLinks>.x-nav-link:is(:nth-child(1),:nth-child(4),:nth-c
  }
 }
 </style>
-<style id="hw-v49-client-like-dev-preview">
-/* Developer home is a client-like social feed with management controls embedded per post. */
-.hw-home-top{position:sticky;top:0;z-index:8;background:var(--surface);padding:17px 20px;border-bottom:1px solid var(--stroke);display:flex;align-items:center;gap:12px}
-.hw-home-top strong{font-size:20px}.hw-home-top small{font-size:12px;color:var(--muted);flex:1}
-.hw-home-create{display:block;margin:0;padding:16px 18px;border:0;border-bottom:8px solid var(--highlight);border-radius:0;background:var(--surface)}
-.hw-home-create-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
-.hw-home-create-head strong{font-size:17px}.hw-home-create-head span{font-size:11px;color:var(--muted)}
-.hw-home-compose-row{display:flex;gap:12px;align-items:flex-start}
-.hw-home-compose-row select{width:34%;min-width:135px;max-width:220px;padding:10px;border:1px solid var(--stroke);border-radius:12px;background:var(--surface);color:var(--ink)}
-.hw-home-compose-row textarea{flex:1;min-width:0;min-height:86px;padding:12px;border:0;border-radius:12px;background:var(--highlight);color:var(--ink);font:inherit;resize:vertical}
-.hw-home-create-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
-.hw-home-create-tools button{border:1px solid var(--stroke);background:var(--highlight);color:var(--ink);border-radius:999px;padding:8px 13px;cursor:pointer}
-.hw-home-create-tools .hw-primary{margin-left:auto;background:#1d9bf0;color:white;border-color:#1d9bf0;font-weight:750}
-.hw-home-create-extra{margin-top:12px;color:var(--muted);font-size:12px}
-.hw-home-post{padding:18px 20px;border-bottom:1px solid var(--stroke);background:var(--surface)}
-.hw-home-avatar{width:48px;height:48px}
-.hw-home-body{font-size:18px;line-height:1.55;margin:14px 0}
-.hw-home-metrics{font-size:14px;border-top:1px solid var(--stroke);padding-top:13px;margin-top:14px}
-.hw-home-replies{font-size:13px;margin-top:12px}
-.hw-home-editor{margin-top:15px;border:1px solid var(--stroke);padding:10px 12px}
-.hw-home-editor summary{font-size:12px}
-@media(max-width:650px){.hw-home-compose-row{display:block}.hw-home-compose-row select{width:100%;max-width:none;margin-bottom:9px}.hw-home-create-head{align-items:flex-start;flex-direction:column}.hw-home-create-tools .hw-primary{margin-left:0}}
-</style>
+
 <style id="hw-v50-home-button">
 body:not(.u23-user) #xNavLinks>[data-hw-home]{cursor:pointer}
 body:not(.u23-user) #xNavLinks>[data-hw-home]:focus-visible{outline:2px solid #1d9bf0;outline-offset:3px;border-radius:12px}
