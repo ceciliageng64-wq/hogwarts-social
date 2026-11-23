@@ -399,6 +399,36 @@ body.u23-user .compact-note{display:none}
 @media(max-width:1120px){body.u23-user .app-viewport{grid-template-columns:76px minmax(0,600px);max-width:680px}}
 @media(max-width:700px){body.u23-user .app-viewport{display:block;width:100%}body.u23-user .x-nav{display:none}body.u23-user .x-feed{max-width:600px}.u23-mode-buttons{margin-right:0}body.u23-user .toolbar-right{justify-content:center;gap:5px}.u23-cover{height:145px}.u23-inbox{grid-template-columns:37% 63%}.u23-conv .u23-avatar.sm{display:none}.u23-conv-list{overflow:hidden}.u23-filter-row button{font-size:10px;padding:5px 7px}.u23-profile-top .u23-avatar{width:105px;height:105px;flex-basis:105px;margin-top:-55px}.u23-chat{min-height:500px}}
 </style>
+
+<style id="hw-v40-sticky-toolbar">
+/* Keep the full developer toolbar in view while the timeline scrolls. */
+body:not(.u23-user)>.toolbar{
+  position:sticky!important;
+  top:0!important;
+  z-index:200!important;
+  background:var(--toolcard);
+  box-shadow:0 3px 12px rgba(10,28,44,.09);
+}
+@media(min-width:871px){
+  body:not(.u23-user) .workspace .controls{
+    position:sticky;
+    top:var(--hw-editor-toolbar-height,135px);
+    height:calc(100dvh - var(--hw-editor-toolbar-height,135px));
+    max-height:calc(100dvh - var(--hw-editor-toolbar-height,135px));
+    overflow-y:auto;
+  }
+  body:not(.u23-user) .workspace .x-nav,
+  body:not(.u23-user) .workspace .x-right{
+    top:var(--hw-editor-toolbar-height,135px);
+    max-height:calc(100dvh - var(--hw-editor-toolbar-height,135px));
+  }
+}
+@media(max-width:870px){
+  body:not(.u23-user)>.toolbar{max-height:44dvh;overflow:visible}
+  body:not(.u23-user)>.toolbar .toolbar-right{max-height:26dvh;overflow-x:auto;overflow-y:auto;scrollbar-width:thin}
+}
+@media print{body:not(.u23-user)>.toolbar{position:static!important;box-shadow:none}}
+</style>
 </head>
 <body>
 <header class="toolbar">
@@ -4178,5 +4208,16 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
 
 </style>
 
+
+<script id="hw-v40-toolbar-measure">
+(function(){
+ const toolbar=document.querySelector('body>.toolbar');
+ if(!toolbar)return;
+ const update=()=>document.documentElement.style.setProperty('--hw-editor-toolbar-height',Math.ceil(toolbar.getBoundingClientRect().height)+'px');
+ update();
+ if(typeof ResizeObserver!=='undefined'){const observer=new ResizeObserver(update);observer.observe(toolbar);}
+ window.addEventListener('resize',update);
+})();
+</script>
 </body>
 </html>
