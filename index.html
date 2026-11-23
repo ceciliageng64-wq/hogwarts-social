@@ -4617,7 +4617,7 @@ body:not(.u23-user) #v276AuthorBox{display:none!important}
   const statusKey='hw-developer-home-active';
   const shouldOpen=()=>document.documentElement.dataset.u23ViewerOnly!=='true'&&
     !document.body.classList.contains('u23-user')&&
-    document.getElementById('controls')?.offsetParent!==null;
+    !!document.getElementById('feedContent');
   function openHome(){
     if(!shouldOpen())return;
     const fn=window.hwShowDeveloperHome;
@@ -4632,13 +4632,16 @@ body:not(.u23-user) #v276AuthorBox{display:none!important}
   }
   function boot(){
     // Run after the legacy initial render; do not allow that initialization to win.
-    setTimeout(openHome,0);
+    openHome();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
   else boot();
   document.getElementById('u23DevBtn')?.addEventListener('click',()=>{
     setTimeout(openHome,0);
   });
+  // Re-entering the page or restoring a developer tab must not leave the old draft visible.
+  window.addEventListener('pageshow',()=>{if(shouldOpen()&&
+    !document.getElementById('feedContent')?.querySelector('.hw-home-top,.hw-home-loading'))openHome()});
   // The home icon must always lead to the cloud timeline in developer mode.
   document.getElementById('xNavLinks')?.addEventListener('click',e=>{
     const first=document.querySelector('#xNavLinks .x-nav-link:first-child');
