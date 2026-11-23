@@ -4390,7 +4390,8 @@ body.u23-user #hw-v41-nav-plus{display:none!important}
  const extra=document.createElement('button');
  extra.type='button';extra.id='hw-v41-nav-plus';extra.className='x-action-post';
  extra.textContent='＋';extra.title='新建主帖';extra.setAttribute('aria-label','新建主帖');
- launcher.insertAdjacentElement('beforebegin',extra);
+ const navLogo=document.querySelector('#xNav .x-logo');
+ (navLogo||launcher).insertAdjacentElement(navLogo?'afterend':'beforebegin',extra);
  extra.addEventListener('click',open);
  $('hw-v41-close').onclick=close;$('hw-v41-cancel').onclick=close;
  modal.addEventListener('click',e=>{if(e.target===modal)close()});
@@ -4433,6 +4434,23 @@ body.u23-user #hw-v41-nav-plus{display:none!important}
  };
 })();
 </script>
+<style id="hw-v43-plus-visible">/* V43: remove the bulky legacy post-switcher from the editor;
+   expose the actual creation action as a visible plus icon in X sidebar. */
+body:not(.u23-user) #hwV35Choose{display:none!important}
+body:not(.u23-user) #v276AuthorBox{display:none!important}
+body:not(.u23-user) #hw-v41-nav-plus{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ flex:0 0 50px!important;width:50px!important;height:50px!important;
+ min-height:50px!important;max-width:50px!important;
+ padding:0!important;margin:4px 0 12px 3px!important;
+ font-size:32px!important;font-weight:500!important;line-height:1!important;
+ background:#1d9bf0!important;color:#fff!important;
+ border-radius:50%!important;box-shadow:none!important;
+ position:relative!important;z-index:10!important;cursor:pointer!important;
+}
+body:not(.u23-user) #hw-v41-nav-plus:hover{background:#1688d3!important}
+body.u23-user #hw-v41-nav-plus{display:none!important}
+</style>
 <style id="hw-v42-twin-scroll">
 /* Desktop developer mode: two completely independent scroll panes under the toolbar. */
 @media(min-width:871px){
