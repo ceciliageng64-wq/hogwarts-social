@@ -4299,5 +4299,136 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
   },{passive:false,capture:true});
 })();
 </script>
+
+<style id="hw-v41-compose-style">
+body:not(.u23-user) #v276AuthorBox,
+body:not(.u23-user) #randomPostTime,
+body:not(.u23-user) #randomPostViews,
+body:not(.u23-user) #randomPostAll{display:none!important}
+body:not(.u23-user) #randomPostTime + *,body:not(.u23-user) #randomPostViews + *{display:none}
+#hw-v41-compose-modal[hidden]{display:none!important}
+#hw-v41-compose-modal{position:fixed;inset:0;z-index:400000;background:#0009;display:flex;align-items:center;justify-content:center;padding:14px;color:var(--ink)}
+.hw-v41-dialog{background:var(--surface);color:var(--ink);width:min(650px,100%);max-height:min(92dvh,860px);overflow:auto;border-radius:20px;box-shadow:0 18px 70px #0006;padding:20px 23px;border:1px solid var(--stroke)}
+.hw-v41-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;font-size:20px;font-weight:800}
+.hw-v41-title button{border:0;background:var(--comp);color:var(--ink);width:34px;height:34px;border-radius:50%;font-size:23px}
+.hw-v41-field{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:650;margin-bottom:13px}
+.hw-v41-field input,.hw-v41-field select,.hw-v41-field textarea{width:100%;border:1px solid var(--stroke);border-radius:10px;padding:10px;background:var(--surface);color:var(--ink);font:inherit;font-weight:400}
+.hw-v41-field textarea{min-height:100px;resize:vertical;font-size:16px}
+.hw-v41-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.hw-v41-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 14px}
+.hw-v41-row button,.hw-v41-publish{border-radius:999px;padding:9px 15px;background:var(--comp);color:var(--ink);font-weight:700}
+.hw-v41-publish{background:#1d9bf0!important;color:white!important;margin-left:auto}
+.hw-v41-note{font-size:12px;color:var(--muted);line-height:1.5;margin:5px 0 13px}
+#hw-v41-image-preview{max-width:100%;max-height:180px;object-fit:contain;border-radius:12px}
+@media(max-width:540px){.hw-v41-grid{grid-template-columns:1fr}.hw-v41-dialog{padding:16px}}
+</style>
+<div id="hw-v41-compose-modal" hidden role="presentation">
+  <section class="hw-v41-dialog" role="dialog" aria-modal="true" aria-labelledby="hw-v41-title">
+    <div class="hw-v41-title"><span id="hw-v41-title">＋ 新建主帖</span><button id="hw-v41-close" type="button" aria-label="关闭">×</button></div>
+    <label class="hw-v41-field">发布人物<select id="hw-v41-person"></select></label>
+    <label class="hw-v41-field"><span><input type="checkbox" id="hw-v41-custom" style="width:auto"> 自定义新人物（保存到人物库）</span></label>
+    <div class="hw-v41-grid" id="hw-v41-custom-fields" hidden>
+      <label class="hw-v41-field">昵称<input id="hw-v41-name" maxlength="80" placeholder="人物昵称"></label>
+      <label class="hw-v41-field">用户名（@）<input id="hw-v41-handle" maxlength="50" placeholder="example_name"></label>
+    </div>
+    <label class="hw-v41-field">正文<textarea id="hw-v41-text" maxlength="20000" placeholder="有什么新鲜事？"></textarea></label>
+    <div class="hw-v41-row"><label for="hw-v41-photo" class="toolbtn" style="cursor:pointer">＋ 添加图片</label><input type="file" id="hw-v41-photo" accept="image/png,image/jpeg,image/webp,image/gif,image/avif"><button type="button" id="hw-v41-remove-photo">移除图片</button></div>
+    <img id="hw-v41-image-preview" alt="配图预览" hidden>
+    <div class="hw-v41-grid">
+      <label class="hw-v41-field">发布时间<input id="hw-v41-time" maxlength="100" placeholder="刚刚"></label>
+      <label class="hw-v41-field">浏览量<input id="hw-v41-views" maxlength="15" value="0"></label>
+      <label class="hw-v41-field">点赞<input id="hw-v41-likes" maxlength="15" value="0"></label>
+      <label class="hw-v41-field">评论<input id="hw-v41-replies" maxlength="15" value="0"></label>
+      <label class="hw-v41-field">转发<input id="hw-v41-reposts" maxlength="15" value="0"></label>
+      <label class="hw-v41-field">收藏<input id="hw-v41-bookmarks" maxlength="15" value="0"></label>
+    </div>
+    <div class="hw-v41-row"><button type="button" id="hw-v41-random-time">🎲 随机时间</button><button type="button" id="hw-v41-random-views">🎲 随机浏览量</button><button type="button" id="hw-v41-random-all">🎲 一键随机全部数值</button></div>
+    <p class="hw-v41-note">将作为所选人物的独立主帖发布，不覆盖原帖。发布后可以继续在主页和时间线中编辑。</p>
+    <div class="hw-v41-row"><button type="button" id="hw-v41-cancel">取消</button><button type="button" class="hw-v41-publish" id="hw-v41-publish">发布主帖</button></div>
+  </section>
+</div>
+<script id="hw-v41-compose">
+(function(){
+ const $=id=>document.getElementById(id);
+ const modal=$('hw-v41-compose-modal'),launcher=$('fakeNavPost');
+ if(!modal||!launcher)return;
+ let media='',beforeFocus=null;
+ function refresh(){
+   const select=$('hw-v41-person'),old=select.value;
+   select.replaceChildren();
+   (typeof savedPeople==='function'?savedPeople():state.people).forEach(p=>{
+     const opt=document.createElement('option');opt.value=p.id;opt.textContent=p.name+' @'+p.handle;select.append(opt);
+   });
+   if([...select.options].some(o=>o.value===old))select.value=old;
+   else if(state.profileSelected&&[...select.options].some(o=>o.value===state.profileSelected))select.value=state.profileSelected;
+ }
+ function open(){
+   if(state.clientMode==='user')return;
+   beforeFocus=document.activeElement;
+   refresh();
+   $('hw-v41-text').value='';
+   $('hw-v41-time').value=state.lang==='zh'?'刚刚':'now';
+   for(const key of ['views','likes','replies','reposts','bookmarks'])$('hw-v41-'+key).value='0';
+   $('hw-v41-custom').checked=false;
+   $('hw-v41-custom-fields').hidden=true;
+   $('hw-v41-person').disabled=false;
+   $('hw-v41-name').value='';$('hw-v41-handle').value='';
+   media='';$('hw-v41-image-preview').hidden=true;$('hw-v41-photo').value='';
+   modal.hidden=false;
+   $('hw-v41-text').focus();
+ }
+ function close(){modal.hidden=true;beforeFocus?.focus?.({preventScroll:true})}
+ launcher.addEventListener('click',e=>{
+   if(state.clientMode==='user')return;
+   e.preventDefault();e.stopImmediatePropagation();
+   open();
+ },true);
+ // A compact plus entry on the developer sidebar, also available on the home timeline.
+ const extra=document.createElement('button');
+ extra.type='button';extra.id='hw-v41-nav-plus';extra.className='x-action-post';
+ extra.textContent='＋';extra.title='新建主帖';extra.setAttribute('aria-label','新建主帖');
+ launcher.insertAdjacentElement('beforebegin',extra);
+ extra.addEventListener('click',open);
+ $('hw-v41-close').onclick=close;$('hw-v41-cancel').onclick=close;
+ modal.addEventListener('click',e=>{if(e.target===modal)close()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)close()});
+ $('hw-v41-custom').onchange=e=>{
+   $('hw-v41-custom-fields').hidden=!e.target.checked;
+   $('hw-v41-person').disabled=e.target.checked;
+ };
+ $('hw-v41-random-time').onclick=()=>{$('hw-v41-time').value=randomRelativeTime()};
+ $('hw-v41-random-views').onclick=()=>{$('hw-v41-views').value=rollViews('post')};
+ $('hw-v41-random-all').onclick=()=>{const pack=randomMetricPack('post');for(const [key,value] of Object.entries(pack))$('hw-v41-'+key).value=value};
+ $('hw-v41-photo').onchange=async e=>{
+   const file=e.target.files?.[0];if(!file)return;
+   try{media=await imageFile(file,1500);$('hw-v41-image-preview').src=media;$('hw-v41-image-preview').hidden=false}
+   catch(err){toast(err.message||'图片上传失败')}
+ };
+ $('hw-v41-remove-photo').onclick=()=>{media='';$('hw-v41-photo').value='';$('hw-v41-image-preview').hidden=true};
+ $('hw-v41-publish').onclick=()=>{
+   const text=String($('hw-v41-text').value||'').trim();
+   if(!text&&!media){toast('请填写正文或添加图片');return}
+   let personId=$('hw-v41-person').value;
+   if($('hw-v41-custom').checked){
+     const name=$('hw-v41-name').value.trim(),handle=$('hw-v41-handle').value.trim().replace(/^@/,'');
+     if(!name||!handle||!/^[A-Za-z0-9_]+$/.test(handle)){toast('请填写昵称和有效的英文用户名');return}
+     if(state.people.some(p=>p.handle.toLowerCase()===handle.toLowerCase())){toast('该用户名已存在，请直接选择人物或更换用户名');return}
+     const p=upsertPerson({name,handle});
+     if(!p){toast('创建人物失败');return}
+     personId=p.id;
+   }
+   if(!personId||!personById(personId)){toast('请先选择发帖人物');return}
+   pvEnsure();state.profileSelected=personId;
+   const post={id:'pv'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),
+     created:Date.now(),pinned:false,text,media,
+     time:$('hw-v41-time').value.trim()||(state.lang==='zh'?'刚刚':'now')};
+   for(const key of ['views','likes','replies','reposts','bookmarks'])post[key]=$('hw-v41-'+key).value.trim()||'0';
+   pvOwnPosts().unshift(post);
+   state.profileTab='posts';
+   close();changed();persist();
+   toast('已发布独立主帖');
+ };
+})();
+</script>
 </body>
 </html>
