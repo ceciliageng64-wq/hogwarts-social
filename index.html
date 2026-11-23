@@ -1521,8 +1521,10 @@ $('restoreBtn').onclick=()=>$('restoreInput').click();$('restoreInput').onchange
     clientMode:'developer',viewMode:'thread',lang:'zh'
    };
    const synthetic={target:{files:[new File([JSON.stringify({format:'x-post-template-editor-v14',state:merged})],'merged-hogwarts.json',{type:'application/json'})],value:''}};
-   await originalRestore(synthetic);
    localStorage.setItem('hw-gh-migration-first-publish','1');
+   const auto=document.getElementById('hwCloudAuto');if(auto?.checked){auto.checked=false;auto.dispatchEvent(new Event('change',{bubbles:true}));}
+   await originalRestore(synthetic);
+   if((window.hwLegacySnapshot?.().people||[]).length<old.people.length)throw Error('恢复后人物数量异常，请使用自动备份恢复');
    alert('✅ 旧版人物、图片、帖子、私信草稿已合并到本浏览器。当前 GitHub 草稿也已自动下载备份。检查无误后再点云端发布；首次发布不会删除云端旧内容。');
   }catch(e){alert('迁移未完成：'+(e?.message||e));}finally{btn.disabled=false;picker.value='';}
  };
