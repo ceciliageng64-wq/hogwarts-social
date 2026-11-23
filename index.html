@@ -4294,8 +4294,15 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
  // Restore home if another legacy handler repaints the feed while an editor is active.
  // Unlike the old code, this never turns Home into the original single-post page.
  const homeObserver=new MutationObserver(()=>{
-   if(!homeVisible||homeLoading||state.clientMode==='user')return;
-   if(area.querySelector('.hw-home-top,.hw-home-loading,#hwHomeRetry'))return;
+   if(!homeVisible||state.clientMode==='user')return;
+   // Legacy renders can replace the homepage even while its cloud request
+   // is pending. Restore the loading shell immediately rather than abandoning Home.
+   if(area.querySelector('.hw-home-top,#hwHomeRetry'))return;
+   if(homeLoading){
+     if(!area.querySelector('.hw-home-loading'))activateHome();
+     return;
+   }
+   // A completed Home request must never leave the old single-post template.
    showHome();
  });
  homeObserver.observe(area,{childList:true});
@@ -4340,6 +4347,9 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    if(document.documentElement.dataset.u23ViewerOnly==='true'||state.clientMode==='user')return;
    // Run after initial legacy render; cloud Home becomes the real default.
    if(!homeVisible)showHome();
+   else if(!area.querySelector('.hw-home-top,.hw-home-loading,#hwHomeRetry')){
+     if(homeLoading)activateHome();else showHome();
+   }
  };
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(startDeveloperHome,0),{once:true});
  else setTimeout(startDeveloperHome,0);
