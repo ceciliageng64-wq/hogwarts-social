@@ -4125,7 +4125,9 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
  const area=document.getElementById('feedContent');
  const head=document.getElementById('postHeader');
  if(!nav||!area||!head)return;
- let requestId=0,homeVisible=false;
+ let requestId=0,homeVisible=false,homeLoading=false;
+ // The cloud timeline is the authoritative developer home, not the legacy single-post preview.
+ window.hwDeveloperHomeOpen=()=>homeVisible;
  const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const attr=(v)=>esc(v);
  function activateHome(){
@@ -4135,7 +4137,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
   area.innerHTML='<div class="hw-home-loading">正在读取大家发布的帖子…</div>';
  }
  async function showHome(){
-  const token=++requestId;homeVisible=true;
+  const token=++requestId;homeVisible=true;homeLoading=true;
   // Home must be a real view transition, not just a temporary HTML replacement.
   // Otherwise a draft edit rerenders the previously selected DM page.
   if(state.clientMode!=='user'){
@@ -4287,8 +4289,17 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    area.querySelector('#hwHomeRefresh')?.addEventListener('click',showHome);
    document.getElementById('captureArea')?.scrollTo({top:0});
   }catch(e){if(homeVisible&&token===requestId)area.innerHTML='<div class="hw-home-loading">读取首页失败：'+esc(e.message||e)+'<p>请确认网络连接和开发者登录状态。</p><button id="hwHomeRetry" type="button">重试</button></div>';area.querySelector('#hwHomeRetry')?.addEventListener('click',showHome);}
+  finally{if(token===requestId)homeLoading=false;}
  }
- // Keep the live home visible while editing data on the left.
+ // Restore home if another legacy handler repaints the feed while an editor is active.
+ // Unlike the old code, this never turns Home into the original single-post page.
+ const homeObserver=new MutationObserver(()=>{
+   if(!homeVisible||homeLoading||state.clientMode==='user')return;
+   if(area.querySelector('.hw-home-top,.hw-home-loading,.hw-home-post,#hwHomeRetry'))return;
+   showHome();
+ });
+ homeObserver.observe(area,{childList:true});
+  // Keep the live home visible while editing data on the left.
  // The normal render pipeline is for native post/profile/DM pages only.
  const previousPreviewRenderer=renderPreviewOnly;
  renderPreviewOnly=function(){
@@ -4577,6 +4588,18 @@ body:not(.u23-user) #hwV35Choose,body:not(.u23-user) #v276AuthorBox{display:none
 .hw-home-create-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .hw-home-create-grid label{min-width:0}
 @media(max-width:640px){.hw-home-create-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<style id="hw-v45-compact-toolbar">
+/* Right X navigation already provides the same three destinations.
+   Keep this fallback switch on narrow screens where the sidebar is unavailable. */
+@media(min-width:871px){
+ body:not(.u23-user)>.toolbar .pv-view-switch{display:none!important}
+}
+body:not(.u23-user) #v26BrandControl,
+body:not(.u23-user) #v26Notice,
+body:not(.u23-user) #hw-v41-nav-plus,
+body:not(.u23-user) #hwV35Choose,
+body:not(.u23-user) #v276AuthorBox{display:none!important}
 </style>
 </body>
 </html>
