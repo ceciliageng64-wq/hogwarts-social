@@ -477,14 +477,17 @@ body:not(.u23-user)>.toolbar{
 }
 body:not(.u23-user)>.toolbar .hw-toolbar-toggle{display:none!important}
 body:not(.u23-user)>.toolbar.hw-toolbar-collapsed .toolbar-right{display:flex!important}
+/* Let the developer editor and preview share the document scroll.
+   Scrolling anywhere in the editor now scrolls the toolbar off-screen. */
+body:not(.u23-user) .workspace .controls{
+  position:relative!important;
+  top:auto!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+  align-self:stretch;
+}
 @media(min-width:871px){
-  body:not(.u23-user) .workspace .controls{
-    position:sticky;
-    top:0;
-    height:100dvh;
-    max-height:100dvh;
-    overflow-y:auto;
-  }
   body:not(.u23-user) .workspace .x-nav,
   body:not(.u23-user) .workspace .x-right{
     top:0;
