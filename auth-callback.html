@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>霍格沃茨 · 开发者邮箱登录完成中</title>
+<style>body{font:15px system-ui,-apple-system,sans-serif;background:#f4f8fc;color:#172e40;display:grid;place-items:center;min-height:100vh;margin:0;padding:18px}main{background:white;max-width:470px;width:100%;border:1px solid #dbe4ee;border-radius:18px;padding:24px;box-sizing:border-box;box-shadow:0 12px 32px #2342  }h1{font-size:21px}p{line-height:1.7;color:#526779}a{color:#1d83c5}#status{white-space:pre-wrap;background:#f2f6fa;padding:13px;border-radius:10px}</style>
+</head><body><main><h1>🦉 正在完成开发者邮箱登录</h1><p id="status">正在由 Supabase 验证这次登录……</p><p>注意：这里登录的是<b>正在打开邮件链接的这台设备</b>。如果要在电脑发布，请在电脑浏览器里打开邮件链接。</p><p><a href="./index.html">返回开发者后台</a></p></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"><\/script>')}</script>
+<script>
+(async()=>{
+ const box=document.getElementById('status');
+ const params=new URLSearchParams(location.hash.slice(1)),query=new URLSearchParams(location.search);
+ const code=params.get('error_code')||query.get('error_code');
+ if(code){box.textContent='登录链接无法使用（'+code+'）。它可能过期或已被点击过。请返回后台申请新的官方登录邮件。';return;}
+ if(!window.supabase){box.textContent='Supabase 登录组件加载失败，请检查网络后刷新本页。';return;}
+ try{
+  const client=window.supabase.createClient('https://jxviljkxbcucytmxqviu.supabase.co','sb_publishable_t8sSeZpAwa3cyW2bj_vKqA_-qVP3jzP',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'hogwarts-v279-developer-auth'}});
+  const {data,error}=await client.auth.getSession();
+  if(error)throw error;
+  if(!data?.session){box.textContent='没有收到有效的登录凭证。请确认点击的是最新邮件里的链接，且不是 Netlify 预览页面。';return;}
+  if(String(data.session.user?.email||'').toLowerCase()!=='ceciliageng64@gmail.com'){
+    await client.auth.signOut({scope:'local'});
+    box.textContent='当前邮件不是指定的开发者邮箱，已拒绝建立开发者会话。玩家请从 user.html 进入。';
+    return;
+  }
+  const {data:role,error:roleError}=await client.from('hw_admins').select('user_id').eq('user_id',data.session.user.id).maybeSingle();
+  if(roleError||!role){
+    await client.auth.signOut({scope:'local'});
+    box.textContent='该邮箱未获管理员授权。请核对开发者邮箱及 Supabase 管理员权限。';
+    return;
+  }
+  box.textContent='✅ 开发者邮箱验证成功！独立会话已保存，正在打开后台……';
+  location.replace('https://ceciliageng64-wq.github.io/hogwarts-social/index.html');
+ }catch(e){box.textContent='登录尚未完成：'+(e?.message||'网络错误')+'。请返回开发者后台重新发送官方邮件。';}
+})();
+</script></body></html>
