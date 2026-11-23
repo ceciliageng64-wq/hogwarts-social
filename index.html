@@ -4174,14 +4174,16 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
    const candidateAuthors=[...authors,...randomAuthors];
    const options=(list)=>list.map(a=>'<option value="'+attr(a.id)+'">'+esc(a.name)+' @'+esc(a.handle)+'</option>').join('');
    const presetComments=['这条我必须留下评论😭','等一下，事情居然是这样发展的吗？','救命哈哈哈哈笑死了','有人能解释一下到底发生了什么吗？','前排吃瓜，先收藏了🍿','我决定把这条转给全寝室看','很难不支持这一句！','霍格沃茨今天也太热闹了'];
+   const presetPosts=['今天礼堂的气氛真的很奇怪，有人知道发生什么了吗？','刚从图书馆出来，感觉错过了整个世界。','有人周末一起去霍格莫德吗？','我宣布今天的南瓜汁值得一个专门的帖子。','有些事情还是当面说比较好。','魁地奇训练结束，累到不想动了。','这件事先不下结论，我再观察一下。','所以现在整个学校都知道了吗？'];
    const createCard=editable?
-    '<details class="hw-home-create" id="hwHomeCreate"><summary>＋ 新增帖子 · 点击直接编辑</summary>'+
-    '<label>发帖人物<select data-new-author>'+options(authors.length?authors:candidateAuthors)+'</select></label>'+
-    '<label>帖子正文<textarea data-new-body rows="4" placeholder="输入新主帖内容…"></textarea></label>'+
+    '<section class="hw-home-create hw-client-composer" id="hwHomeCreate">'+
+    '<div class="hw-home-create-head"><strong>✎ 发布新动态</strong><span>开发者预览 · 发布后同步到玩家端</span></div>'+
+    '<div class="hw-home-compose-row"><select data-new-author aria-label="选择发帖人物">'+options(authors.length?authors:candidateAuthors)+'</select>'+
+    '<textarea data-new-body rows="3" placeholder="有什么新鲜事？以所选人物的身份发布…"></textarea></div>'+
+    '<div class="hw-home-create-tools"><button type="button" data-home-create="random-body">🎲 随机生成正文</button><button type="button" data-home-create="time">🕒 随机时间</button><button type="button" data-home-create="all">🎲 随机互动数据</button><button type="button" data-home-create="publish" class="hw-primary">发布主帖</button></div>'+
+    '<details class="hw-home-create-extra"><summary>更多设置：时间与互动数字</summary>'+
     '<div class="hw-home-create-grid"><label>发布时间<input data-new-time value="刚刚"></label>'+
-    [['views','浏览量'],['likes','点赞'],['replies','评论'],['reposts','转发'],['bookmarks','收藏']].map(([key,label])=>'<label>'+label+'<input data-new-metric="'+key+'" value="0"></label>').join('')+'</div>'+
-    '<div class="hw-home-actions"><button type="button" data-home-create="time">🎲 随机时间</button><button type="button" data-home-create="views">🎲 随机浏览量</button><button type="button" data-home-create="all">🎲 一键随机全部数值</button><button type="button" data-home-create="publish">☁ 发布新帖</button></div>'+
-    '</details>':
+    [['views','浏览量'],['likes','点赞'],['replies','评论'],['reposts','转发'],['bookmarks','收藏']].map(([key,label])=>'<label>'+label+'<input data-new-metric="'+key+'" value="0"></label>').join('')+'</div></details></section>':
     '<div class="hw-home-hint">登录开发者管理员账号后，可在这里直接新增主帖。</div>';
    const editor=p=>!editable?'<div class="hw-home-hint">登录管理员后可直接编辑帖子与评论</div>':
      '<details class="hw-home-editor" data-editor="'+attr(p.id)+'"><summary>✎ 管理这条帖子 · 数字 / 评论 / 随机互动</summary>'+
@@ -4222,6 +4224,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
       const panel=area.querySelector('#hwHomeCreate'),action=createBtn.dataset.homeCreate;
       if(!panel)return;
       const field=k=>panel.querySelector('[data-new-metric="'+k+'"]');
+      if(action==='random-body'){panel.querySelector('[data-new-body]').value=presetPosts[Math.floor(Math.random()*presetPosts.length)];return}
       if(action==='time'){panel.querySelector('[data-new-time]').value=randomRelativeTime();return}
       if(action==='views'){field('views').value=rollViews('post');return}
       if(action==='all'){
@@ -4661,6 +4664,29 @@ body:not(.u23-user) #xNavLinks>.x-nav-link:is(:nth-child(1),:nth-child(4),:nth-c
   flex:0 0 56px!important;
  }
 }
+</style>
+<style id="hw-v49-client-like-dev-preview">
+/* Developer home is a client-like social feed with management controls embedded per post. */
+.hw-home-top{position:sticky;top:0;z-index:8;background:var(--surface);padding:17px 20px;border-bottom:1px solid var(--stroke);display:flex;align-items:center;gap:12px}
+.hw-home-top strong{font-size:20px}.hw-home-top small{font-size:12px;color:var(--muted);flex:1}
+.hw-home-create{display:block;margin:0;padding:16px 18px;border:0;border-bottom:8px solid var(--highlight);border-radius:0;background:var(--surface)}
+.hw-home-create-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+.hw-home-create-head strong{font-size:17px}.hw-home-create-head span{font-size:11px;color:var(--muted)}
+.hw-home-compose-row{display:flex;gap:12px;align-items:flex-start}
+.hw-home-compose-row select{width:34%;min-width:135px;max-width:220px;padding:10px;border:1px solid var(--stroke);border-radius:12px;background:var(--surface);color:var(--ink)}
+.hw-home-compose-row textarea{flex:1;min-width:0;min-height:86px;padding:12px;border:0;border-radius:12px;background:var(--highlight);color:var(--ink);font:inherit;resize:vertical}
+.hw-home-create-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.hw-home-create-tools button{border:1px solid var(--stroke);background:var(--highlight);color:var(--ink);border-radius:999px;padding:8px 13px;cursor:pointer}
+.hw-home-create-tools .hw-primary{margin-left:auto;background:#1d9bf0;color:white;border-color:#1d9bf0;font-weight:750}
+.hw-home-create-extra{margin-top:12px;color:var(--muted);font-size:12px}
+.hw-home-post{padding:18px 20px;border-bottom:1px solid var(--stroke);background:var(--surface)}
+.hw-home-avatar{width:48px;height:48px}
+.hw-home-body{font-size:18px;line-height:1.55;margin:14px 0}
+.hw-home-metrics{font-size:14px;border-top:1px solid var(--stroke);padding-top:13px;margin-top:14px}
+.hw-home-replies{font-size:13px;margin-top:12px}
+.hw-home-editor{margin-top:15px;border:1px solid var(--stroke);padding:10px 12px}
+.hw-home-editor summary{font-size:12px}
+@media(max-width:650px){.hw-home-compose-row{display:block}.hw-home-compose-row select{width:100%;max-width:none;margin-bottom:9px}.hw-home-create-head{align-items:flex-start;flex-direction:column}.hw-home-create-tools .hw-primary{margin-left:0}}
 </style>
 </body>
 </html>
