@@ -3545,7 +3545,13 @@ window.hwSavePublicTrends=async function(value){
  if(error)throw error;
  const check=await H.client.from('hw_site_settings').select('value').eq('key','public_trends').single();
  if(check.error)throw check.error;
- if(JSON.stringify(check.data?.value)!==JSON.stringify(value))throw Error('保存核对未通过，请重试');
+ const normalizeTrends=(items)=>Array.isArray(items)?items.map(item=>({
+  context:String(item?.context??''),title:String(item?.title??''),count:String(item?.count??'0')
+ })):null;
+ const expected=normalizeTrends(value),actual=normalizeTrends(check.data?.value);
+ if(!actual||actual.length!==expected.length||actual.some((item,i)=>item.context!==expected[i].context||item.title!==expected[i].title||item.count!==expected[i].count)){
+  throw Error('热点保存内容与读取结果不一致，请检查网络后重试');
+ }
  return true;
 };
 
