@@ -4089,7 +4089,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
     '<div class="hw-home-metrics"><span>💬 '+esc(replies.get(p.id)||p.metrics?.replies||0)+'</span><span>↻ '+number(p,'reposts')+'</span><span>♡ '+number(p,'likes')+'</span><span>▥ '+number(p,'views')+'</span></div>'+
     '<div class="hw-home-replies">'+posts.filter(x=>x.parent_id===p.id).slice(0,8).map(r=>{const a=author(r);return '<div><b>'+esc(a.name)+'</b>：'+esc(r.body||'[图片]')+'</div>'}).join('')+'</div>'+editor(p)+
     '</article>'}).join(''):'<div class="hw-home-loading">云端暂时没有公开帖子。</div>');
-   area.addEventListener('click',async function onEdit(e){
+   area.onclick=async function onEdit(e){
     const button=e.target.closest('[data-home-action]');if(!button)return;
     const panel=button.closest('[data-editor]');if(!panel)return;
     e.preventDefault();e.stopPropagation();
@@ -4126,7 +4126,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
       await showHome();
     }catch(err){alert('操作未完成：'+(err?.message||err))}
     finally{button.disabled=false}
-   },{once:true});
+   };
    area.querySelector('#hwHomeRefresh')?.addEventListener('click',showHome);
    document.getElementById('captureArea')?.scrollTo({top:0});
   }catch(e){if(homeVisible&&token===requestId)area.innerHTML='<div class="hw-home-loading">读取首页失败：'+esc(e.message||e)+'<p>请确认网络连接和开发者登录状态。</p><button id="hwHomeRetry" type="button">重试</button></div>';area.querySelector('#hwHomeRetry')?.addEventListener('click',showHome);}
