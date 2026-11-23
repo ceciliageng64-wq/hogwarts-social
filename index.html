@@ -2257,6 +2257,7 @@ async function dmExport(mode='post'){
  const liveChats=hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId));
  const live=liveChats.find(c=>c.id===hwCloudView.selected)||liveChats[0]||null;
  const cloud=!!live;
+ if(window.hwCloudIsAdmin?.()&&!cloud)throw Error('当前人物暂无真实玩家私信，不能导出旧模拟会话作为真实聊天截图。');
  const thread=cloud?{relation:'request',messages:(live.messages||[]).map(m=>({
   from:m.sender_kind==='character'?'me':'them',
   text:m.recalled?'消息已撤回':(m.body||''),
@@ -3276,7 +3277,7 @@ function hwCloudDraw(){
  const app=$('feedContent')?.querySelector('.dm-app'),list=app?.querySelector('.dm-scroll');
  if(!list)return;
  const chats=hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId));
- if(!chats.length){hwCloudView.selected='';return;}
+ if(!chats.length){hwCloudView.selected='';if(window.hwCloudIsAdmin?.()){list.innerHTML='<div class="dm-empty">当前人物暂无真实玩家私信。这里不会混入本地模拟聊天。</div>';const right=app.querySelector('.dm-thread');if(right)right.innerHTML='<div class="dm-empty">请切换人物查看对应的真实玩家会话。</div>';}return;}
  // Live inbox is authoritative if present. Do not mix old local mock chats.
  if(!chats.some(c=>c.id===hwCloudView.selected))hwCloudView.selected=chats[0].id;
  list.innerHTML='';
@@ -3674,6 +3675,7 @@ async function refreshIntegratedDM(){
   window.hwCloudDMUpdate(rows.sort((a,b)=>new Date(grouped.get(b.id)?.at(-1)?.created_at||0)-new Date(grouped.get(a.id)?.at(-1)?.created_at||0)));
  }catch(e){status('私信同步失败：'+H.errMsg(e));console.warn(e)}finally{hwCloudLoading=false}
 }
+window.hwCloudIsAdmin=()=>admin;
 window.hwCloudDMSend=async(conversationId,body)=>{
  if(!admin)throw Error('请先登录开发者账号');
  const convo=(await u().from('hw_conversations').select('id,character_id').eq('id',conversationId).maybeSingle());
