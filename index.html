@@ -3483,6 +3483,45 @@ function hwDevFeedEdit(ref){
   }
   render();
 }
+function hwDevFeedTarget(ref){
+  if(!ref||ref.type==='main')return null;
+  const parts=String(ref.key).split(':');
+  return parts.length===3?{lang:state.lang,kind:ref.type==='repost'?'repost':'post',owner:parts[1],id:parts[2]}:null;
+}
+function hwDevFeedRandom(ref,action){
+  if(!ref)return;
+  // Reuse the existing per-post editor actions rather than modifying a shared main post.
+  const currentPage=hwDevFeedPage, currentFocus=hwDevFeedFocus;
+  hw38Open(hwDevFeedTarget(ref),action);
+  hwDevFeedPage=currentPage; hwDevFeedFocus=currentFocus;
+  render();persist();
+}
+function hwDevFeedTools(ref){
+  return '<button type="button" data-hw-dev-feed="metrics" data-key="'+esc(ref.key)+'">🎲 随机互动数字</button>'
+    +'<button type="button" data-hw-dev-feed="comment-one" data-key="'+esc(ref.key)+'">＋1 随机评论</button>'
+    +'<button type="button" data-hw-dev-feed="comment-five" data-key="'+esc(ref.key)+'">＋5 随机评论</button>';
+}
+// In the developer timeline the main entry must always be the original main post,
+// even if the editing workbench currently targets a different person's post.
+const hwDevOldRefs=u23Refs;
+u23Refs=function(){
+  const refs=hwDevOldRefs();
+  if(state.clientMode==='developer'&&hwDevFeedPage){
+    const main=refs.find(r=>r.type==='main');
+    if(main)main.post=hwActualDraft().post;
+  }
+  return refs;
+};
+// Comments created by the full editor must also be visible on the timeline.
+const hwDevOldComments=u23Comments;
+u23Comments=function(ref){
+  const comments=hwDevOldComments(ref);
+  if(!ref||ref.type==='main')return comments;
+  const post=ref.post;
+  const extra=Array.isArray(post?.hwThread?.replies)?post.hwThread.replies:[];
+  const ids=new Set(comments.map(r=>String(r.id)));
+  return extra.length?[...comments,...extra.filter(r=>!ids.has(String(r.id)))]:comments;
+};
 function hwDevFeedHTML(){
   const refs=u23Refs();
   if(hwDevFeedPage==='post'){
@@ -3497,7 +3536,7 @@ function hwDevFeedHTML(){
     +refs.map(ref=>'<div class="hw-dev-feed-entry">'+u23PostCard(ref)
       +'<div style="padding:8px 16px;display:flex;gap:12px;border-bottom:1px solid var(--border,#ddd)">'
       +'<button type="button" data-hw-dev-feed="open" data-key="'+esc(ref.key)+'">查看评论</button>'
-      +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button></div></div>').join('');
+      +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button>'+hwDevFeedTools(ref)+'</div></div>').join('');
 }
 render=function(){
   hwDevPrevRender();
@@ -3525,6 +3564,7 @@ $('feedContent').addEventListener('click',e=>{
   const key=target.dataset.key;
   if(action==='back'){hwDevFeedPage='home';hwDevFeedFocus='';render();return;}
   if(action==='edit'){hwDevFeedEdit(u23Find(key));return;}
+  if(action==='metrics'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
   if(action==='open'||action==='reply'||action==='thread'){
     hwDevFeedFocus=key;hwDevFeedPage='post';render();return;
   }
