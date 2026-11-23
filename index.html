@@ -558,7 +558,13 @@ body:not(.u23-user)>.toolbar.hw-toolbar-collapsed .toolbar-right{display:flex!im
         <label for="v276PostAuthorSelect">主帖发布账号 / Main post account</label>
         <select id="v276PostAuthorSelect" aria-label="主帖发布账号"></select>
         <p>切换后可直接用该人物发布独立主帖；不会覆盖阿德里安原帖。 / Publish as this character without replacing Adrian’s original post.</p>
-        <button type="button" class="smallbutton primary" id="v276StartCharacterPost">＋ 以此人物新建主帖 / New post as this character</button>
+        <button type="button" class="smallbutton primary" id="v276StartCharacterPost">＋ 以此人物新建本地草稿</button>
+        <div class="hw-v51-publish">
+          <p>使用下方主帖正文、时间与互动数字，以所选人物发布新的独立云端帖子。</p>
+          <label>新帖图片（可选）<input type="file" id="hwV51PostImage" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+          <button type="button" class="smallbutton primary" id="hwV51Publish">☁ 发送新的主帖到玩家首页</button>
+          <small id="hwV51Status" role="status"></small>
+        </div>
       </div>
       <h3 data-i18n="postAuthorTitle">快速选择发帖人物</h3>
       <div class="profile-pick"><select id="postPersonSelect" aria-label="选择人物"></select><button type="button" class="smallbutton primary" id="postUsePerson" data-i18n="applyPerson">使用</button><button type="button" class="smallbutton" id="postSavePerson" data-i18n="saveCurrentPerson">存入人物库</button></div>
@@ -4194,7 +4200,23 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
     }
     return q?'<div class="hw-home-quote"><strong>'+esc(q.author_name||'引用帖子')+' · @'+esc(q.author_handle||'')+'</strong><p>'+esc(q.text||'')+'</p>'+pic(q.image_url)+'</div>':'';
    };
-   const number=(p,k)=>esc(p.metrics?.[k]??'0');
+   // Render the complete reply tree, just like the player's thread view.
+   // Each saved character reply can be edited independently in developer mode.
+   const replyRows=new Map();
+   for(const row of posts){if(!row.parent_id)continue;const k=String(row.parent_id);if(!replyRows.has(k))replyRows.set(k,[]);replyRows.get(k).push(row)}
+   const allRepliesFor=(id,depth=0,seen=new Set())=>{
+     if(depth>12||seen.has(String(id)))return '';
+     const next=new Set(seen);next.add(String(id));
+     return (replyRows.get(String(id))||[]).map(r=>{
+       const a=author(r),edit=editable&&r.author_kind==='character';
+       return '<div class="hw-home-comment" style="margin-left:'+Math.min(depth*15,45)+'px">'+
+        '<div class="hw-home-comment-header"><b>'+esc(a.name)+'</b><span>@'+esc(a.handle)+' · '+esc(r.metrics?.time_label||'')+'</span></div>'+
+        '<p>'+esc(r.body||'')+'</p>'+pic(r.image_url)+
+        (edit?'<details class="hw-home-reply-editor" data-reply-id="'+attr(r.id)+'"><summary>✎ 编辑这条评论</summary><textarea data-edit-reply-body rows="2">'+esc(r.body||'')+'</textarea><button type="button" data-home-reply-save>保存评论</button></details>':'')+
+        allRepliesFor(r.id,depth+1,next)+'</div>';
+     }).join('');
+   };
+      const number=(p,k)=>esc(p.metrics?.[k]??'0');
    const replies=posts.reduce((a,p)=>{if(p.parent_id)a.set(p.parent_id,(a.get(p.parent_id)||0)+1);return a},new Map());
    area.innerHTML='<div class="hw-home-top"><strong>🏰 霍格沃茨实时首页</strong><small>云端全站编辑模式 · 直接修改互动数字、添加评论和随机评论</small><button type="button" id="hwHomeRefresh">刷新帖子</button></div>'+
     (visible.length?visible.map(p=>{const a=author(p);return '<article class="hw-home-post">'+
@@ -4202,9 +4224,26 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
     '<div><strong>'+esc(a.name)+'</strong><span>@'+esc(a.handle)+' · '+esc(p.metrics?.time_label||new Date(p.created_at).toLocaleString('zh-CN'))+'</span></div></div>'+
     '<div class="hw-home-body">'+esc(p.body||'')+'</div>'+pic(p.image_url)+snapshot(p)+
     '<div class="hw-home-metrics"><span>💬 '+esc(replies.get(p.id)||p.metrics?.replies||0)+'</span><span>↻ '+number(p,'reposts')+'</span><span>♡ '+number(p,'likes')+'</span><span>▥ '+number(p,'views')+'</span></div>'+
-    '<div class="hw-home-replies">'+posts.filter(x=>x.parent_id===p.id).slice(0,8).map(r=>{const a=author(r);return '<div><b>'+esc(a.name)+'</b>：'+esc(r.body||'[图片]')+'</div>'}).join('')+'</div>'+editor(p)+
+    '<details class="hw-home-thread"><summary>💬 查看全部评论与回复 ('+esc(replies.get(p.id)||0)+')</summary><div class="hw-home-thread-body">'+(allRepliesFor(p.id)||'<p class="hw-home-hint">暂无评论</p>')+'</div></details>'+editor(p)+
     '</article>'}).join(''):'<div class="hw-home-loading">云端暂时没有公开帖子。</div>');
    area.onclick=async function onEdit(e){
+    const replySave=e.target.closest('[data-home-reply-save]');
+    if(replySave){
+      e.preventDefault();e.stopPropagation();
+      const panel=replySave.closest('[data-reply-id]'),reply=byId.get(panel?.dataset.replyId);
+      if(!reply||reply.author_kind!=='character')return;
+      const body=panel.querySelector('[data-edit-reply-body]').value.trim();
+      if(!body){alert('评论内容不能为空');return}
+      replySave.disabled=true;
+      try{
+        if(!cloud.user||!await cloud.isAdmin())throw Error('请先登录开发者管理员账号');
+        const {error}=await client.from('hw_posts').update({body}).eq('id',reply.id).eq('author_kind','character');
+        if(error)throw error;
+        await showHome();
+      }catch(err){alert('保存评论失败：'+(err?.message||err))}
+      finally{replySave.disabled=false}
+      return;
+    }
     const button=e.target.closest('[data-home-action]');if(!button)return;
     const panel=button.closest('[data-editor]');if(!panel)return;
     e.preventDefault();e.stopPropagation();
@@ -4558,8 +4597,8 @@ body:not(.u23-user) #hwV35Choose,body:not(.u23-user) #v276AuthorBox{display:none
 body:not(.u23-user) #v26BrandControl,
 body:not(.u23-user) #v26Notice,
 body:not(.u23-user) #hw-v41-nav-plus,
-body:not(.u23-user) #hwV35Choose,
-body:not(.u23-user) #v276AuthorBox{display:none!important}
+body:not(.u23-user) #hwV35Choose{display:none!important}
+body:not(.u23-user) #v276AuthorBox{display:block!important}
 </style>
 
 <style id="hw-v48-nav-three">
@@ -4599,5 +4638,55 @@ body:not(.u23-user) #xNavLinks>.x-nav-link:is(:nth-child(1),:nth-child(4),:nth-c
 body:not(.u23-user) #xNavLinks>[data-hw-home]{cursor:pointer}
 body:not(.u23-user) #xNavLinks>[data-hw-home]:focus-visible{outline:2px solid #1d9bf0;outline-offset:3px;border-radius:12px}
 </style>
+<style id="hw-v51-feed-editor">
+body:not(.u23-user) #v276AuthorBox{display:block!important}
+body:not(.u23-user) #v276AuthorBox .hw-v51-publish{margin-top:14px;padding-top:10px;border-top:1px solid var(--stroke);display:grid;gap:8px}
+#hwV51PostImage{display:block;width:100%;max-width:100%;font-size:13px}
+#hwV51Status{color:var(--muted);font-size:12px}
+.hw-home-thread{margin:12px 0;border:1px solid var(--stroke);border-radius:12px}
+.hw-home-thread>summary{list-style:none;cursor:pointer;padding:12px 14px;font-weight:700;color:var(--accent)}
+.hw-home-thread>summary::-webkit-details-marker{display:none}
+.hw-home-thread-body{padding:4px 10px 14px;display:grid;gap:9px}
+.hw-home-comment{padding:10px;border-top:1px solid var(--stroke);min-width:0}
+.hw-home-comment-header{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.hw-home-comment-header span{font-size:12px;color:var(--muted)}
+.hw-home-comment p{white-space:pre-wrap;margin:7px 0;overflow-wrap:anywhere}
+.hw-home-reply-editor{margin:9px 0;border-radius:9px;background:var(--highlight);padding:8px}
+.hw-home-reply-editor summary{cursor:pointer;color:var(--accent);font-size:12px}
+.hw-home-reply-editor textarea{display:block;width:100%;border:1px solid var(--stroke);background:var(--surface);color:var(--ink);margin:8px 0;padding:9px;border-radius:8px}
+.hw-home-reply-editor button{border-radius:9px;padding:8px 14px;background:var(--accent);color:white}
+</style>
+<script id="hw-v51-cloud-publish">
+(function(){
+  const $=id=>document.getElementById(id),b=$('hwV51Publish'),status=$('hwV51Status');
+  if(!b)return;
+  b.onclick=async()=>{
+    const cloud=window.HWCloud;
+    const body=String($('postText')?.value||'').trim();
+    const character_id=$('v276PostAuthorSelect')?.value;
+    if(!character_id||!body){status.textContent='请选择发帖人物并填写主帖正文';return}
+    b.disabled=true;status.textContent='正在发布到云端…';
+    try{
+      await cloud?.ready;
+      if(!cloud?.user||!await cloud.isAdmin())throw Error('请先在顶部云端管理中登录管理员');
+      const inputs={likes:'postLikes',replies:'postReplies',reposts:'postReposts',views:'postViews',bookmarks:'postBookmarks'};
+      const metrics={time_label:String($('postTime')?.value||'刚刚').trim()||'刚刚'};
+      for(const [key,id] of Object.entries(inputs))metrics[key]=String($(id)?.value||'0').trim()||'0';
+      const file=$('hwV51PostImage')?.files?.[0];
+      const image_url=file?await cloud.uploadPublic(file,'admin'):null;
+      const row={id:'home:'+crypto.randomUUID(),author_kind:'character',character_id,
+        user_id:null,parent_id:null,quote_id:null,body:body.slice(0,12000),
+        image_url,language:document.documentElement.lang.startsWith('en')?'en':'zh',
+        metrics,created_at:new Date().toISOString()};
+      const {error}=await cloud.client.from('hw_posts').insert(row);
+      if(error)throw error;
+      status.textContent='✅ 已发布到玩家云端首页';
+      if($('hwV51PostImage'))$('hwV51PostImage').value='';
+      if(typeof window.hwShowDeveloperHome==='function')await window.hwShowDeveloperHome();
+    }catch(err){status.textContent='发布失败：'+(err?.message||String(err))}
+    finally{b.disabled=false}
+  };
+})();
+</script>
 </body>
 </html>
