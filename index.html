@@ -3472,7 +3472,7 @@ persist=function(){hwPrevPersist();};
 (async function init(){try{database=await connectDB()}catch{}let prev=database?await loadDB():null;if(!prev){try{prev=JSON.parse(localStorage.getItem('x-post-template-editor-v2')||'null')}catch{}}if(prev?.drafts?.zh?.post&&prev?.drafts?.en?.post){state={lang:prev.lang==='en'?'en':'zh',theme:prev.theme==='dark'?'dark':'light',hideBrand:!!prev.hideBrand,avatarPreset:safeAvatarPreset(prev.avatarPreset),people:Array.isArray(prev.people)?prev.people.map(safePerson).filter(Boolean):[],avatarLibrary:safeAssetList(prev.avatarLibrary,80),avatarClaims:prev.avatarClaims&&typeof prev.avatarClaims==='object'&&!Array.isArray(prev.avatarClaims)?{...prev.avatarClaims}:{},mediaLibrary:safeAssetList(prev.mediaLibrary,80),commentLibrary:safeTextList(prev.commentLibrary),mediaChance:[0,.15,.30,.50,.75].includes(Number(prev.mediaChance))?Number(prev.mediaChance):.30,repeatChance:Number.isFinite(Number(prev.repeatChance))?Math.max(0,Math.min(.30,Number(prev.repeatChance))):.20,viewerId:String(prev.viewerId||'sample_my_account'),samplePeopleLoaded:!!prev.samplePeopleLoaded,officialVerifiedV12:!!prev.officialVerifiedV12,drafts:prev.drafts,viewMode:prev.viewMode,profileSelected:prev.profileSelected,profilePages:prev.profilePages||{},profilePosts:prev.profilePosts||{zh:{},en:{}},profileLikes:prev.profileLikes||{zh:{},en:{}},profileReposts:prev.profileReposts||{zh:{},en:{}},userComments:prev.userComments||{zh:{},en:{}},userBookmarks:prev.userBookmarks||{zh:[],en:[]},userReplyLikes:prev.userReplyLikes||{zh:[],en:[]},userAccountId:prev.userAccountId||'sample_my_account',userLocalAvatar:prev.userLocalAvatar??null,userLocalAvatarBase:prev.userLocalAvatarBase||'',userFollowing:Array.isArray(prev.userFollowing)?prev.userFollowing:[],u26Notice:!!prev.u26Notice,u23DmOwnerMigrated:!!prev.u23DmOwnerMigrated,clientMode:prev.clientMode||'developer',userNav:prev.userNav||'home',userViewedId:prev.userViewedId||'',userFocus:prev.userFocus||'',userProfileTab:prev.userProfileTab||'posts',profileTab:prev.profileTab,dmThreads:Array.isArray(prev.dmThreads)?prev.dmThreads:[],dmSelected:prev.dmSelected||"",dmFilter:prev.dmFilter||"all",dmSeeded:!!prev.dmSeeded}}for(const lg of ['zh','en'])inferReplyParents(state.drafts[lg].replies,state.drafts[lg].post.handle);if(!state.samplePeopleLoaded)mergeSamplePeople();upgradeLegacySampleNames();upgradeOfficialNames();ensureOfficialVerified();if(!personByHandle('my_account')){const p=samplePeople()[0];state.people.unshift(p)}reconcileAvatarClaims();if(document.documentElement.dataset.u23ViewerOnly==='true'){state.clientMode='user';state.viewMode='thread';state.userNav=state.userNav||'home';}if(innerWidth<=870)$('workspace').classList.add('editor-closed');v26InitState();v26SyncMirrors();syncFields();renderAssetLibraries();render();persist()})();
 
 /* V39.9 safe patch: developer home follows the player timeline, without changing DM routing. */
-let hwDevFeedPage='', hwDevFeedFocus='';
+let hwDevFeedPage='', hwDevFeedFocus='', hwDevFeedExpanded='', hwDevLastDeletedPost=null;
 const hwDevPrevRender=render;
 function hwDevFeedEdit(ref){
   hwDevFeedPage='';
@@ -3490,35 +3490,118 @@ function hwDevFeedTarget(ref){
 }
 function hwDevFeedRandom(ref,action){
   if(!ref)return;
-  // Reuse the existing per-post editor actions rather than modifying a shared main post.
-  const currentPage=hwDevFeedPage, currentFocus=hwDevFeedFocus;
+  const previousPage=hwDevFeedPage,previousFocus=hwDevFeedFocus;
+  const reveal=action==='comment-one'||action==='comment-five';
+  // Existing editor generation operates on the selected post's own thread.
   hw38Open(hwDevFeedTarget(ref),action);
-  hwDevFeedPage=currentPage; hwDevFeedFocus=currentFocus;
+  hwDevFeedPage=previousPage;
+  hwDevFeedFocus=previousFocus;
+  if(reveal)hwDevFeedExpanded=ref.key;
   render();persist();
+  if(reveal){
+    const panel=Array.from($('feedContent').querySelectorAll('[data-hw-dev-comments-for]'))
+      .find(el=>el.dataset.hwDevCommentsFor===ref.key);
+    if(panel)panel.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
 }
 function hwDevFeedTools(ref){
   return '<button type="button" data-hw-dev-feed="metrics" data-key="'+esc(ref.key)+'">🎲 随机互动数字</button>'
     +'<button type="button" data-hw-dev-feed="comment-one" data-key="'+esc(ref.key)+'">＋1 随机评论</button>'
     +'<button type="button" data-hw-dev-feed="comment-five" data-key="'+esc(ref.key)+'">＋5 随机评论</button>';
 }
+function hwDevFeedDeleteButton(ref){
+  return '<button type="button" data-hw-dev-feed="delete" data-key="'+esc(ref.key)+'" title="直接删除这条帖子" aria-label="删除这条帖子" style="margin-left:auto;color:#bd2735">'+icon('trash','',17)+'</button>';
+}
+function hwDevFeedUndoNotice(){
+  return hwDevLastDeletedPost
+    ?'<div role="status" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border,#ddd)">帖子已删除 <button type="button" data-hw-dev-feed="undo-delete">↶ 撤销删除</button></div>'
+    :'';
+}
+function hwDevFeedDelete(ref){
+  if(!ref)return;
+  if(ref.type==='main'){
+    const post=hwActualDraft().post;
+    if(post.hwFeedDeleted)return;
+    hwDevLastDeletedPost={kind:'main',lang:state.lang,post};
+    // Main post is the old editor's required template. Hide it from public feeds.
+    post.hwFeedDeleted=true;
+  }else{
+    const key=hwDevFeedTarget(ref);
+    if(!key)return;
+    const bank=key.kind==='repost'?state.profileReposts:state.profilePosts;
+    const posts=bank?.[key.lang]?.[key.owner];
+    const index=posts?.findIndex(p=>String(p.id)===String(key.id))??-1;
+    if(index<0){toast('找不到这条帖子，请刷新后再试');return;}
+    const post=posts.splice(index,1)[0];
+    const comments=state.userComments?.[key.lang]?.[ref.key];
+    if(state.userComments?.[key.lang])delete state.userComments[key.lang][ref.key];
+    hwDevLastDeletedPost={kind:key.kind,lang:key.lang,owner:key.owner,id:key.id,index,post,comments,refKey:ref.key};
+    const selected=state.hwSelectedPost;
+    if(selected&&selected.lang===key.lang&&selected.kind===key.kind
+       &&selected.owner===key.owner&&String(selected.id)===String(key.id))state.hwSelectedPost=null;
+  }
+  if(hwDevFeedPage==='post'&&hwDevFeedFocus===ref.key){
+    hwDevFeedPage='home';hwDevFeedFocus='';
+  }
+  if(hwDevFeedExpanded===ref.key)hwDevFeedExpanded='';
+  render();persist();toast('帖子已删除，可在首页撤销');
+}
+function hwDevFeedUndoDelete(){
+  const record=hwDevLastDeletedPost;
+  if(!record)return;
+  if(record.kind==='main')record.post.hwFeedDeleted=false;
+  else{
+    const bank=record.kind==='repost'?state.profileReposts:state.profilePosts;
+    bank[record.lang]??={};
+    const posts=bank[record.lang][record.owner]??=[];
+    if(!posts.some(p=>String(p.id)===String(record.id)))
+      posts.splice(Math.min(record.index,posts.length),0,record.post);
+    if(record.comments!==undefined){
+      state.userComments??={};
+      state.userComments[record.lang]??={};
+      state.userComments[record.lang][record.refKey]=record.comments;
+    }
+  }
+  hwDevLastDeletedPost=null;
+  render();persist();toast('已撤销删除');
+}
+function hwDevFeedCommentPanel(ref,full=false){
+  const comments=u23Comments(ref);
+  const displayed=full?comments:comments.slice(-12);
+  const count=comments.length;
+  return '<section data-hw-dev-comments-for="'+esc(ref.key)+'" style="padding:12px 16px;border-bottom:1px solid var(--border,#ddd)">'
+    +'<div style="font-weight:600;padding-bottom:8px">'+(full?'全部评论':'最近评论')+'（'+count+'）</div>'
+    +(displayed.map(r=>'<div class="u23-comment-indent">'+u23CommentCard(r,ref)+'</div>').join('')||'<div class="u23-empty">暂无评论</div>')
+    +(!full&&count>displayed.length?'<button type="button" data-hw-dev-feed="open" data-key="'+esc(ref.key)+'">查看全部评论</button>':'')
+    +'</section>';
+}
 // In the developer timeline the main entry must always be the original main post,
 // even if the editing workbench currently targets a different person's post.
 const hwDevOldRefs=u23Refs;
 u23Refs=function(){
   const refs=hwDevOldRefs();
-  if(state.clientMode==='developer'&&hwDevFeedPage){
-    const main=refs.find(r=>r.type==='main');
-    if(main)main.post=hwActualDraft().post;
+  const index=refs.findIndex(ref=>ref.type==='main');
+  const actualMain=hwActualDraft().post;
+  if(index>=0){
+    if(actualMain.hwFeedDeleted)refs.splice(index,1);
+    else{
+      refs[index].post=actualMain;
+      refs[index].ownerId=(u23PersonByHandle(actualMain.handle)||{}).id||'';
+    }
   }
   return refs;
 };
-// Comments created by the full editor must also be visible on the timeline.
+const hwDevOldSourceMain=pvSourceMain;
+pvSourceMain=function(){
+  return !hwActualDraft().post.hwFeedDeleted&&hwDevOldSourceMain();
+};
+// Show comments generated in the editor even if another post is selected.
 const hwDevOldComments=u23Comments;
 u23Comments=function(ref){
+  if(!ref)return [];
+  if(ref.type==='main')return hwActualDraft().replies;
   const comments=hwDevOldComments(ref);
-  if(!ref||ref.type==='main')return comments;
-  const post=ref.post;
-  const extra=Array.isArray(post?.hwThread?.replies)?post.hwThread.replies:[];
+  const extra=Array.isArray(ref.post?.hwThread?.replies)?ref.post.hwThread.replies:[];
   const ids=new Set(comments.map(r=>String(r.id)));
   return extra.length?[...comments,...extra.filter(r=>!ids.has(String(r.id)))]:comments;
 };
@@ -3527,16 +3610,22 @@ function hwDevFeedHTML(){
   if(hwDevFeedPage==='post'){
     const ref=u23Find(hwDevFeedFocus);
     if(!ref){hwDevFeedPage='home';return hwDevFeedHTML();}
-    const comments=u23Comments(ref);
-    return '<div class="u23-page-head"><button type="button" data-hw-dev-feed="back">← 返回首页</button><strong>帖子与评论</strong><button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button></div>'
-      +u23PostCard(ref)
-      +(comments.map(r=>'<div class="u23-comment-indent">'+u23CommentCard(r,ref)+'</div>').join('')||'<div class="u23-empty">暂无评论</div>');
+    return '<div class="u23-page-head"><button type="button" data-hw-dev-feed="back">← 返回首页</button><strong>帖子与评论</strong></div>'
+      +hwDevFeedUndoNotice()+u23PostCard(ref)
+      +'<div style="padding:8px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-bottom:1px solid var(--border,#ddd)">'
+      +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button>'
+      +hwDevFeedTools(ref)+hwDevFeedDeleteButton(ref)+'</div>'
+      +hwDevFeedCommentPanel(ref,true);
   }
   return '<div class="u23-page-head"><strong>首页 · 所有人发布的帖子</strong><small>开发者浏览模式</small></div>'
-    +refs.map(ref=>'<div class="hw-dev-feed-entry">'+u23PostCard(ref)
-      +'<div style="padding:8px 16px;display:flex;gap:12px;border-bottom:1px solid var(--border,#ddd)">'
+    +hwDevFeedUndoNotice()
+    +(refs.map(ref=>'<div class="hw-dev-feed-entry">'+u23PostCard(ref)
+      +'<div style="padding:8px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-bottom:1px solid var(--border,#ddd)">'
       +'<button type="button" data-hw-dev-feed="open" data-key="'+esc(ref.key)+'">查看评论</button>'
-      +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button>'+hwDevFeedTools(ref)+'</div></div>').join('');
+      +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button>'
+      +hwDevFeedTools(ref)+hwDevFeedDeleteButton(ref)+'</div>'
+      +(hwDevFeedExpanded===ref.key?hwDevFeedCommentPanel(ref,false):'')
+      +'</div>').join('')||'<div class="u23-empty">暂无帖子</div>');
 }
 render=function(){
   hwDevPrevRender();
@@ -3563,6 +3652,8 @@ $('feedContent').addEventListener('click',e=>{
   const action=target.dataset.hwDevFeed||target.dataset.u23;
   const key=target.dataset.key;
   if(action==='back'){hwDevFeedPage='home';hwDevFeedFocus='';render();return;}
+  if(action==='undo-delete'){hwDevFeedUndoDelete();return;}
+  if(action==='delete'){hwDevFeedDelete(u23Find(key));return;}
   if(action==='edit'){hwDevFeedEdit(u23Find(key));return;}
   if(action==='metrics'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
   if(action==='open'||action==='reply'||action==='thread'){
