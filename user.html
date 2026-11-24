@@ -712,7 +712,7 @@ async function saveImageCover(file){return saveProfileImage(file,'cover_url','å°
 // color-mix() or oklch(). Normalize only the detached screenshot staging tree.
 // The real player's DOM, theme and persisted data are never modified.
 function hwNormalizeScreenshotColors(root,dark){
- const unsupported=/(?:^|[\\s,(])(?:color|color-mix|oklch|oklab|lab|lch|hwb)\\s*\\(/i;
+ const unsupported=/(?:^|[\s,(])(?:color|color-mix|oklch|oklab|lab|lch|hwb)\s*\(/i;
  const fallback={color:dark?'#e7e9ea':'#0f1419',backgroundColor:'transparent',borderTopColor:dark?'#2f3336':'#eff3f4',borderRightColor:dark?'#2f3336':'#eff3f4',borderBottomColor:dark?'#2f3336':'#eff3f4',borderLeftColor:dark?'#2f3336':'#eff3f4',outlineColor:dark?'#71767b':'#536471',textDecorationColor:dark?'#e7e9ea':'#0f1419',columnRuleColor:dark?'#2f3336':'#eff3f4',boxShadow:'none',textShadow:'none',backgroundImage:'none',fill:dark?'#e7e9ea':'#0f1419',stroke:dark?'#e7e9ea':'#0f1419'};
  for(const el of [root,...root.querySelectorAll('*')]){
   const computed=getComputedStyle(el);
