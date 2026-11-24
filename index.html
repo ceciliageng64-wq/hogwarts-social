@@ -1042,6 +1042,14 @@ EXTRA_COMMENT_ARCHIVE["zh"]["houses"].push(...["鹰院能不能先不要做数�
 EXTRA_COMMENT_ARCHIVE["zh"]["confession"].push(...["匿名也请尊重一下被提到的人","如果是我我会想先私下问问","这是什么礼堂大型猜谜活动","表白墙管理员今天辛苦了","我怀疑我知道是谁但我不说","这次可以有个完整后续吗"]);
 EXTRA_COMMENT_ARCHIVE["zh"]["daily"].push(...["有人知道今天晚餐有没有布丁吗","我的羽毛笔又不见了","图书馆的靠窗位置永远抢不到","周末只想去霍格莫德喝杯热饮","有人想组队复习魔法史吗","我和移动楼梯今天又吵了一架"]);
 
+
+// V40 cloud/comment editor corpus extension; additive only.
+EXTRA_COMMENT_ARCHIVE["zh"]["all"].push(...["这条底下怎么像开了一场辩论赛","我支持有理有据的发言","请问哪里可以补前情","我在寝室笑得床都在抖","等一下这逻辑我得再看一遍","把这条转给室友了，室友比我还激动","热评第一还会有反转吗","我承认我刚才误会了","这个角度是我没想过的","今天评论区的情绪好丰富","这句话我可以理解但不完全同意","发出来之前真的没人劝你吗","在线等一个解释","感觉我漏看了一段剧情","看了三遍才懂这层在说什么","你们真是一天都闲不下来","这条真的需要上下文","建议先喝点南瓜汁冷静一下","我只是路过，结果把整栋楼看完了","一觉醒来又多了这么多回复","这个转折比移动楼梯还突然","先别扣帽子，说说事情本身","别吵，我在认真记笔记","好家伙楼中楼还有楼中楼","这事得慢慢说，不能只看截图"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["romance"].push(...["你们要不要试着好好沟通一下","别替人家宣布恋情呀","他回这条的速度是不是太快了","为什么我比当事人还紧张","这么明显的试探真的看不出来吗","这层是不是偷偷在传情","祝福归祝福，也得尊重隐私","恋爱话题怎么又和魁地奇扯上了","有人在嘴硬，有人在认真","我已经开始替他们脸红了"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["quidditch"].push(...["我想看完整比赛回放","这个判罚我觉得还有讨论空间","击球手的表现被大家忽略了","赛前别太早立旗啊","赢了也别嘲讽对面吧","这场比赛让我的心脏承受太多","队长看到这条估计要加练","原来你们训练结束还有力气吵","真的没人夸一下找球手吗","下一场我一定提前占座"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["houses"].push(...["别拿一个人的行为代表整个学院","拉文克劳也不是每句话都要引用资料","蛇院的冷静人设又去哪了","格兰芬多能不能先看完原帖","赫奇帕奇带着零食来围观了","这事和学院有什么必然关系吗","分院帽看了都要摇头","第一次看到四院在同一条下面","今天竟然有跨院共识了","学院梗可以玩但别当真"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["confession"].push(...["这条到底是不是匿名投稿","希望被提到的人不要觉得困扰","这比表白墙投稿还曲折","是谁先把消息传出来的","这次能不能好好保护当事人","我的建议是私下说比公开猜好","先别替别人猜名字","楼主至少要给个后续吧","这段话有点像情书开头","怎么大家都成侦探了"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["daily"].push(...["今天图书馆到底开到几点","移动楼梯是不是又换方向了","寝室里有人在熬夜赶论文吗","又是谁拿走了公共休息室的毯子","我就想安静吃顿早饭","谁来救救我的魔药课笔记","霍格莫德有没有推荐的甜点","有人跟我换一下明天的值日吗","今天的猫头鹰又迟到了","谁把课表写在了我门上"]);
 function appendRandomComments(count=1){
  const seen=new Set(),theme=classifySocialTheme();
  for(let i=0;i<count;i++){
@@ -4055,26 +4063,7 @@ let hwDevPlayerProfileId='',hwDevCloudReturn='home',hwDevCloudProfileTab='posts'
 const hwDevCloudData=()=>window.hwDevCloudFeed?.list()||[];
 
 const hwDevCloudReplyDrafts=new Map();
-const hwDevCloudReplySamples=['我真的笑出声了😭','等一下，这是什么展开💀','不是吧，你们连这个都知道？','有意思，继续说。👀','霍格沃茨今天也很热闹。','这条我先记下了。','不是，你认真的吗？','我觉得事情没那么简单。','我刚从魔药课出来就看见这个？？','这层比原帖还精彩','先别急，我还在等另一位当事人','谁来给我补一下前情提要','猫头鹰都没你们传消息快','有证据吗，还是又是礼堂传闻','你们说话能不能不要只说一半','先蹲一个后续，我不走了','梅林啊，这是什么展开','不是所有沉默都代表默认吧','这个评论我先收藏一下','我室友看完直接不说话了','讲真，这件事还有另一种解释','等等，楼上说的是真的吗','我觉得先听听本人怎么说','你这句话我得好好消化一下','这条回复有点东西','啊？这也能扯到学院杯','别拉踩学院了先说正事','热评里居然有熟人','谁懂，在公共休息室刷到这条','一整个震惊住了','你们都没睡吗','我先声明只是路过吃瓜','课可以明天上，后续不能明天看','这样公开说真的没关系吗','笑死，我想看楼主怎么回','魁地奇训练都没这层激烈','这一层建议单独开帖','我甚至能想象教授看到的表情','先别嗑，问问当事人愿不愿意','有点心疼当事人，希望别传谣'];
-// Follow the actual cloud parent chain, including rows outside the limited local cache.
-async function hwDevCloudRootId(row){
- const visited=new Set();
- let current=row;
- for(let depth=0;current&&depth<100;depth++){
-  if(visited.has(current.id))throw Error('评论回复关系存在循环');
-  visited.add(current.id);
-  if(!current.parent_id)return current.id;
-  const nextId=current.parent_id;
-  current=v32.posts.find(p=>p.id===nextId);
-  if(!current){
-   const {data,error}=await u().from('hw_posts').select('id,parent_id').eq('id',nextId).maybeSingle();
-   if(error)throw error;
-   if(!data)throw Error('回复对象的上级评论不存在');
-   current=data;
-  }
- }
- throw Error('评论回复关系异常');
-}
+const hwDevCloudReplySamples=['我真的笑出声了😭','等一下，这是什么展开💀','不是吧，你们连这个都知道？','有意思，继续说。👀','霍格沃茨今天也很热闹。','这条我先记下了。','不是，你认真的吗？','我觉得事情没那么简单。','我刚从魔药课出来就看见这个？？','这层比原帖还精彩','先别急，我还在等另一位当事人','谁来给我补一下前情提要','猫头鹰都没你们传消息快','有证据吗，还是又是礼堂传闻','你们说话能不能不要只说一半','先蹲一个后续，我不走了','梅林啊，这是什么展开','不是所有沉默都代表默认吧','这个评论我先收藏一下','我室友看完直接不说话了','讲真，这件事还有另一种解释','等等，楼上说的是真的吗','我觉得先听听本人怎么说','你这句话我得好好消化一下','这条回复有点东西','啊？这也能扯到学院杯','别拉踩学院了先说正事','热评里居然有熟人','谁懂，在公共休息室刷到这条','一整个震惊住了','你们都没睡吗','我先声明只是路过吃瓜','课可以明天上，后续不能明天看','这样公开说真的没关系吗','笑死，我想看楼主怎么回','魁地奇训练都没这层激烈','这一层建议单独开帖','我甚至能想象教授看到的表情','先别嗑，问问当事人愿不愿意','有点心疼当事人，希望别传谣',"你们怎么在这里吵成这样","先让我确认一下，我是不是错过了第一集","这句话至少有三种解读","好想知道楼主现在是什么表情","我同寝室的人已经开始复盘了","我不赞成这种说法，但我想听原因","这里有人在认真讨论吗","请不要把没证实的传言当事实","大家现在都这么会写评论了吗","这剧情怎么越聊越离谱","我已经分不清谁在开玩笑了","要不先问问当事人","没想到这条能引发学院讨论","草，差点在图书馆笑出声","等一下，这句信息量很大","没想到还能从这个角度解释","比起吵架我更关心后续","有点好笑但也有点道理","啊啊啊我现在才看到","我朋友看到这条沉默了三秒","这层的逻辑我居然听懂了","所以最后到底是谁赢了","这个细节我反复看了三遍","能不能把上一条补充完整","我正在礼堂吃饭，差点呛到","会不会其实就是一个误会","我觉得有必要澄清一下","楼主出来说两句啊","听起来像是魔法史考试题","不是，每次到关键地方就没了"];
 function hwDevCloudReplyComposer(post){
  const people=window.hwDevCloudFeed?.characters()||[],saved=hwDevCloudReplyDrafts.get(post.id)||{},rows=window.hwDevCloudFeed?.replies(post.id)||[];
  const chosen=saved.characterId||people[0]?.id||'',target=rows.find(x=>x.id===saved.parentId);
@@ -4558,6 +4547,26 @@ window.hwDevCloudFeed={
  playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>{let root=p,seen=new Set();while(root?.parent_id&&!seen.has(root.id)){seen.add(root.id);root=v32.posts.find(x=>x.id===root.parent_id)}return {...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),rootPostId:root?.id||p.parent_id,replyCount:0}}).sort((a,b)=>b.sortTime-a.sortTime),
  player:id=>v32.users.get(id),
  characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
+// Follow the actual cloud parent chain, including rows outside the limited local cache.
+async function hwDevCloudRootId(row){
+ const visited=new Set();
+ let current=row;
+ for(let depth=0;current&&depth<100;depth++){
+  if(visited.has(current.id))throw Error('评论回复关系存在循环');
+  visited.add(current.id);
+  if(!current.parent_id)return current.id;
+  const nextId=current.parent_id;
+  current=v32.posts.find(p=>p.id===nextId);
+  if(!current){
+   const {data,error}=await u().from('hw_posts').select('id,parent_id').eq('id',nextId).maybeSingle();
+   if(error)throw error;
+   if(!data)throw Error('回复对象的上级评论不存在');
+   current=data;
+  }
+ }
+ throw Error('评论回复关系异常');
+}
+
  sendReply:async(id,characterId,body,parentId='')=>{
   if(!admin)throw Error('请先登录开发者账号');
   const post=v32.posts.find(p=>p.id===id&&!p.parent_id),person=v32.people.get(characterId);
