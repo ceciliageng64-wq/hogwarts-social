@@ -708,6 +708,20 @@ async function saveProfileImage(file,field,label){
 async function saveImageAvatar(file){return saveProfileImage(file,'avatar_url','头像')}
 async function saveImageCover(file){return saveProfileImage(file,'cover_url','封面')}
 
+// html2canvas 1.4.1 cannot parse CSS Color 4 functions such as color(),
+// color-mix() or oklch(). Normalize only the detached screenshot staging tree.
+// The real player's DOM, theme and persisted data are never modified.
+function hwNormalizeScreenshotColors(root,dark){
+ const unsupported=/(?:^|[\\s,(])(?:color|color-mix|oklch|oklab|lab|lch|hwb)\\s*\\(/i;
+ const fallback={color:dark?'#e7e9ea':'#0f1419',backgroundColor:'transparent',borderTopColor:dark?'#2f3336':'#eff3f4',borderRightColor:dark?'#2f3336':'#eff3f4',borderBottomColor:dark?'#2f3336':'#eff3f4',borderLeftColor:dark?'#2f3336':'#eff3f4',outlineColor:dark?'#71767b':'#536471',textDecorationColor:dark?'#e7e9ea':'#0f1419',columnRuleColor:dark?'#2f3336':'#eff3f4',boxShadow:'none',textShadow:'none',backgroundImage:'none',fill:dark?'#e7e9ea':'#0f1419',stroke:dark?'#e7e9ea':'#0f1419'};
+ for(const el of [root,...root.querySelectorAll('*')]){
+  const computed=getComputedStyle(el);
+  for(const [property,safe] of Object.entries(fallback)){
+   const value=computed[property];
+   if(value&&unsupported.test(value))el.style.setProperty(property.replace(/[A-Z]/g,c=>'-'+c.toLowerCase()),safe,'important');
+  }
+ }
+}
 async function takeScreenshot(mode){
  let holder=null;
  if(typeof window.html2canvas!=='function'){toast('截图组件没有加载，请检查网络后重试。');return}
@@ -746,7 +760,7 @@ async function takeScreenshot(mode){
   for(const el of screen.querySelectorAll('.conversation-view'))el.style.setProperty('min-height','0','important');
   for(const el of screen.querySelectorAll('[data-noscreenshot],.hw-shot-wrap,.toast,.modal-backdrop'))el.remove();
   if(isolated){const compose=screen.querySelector('.message-compose');if(compose)compose.remove();const hint=screen.querySelector('#dm-attachment-text');if(hint)hint.remove();}
-  // Wait for the cloned layout and local images to settle.
+  // Keep unsupported CSS colors out of the html2canvas renderer.\n  hwNormalizeScreenshotColors(screen,dark);\n  // Wait for the cloned layout and local images to settle.
   await Promise.race([Promise.all([...screen.querySelectorAll('img')].map(img=>img.decode?.().catch(()=>{})||Promise.resolve())),new Promise(r=>setTimeout(r,3500))]);
   // Reset scrolling in the staging copy so the start of each conversation is included.
   for(const el of screen.querySelectorAll('*'))if(el.scrollTop)el.scrollTop=0;
