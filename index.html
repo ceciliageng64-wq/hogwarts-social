@@ -3525,6 +3525,85 @@ function hwDevFeedTarget(ref){
   const parts=String(ref.key).split(':');
   return parts.length===3?{lang:state.lang,kind:ref.type==='repost'?'repost':'post',owner:parts[1],id:parts[2]}:null;
 }
+
+/* V41: developer's local timestamp tools honor the historical post/reply chain. */
+function hwDevWorldMillis(){const d=new Date();d.setFullYear(d.getFullYear()-33);return d.getTime();}
+function hwDevCloudKey(ref,row){
+ const lg=state.lang;
+ let root=ref.type==='main'?'v26:'+lg+':main':'v26:'+lg+':'+(ref.type==='repost'?'repost':'profile')+':'+ref.ownerId+':'+ref.post.id;
+ if(!row)return [root];
+ if(ref.type==='main')return ['v26:'+lg+':reply:'+row.id];
+ const part=root+':reply:'+row.id;
+ const other='v26:'+lg+':profile-comment:'+ref.ownerId+':'+ref.post.id+':'+row.id;
+ return [part,other];
+}
+function hwDevLocalCloudTime(ref,row){
+ if(!ref)return NaN;
+ for(const key of hwDevCloudKey(ref,row)){
+  const iso=window.hwCloudStoryForLegacy?.(key);
+  if(iso&&Number.isFinite(Date.parse(iso)))return Date.parse(iso);
+ }
+ return NaN;
+}
+function hwDevLocalTime(ref,row=null,stack=new Set()){
+ const object=row||ref?.post;if(!object)return hwDevWorldMillis()-86400000;
+ if(stack.has(object))return hwDevWorldMillis()-86400000;
+ const own=Date.parse(object.hwStoryAt||'');
+ if(Number.isFinite(own))return own;
+ const cloud=hwDevLocalCloudTime(ref,row);
+ if(Number.isFinite(cloud))return cloud;
+ if(!row){
+  const real=Number(ref.post.created)||Number(ref.created)||Date.now()-3600000;
+  const d=new Date(real);d.setFullYear(d.getFullYear()-33);return Math.min(hwDevWorldMillis()-1000,d.getTime());
+ }
+ const all=u23Comments(ref),root=ref.post;
+ const parent=row.parentId?all.find(x=>String(x.id)===String(row.parentId)):root;
+ stack.add(object);
+ const base=parent===root?hwDevLocalTime(ref,null,stack):hwDevLocalTime(ref,parent,stack);
+ stack.delete(object);
+ const idx=Math.max(0,all.indexOf(row));
+ return Math.min(hwDevWorldMillis()-1000,base+(idx+1)*11*60000);
+}
+function hwDevLocalLabel(ms){const d=new Date(ms);return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function hwDevStoryBounds(ref,row=null){
+ const start=Date.parse('1993-11-01T08:00:00Z'),current=hwDevWorldMillis();
+ let lower=start,upper=current;
+ const comments=u23Comments(ref);
+ if(row){
+  const parent=row.parentId?comments.find(x=>String(x.id)===String(row.parentId)):null;
+  lower=Math.max(lower,hwDevLocalTime(ref,parent||null)+1000);
+  for(const child of comments)if(String(child.parentId||'')===String(row.id))upper=Math.min(upper,hwDevLocalTime(ref,child)-1000);
+ }else for(const child of comments)if(!child.parentId)upper=Math.min(upper,hwDevLocalTime(ref,child)-1000);
+ return {lower,upper};
+}
+function hwDevRandomStoryTime(ref,row=null){
+ const {lower,upper}=hwDevStoryBounds(ref,row);
+ if(upper<lower)return null;
+ return new Date(lower+(upper-lower)*(row?Math.pow(Math.random(),2.2):Math.random())).toISOString();
+}
+function hwDevManualStoryTime(ref,row=null){
+ const {lower,upper}=hwDevStoryBounds(ref,row);
+ if(upper<lower){toast('现有父级与下级时间冲突，请先修正相关内容');return null}
+ const old=hwDevLocalLabel(hwDevLocalTime(ref,row));
+ const input=prompt('设置历史发布时间（例如 1993-11-12 19:30）\n不能早于父帖或晚于已有回复。',old.replace(/[年月]/g,'-').replace('日',''));
+ if(input===null)return null;
+ const match=/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(input.trim());
+ if(!match){toast('请输入1993-11-12 19:30格式的日期时间');return null}
+ const [,y,m,d,h,mi,s]=match.map((v,i)=>i?Number(v):v);
+ const value=new Date(y,m-1,d,h,mi,s||0);
+ if(!Number.isFinite(value.getTime())||value.getFullYear()!==y||value.getMonth()!==m-1||value.getDate()!==d||value.getHours()!==h||value.getMinutes()!==mi){
+  toast('日期或时间无效');return null;
+ }
+ if(value.getTime()<lower||value.getTime()>upper){toast('时间超出合法范围，不能早于父评论或晚于已有下级回复');return null}
+ return value.toISOString();
+}
+const hwDevOriginalHumanPost=u23HumanPost;
+u23HumanPost=function(ref){const post=hwDevOriginalHumanPost(ref);
+ if(ref.type==='external')return post;
+ return {...post,time:hwDevLocalLabel(hwDevLocalTime(ref))};};
+const hwDevOriginalRefs=u23Refs;
+u23Refs=function(){return hwDevOriginalRefs().sort((a,b)=>hwDevLocalTime(b)-hwDevLocalTime(a));};
+
 function hwDevFeedRandom(ref,action){
   if(!ref)return;
   const key=hwDevFeedTarget(ref);
@@ -3543,7 +3622,12 @@ function hwDevFeedRandom(ref,action){
         if(count<d().replies.length)d().post.replies=String(d().replies.length);
       }
     }else if(action==='metrics')Object.assign(d().post,randomMetricPack('post'));
-    else if(action==='time')d().post.time=randomRelativeTime();
+    else if(action==='time'||action==='manual-time'){
+      const stamp=action==='manual-time'?hwDevManualStoryTime(ref):hwDevRandomStoryTime(ref);
+      if(!stamp){if(action==='time')toast('此帖子已有更早的下级评论，暂无可用时间；请先调整相关评论');return;}
+      d().post.hwStoryAt=stamp;
+      d().post.time=hwDevLocalLabel(Date.parse(stamp));
+    }
   }finally{
     state.hwSelectedPost=previousSelected;
     state.viewMode=previousView;
@@ -3558,6 +3642,7 @@ function hwDevFeedRandom(ref,action){
 }
 function hwDevFeedTools(ref){
   return '<button type="button" data-hw-dev-feed="time" data-key="'+esc(ref.key)+'">🎲 随机时间</button>'
+    +'<button type="button" data-hw-dev-feed="manual-time" data-key="'+esc(ref.key)+'">✎ 指定时间</button>'
     +'<button type="button" data-hw-dev-feed="metrics" data-key="'+esc(ref.key)+'">🎲 随机互动数字</button>'
     +'<button type="button" data-hw-dev-feed="comment-one" data-key="'+esc(ref.key)+'">＋1 随机评论</button>'
     +'<button type="button" data-hw-dev-feed="comment-five" data-key="'+esc(ref.key)+'">＋5 随机评论</button>';
@@ -3709,7 +3794,7 @@ document.head.insertAdjacentHTML('beforeend','<style>'
   +'</style>');
 const hwDevBaseCommentCard=u23CommentCard;
 u23CommentCard=function(r,ref){
-  let html=hwDevBaseCommentCard(r,ref);
+  let html=hwDevBaseCommentCard({...r,time:hwDevLocalLabel(hwDevLocalTime(ref,r))},ref);
   if(state.clientMode!=='developer'||!hwDevFeedPage)return html;
   const key=ref.key,id=String(r.id);
   const avatar=u23UserCard(u23PersonByHandle(r.handle)||r,true);
@@ -3731,6 +3816,7 @@ u23CommentCard=function(r,ref){
     group.className='hw-dev-comment-stamp';
     group.innerHTML='<span class="hw-dev-comment-head-actions">'
       +'<button type="button" data-hw-dev-comment="random-time" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="随机这条评论的时间" aria-label="随机评论时间">🕒</button>'
+      +'<button type="button" data-hw-dev-comment="edit-time" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="设置这条评论的历史时间" aria-label="指定评论时间">✎</button>'
       +'<button type="button" class="hw-dev-comment-delete" data-hw-dev-comment="delete-reply" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="删除这条评论" aria-label="删除评论">'+icon('trash','',15)+'</button>'
       +'</span>';
     if(timeLabel){
@@ -3838,7 +3924,18 @@ function hwDevCommentControl(action,key,id,button){
   const ref=u23Find(key),row=hwDevGetComment(ref,id);
   if(!ref||!row)return;
   if(action==='avatar'){hwDevOpenCommentAvatar(ref,id);return;}
-  if(action==='random-time'){row.time=randomRelativeTime();persist();render();toast('这条评论的发布时间已随机更新');return;}
+  if(action==='random-time'){
+    const stamp=hwDevRandomStoryTime(ref,row);
+    if(!stamp){toast('评论与父级或下级的时间范围冲突，无法随机；请先调整相关时间');return;}
+    row.hwStoryAt=stamp;row.time=hwDevLocalLabel(Date.parse(stamp));
+    persist();render();toast('评论时间已在合法范围内更新');return;
+  }
+  if(action==='edit-time'){
+    const stamp=hwDevManualStoryTime(ref,row);
+    if(!stamp)return;
+    row.hwStoryAt=stamp;row.time=hwDevLocalLabel(Date.parse(stamp));
+    persist();render();toast('历史评论时间已设置');return;
+  }
   if(action==='delete-reply'){hwDevCommentDelete(ref,id);return;}
   if(action==='media'){hwDevCommentMediaTarget={key,id};hwDevCommentMediaFile.click();return;}
   if(action==='clear-media'){row.media='';render();persist();toast('已移除这条评论的配图');return;}
@@ -3877,6 +3974,7 @@ function hwDevFeedCard(ref){
     const buttons=document.createElement('div');
     buttons.className='hw-dev-card-quick';
     buttons.innerHTML='<button type="button" data-hw-dev-feed="time" data-key="'+esc(ref.key)+'" aria-label="随机发布时间" title="随机发布时间">🕒</button>'
+      +'<button type="button" data-hw-dev-feed="manual-time" data-key="'+esc(ref.key)+'" aria-label="指定历史发布时间" title="指定历史发布时间">📅</button>'
       +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'" aria-label="编辑帖子" title="编辑帖子">✎</button>'
       +'<button type="button" class="hw-dev-card-trash" data-hw-dev-feed="delete" data-key="'+esc(ref.key)+'" aria-label="删除帖子" title="直接删除帖子">'+icon('trash','',17)+'</button>';
     heading.appendChild(buttons);
@@ -3943,7 +4041,7 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='undo-comment'){hwDevCommentUndoDelete();return;}
   if(action==='delete'){hwDevFeedDelete(u23Find(key));return;}
   if(action==='edit'){hwDevFeedEdit(u23Find(key));return;}
-  if(action==='metrics'||action==='time'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
+  if(action==='metrics'||action==='time'||action==='manual-time'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
   if(action==='open'||action==='reply'||action==='thread'){
     hwDevFeedFocus=key;hwDevFeedPage='post';render();return;
   }
@@ -4145,17 +4243,90 @@ cloudTimelineBox.innerHTML=`<div class="hw-inbox-head"><b>📝 全部帖子 · �
 cloudTimelineBox.hidden=true;document.body.append(cloudTimelineBox);
 const cloudTimelineStyle=document.createElement('style');cloudTimelineStyle.textContent=`#hwCloudTimelineBox{margin-top:16px;gap:10px}#hwTimelineItems{max-height:340px;overflow:auto;border:1px solid #dbe5ed;border-radius:12px}#hwTimelineItems button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e9edf1;background:#fff;color:#0f1419;padding:10px;cursor:pointer;line-height:1.5}#hwTimelineItems button:hover,#hwTimelineItems button.active{background:#edf7ff}#hwTimelineItems button small{display:block;color:#536471}#hwTimelineDetail{display:grid;gap:9px}#hwTimelineDetail textarea,#hwTimelineDetail input,#hwTimelineDetail select{width:100%;box-sizing:border-box;border:1px solid #d7e1e8;border-radius:9px;padding:9px;background:#fff;color:#0f1419}#hwTimelineDetail .hw-metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#hwTimelineDetail label{display:grid;gap:4px}#hwTimelineDetail .hw-cloud-reply{border:1px solid #e9edf1;border-radius:9px;padding:8px;line-height:1.45}#hwTimelineDetail .hw-cloud-reply small{color:#536471}#hwTimelineDetail .hw-actions{display:flex;gap:8px;flex-wrap:wrap}#hwTimelineDetail .hw-actions button{flex:1;min-width:90px}`;document.head.append(cloudTimelineStyle);
 const v32={posts:[],people:new Map(),users:new Map(),selected:'',expanded:false};
+window.hwCloudStoryForLegacy=id=>v32.posts.find(p=>p.id===id)?.story_at||null;
 // Keep direct cloud edits through subsequent local draft publishing, rather than silently reverting them.
 let v32Overrides={};try{v32Overrides=JSON.parse(localStorage.getItem('hw-v32-cloud-overrides')||'{}')||{}}catch{}
 function v32RememberOverride(id,body,metrics,created_at){if(!/^v26:/.test(id))return;v32Overrides[id]={body,metrics,created_at};try{localStorage.setItem('hw-v32-cloud-overrides',JSON.stringify(v32Overrides))}catch{}}
 
 const cloudPostText=p=>String(p.body||'').slice(0,130);
 function v32PostAuthor(p){if(p.author_kind==='character'){const x=v32.people.get(p.character_id);return x?.name||'人物账号'}return v32.users.get(p.user_id)?.display_name||'玩家';}
-function v32RenderPostList(){const shown=v32.posts.filter(p=>!p.parent_id&&p.author_kind==='character');const list=$('hwTimelineItems');if(!list)return;list.innerHTML=shown.map(p=>`<button type="button" data-v32-open="${S(p.id)}" class="${p.id===v32.selected?'active':''}"><b>${S(v32PostAuthor(p))}</b> <small>${S(p.author_kind==='user'?'玩家帖子':'人物帖子')} · ${S(new Date(p.created_at).toLocaleString('zh-CN'))}</small>${S(cloudPostText(p)||'[图片]')}</button>`).join('')||'<div style="padding:14px;color:#536471">这里还没有帖子。</div>'}
+function v32RenderPostList(){const shown=v32.posts.filter(p=>!p.parent_id&&p.author_kind==='character');const list=$('hwTimelineItems');if(!list)return;list.innerHTML=shown.map(p=>`<button type="button" data-v32-open="${S(p.id)}" class="${p.id===v32.selected?'active':''}"><b>${S(v32PostAuthor(p))}</b> <small>${S(p.author_kind==='user'?'玩家帖子':'人物帖子')} · ${S(new Date(p.story_at||p.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}</small>${S(cloudPostText(p)||'[图片]')}</button>`).join('')||'<div style="padding:14px;color:#536471">这里还没有帖子。</div>'}
 function v32Metrics(p){return ['replies','reposts','likes','views','bookmarks'].map((key,i)=>{const names=['评论','转发','喜欢','浏览','书签'];return `<label>${names[i]}<input data-v32-metric="${key}" value="${S(String(p.metrics?.[key]||'0'))}" maxlength="25"></label>`}).join('')}
-function v32RenderDetail(){const box=$('hwTimelineDetail'),p=v32.posts.find(p=>p.id===v32.selected);if(!box)return;if(!p){box.innerHTML='<small class="hw-mini">点击上面的帖子查看评论及编辑选项。</small>';return;}const child=v32.posts.filter(x=>x.parent_id===p.id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)),isChar=p.author_kind==='character';const chars=[...v32.people].map(([id,c])=>`<option value="${S(id)}" ${id===p.character_id?'selected':''}>${S(c.name)}</option>`).join('');box.innerHTML=`<div class="hw-inbox-meta"><b>${S(v32PostAuthor(p))}</b> · ${S(p.author_kind==='user'?'玩家帖子（不可代替玩家编辑）':'人物帖子')}<br><small>同一条帖子在首页、作者主页和详情里共享内容。</small></div><label>正文<textarea id="v32Body" rows="4" ${isChar?'':'readonly'}>${S(p.body||'')}</textarea></label>${isChar?`<div class="hw-metric-grid">${v32Metrics(p)}</div><div class="hw-actions"><button type="button" id="v32Save" class="hw-primary">保存正文和互动数字</button><button type="button" id="v32Delete">删除人物帖子</button></div>`:''}<b style="font-size:13px">评论 · ${child.length} 条</b><div id="v32Comments">${child.map(x=>`<div class="hw-cloud-reply"><b>${S(v32PostAuthor(x))}</b>：${S(x.body||'[图片]')}<small> ${S(new Date(x.created_at).toLocaleString('zh-CN'))}</small></div>`).join('')||'<span class="hw-mini">暂无评论。</span>'}</div><label>选择评论人物<select id="v32ReplyCharacter">${chars}</select></label><label>评论内容<textarea id="v32ReplyText" rows="3" placeholder="输入评论，或点随机生成…"></textarea></label><div class="hw-actions"><button type="button" id="v32RandomReply">🎲 随机评论</button><button type="button" id="v32SendReply" class="hw-primary">发布人物评论</button></div>`;
+function v32RenderDetail(){const box=$('hwTimelineDetail'),p=v32.posts.find(p=>p.id===v32.selected);if(!box)return;if(!p){box.innerHTML='<small class="hw-mini">点击上面的帖子查看评论及编辑选项。</small>';return;}const child=v32.posts.filter(x=>x.parent_id===p.id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)),isChar=p.author_kind==='character';const chars=[...v32.people].map(([id,c])=>`<option value="${S(id)}" ${id===p.character_id?'selected':''}>${S(c.name)}</option>`).join('');box.innerHTML=`<div class="hw-inbox-meta"><b>${S(v32PostAuthor(p))}</b> · ${S(p.author_kind==='user'?'玩家帖子（不可代替玩家编辑）':'人物帖子')}<br><small>同一条帖子在首页、作者主页和详情里共享内容。</small></div><label>正文<textarea id="v32Body" rows="4" ${isChar?'':'readonly'}>${S(p.body||'')}</textarea></label>${isChar?`<div class="hw-metric-grid">${v32Metrics(p)}</div><div class="hw-actions"><button type="button" id="v32Save" class="hw-primary">保存正文和互动数字</button><button type="button" id="v32Delete">删除人物帖子</button></div>`:''}<b style="font-size:13px">评论 · ${child.length} 条</b><div id="v32Comments">${child.map(x=>`<div class="hw-cloud-reply"><b>${S(v32PostAuthor(x))}</b>：${S(x.body||'[图片]')}<small> ${S(new Date(x.story_at||x.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}</small></div>`).join('')||'<span class="hw-mini">暂无评论。</span>'}</div><label>选择评论人物<select id="v32ReplyCharacter">${chars}</select></label><label>评论内容<textarea id="v32ReplyText" rows="3" placeholder="输入评论，或点随机生成…"></textarea></label><div class="hw-actions"><button type="button" id="v32RandomReply">🎲 随机评论</button><button type="button" id="v32SendReply" class="hw-primary">发布人物评论</button></div>`;
 }
-async function v32Reload(){if(!admin)return;const[posts,people,users]=await Promise.all([u().from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),u().from('hw_characters').select('id,name,handle,avatar_url,badge_type').limit(1000),u().from('hw_profiles').select('id,display_name,handle,avatar_url').limit(1000)]);for(const x of [posts,people,users])if(x.error)throw x.error;v32.posts=posts.data||[];v32.people=new Map((people.data||[]).map(x=>[x.id,x]));v32.users=new Map((users.data||[]).map(x=>[x.id,x]));v32RenderPostList();v32RenderDetail();if(!v33RenderAllPosts()&&!$('v33-feed')?.contains(document.activeElement))v33RefreshView();}
+
+/* Cloud-backed historical time editor. Does not touch author, post body or media. */
+const hwTimePanel=document.createElement("details");
+hwTimePanel.className="hw-story";
+hwTimePanel.innerHTML='<summary>🕰 历史发布时间（云端管理）</summary><p class="hw-mini">现有旧帖及评论已自动安排了历史时间。这里可以修改存疑的时间；随机时间自动遵守回复关系。仅改变时间，不重新发送通知。</p><div id="hwStoryTimeList">读取历史时间中…</div>';
+$("hwCloudAuthTools")?.append(hwTimePanel);
+const hwStoryCSS=document.createElement("style");
+hwStoryCSS.textContent='#hwCloudAuthTools .hw-story{margin-top:12px;padding:10px;border:1px solid #d9e4ef;border-radius:10px;background:#fff}#hwCloudAuthTools .hw-story summary{font-weight:700;cursor:pointer;font-size:13px}#hwStoryTimeList{max-height:390px;overflow:auto;padding-top:5px}#hwStoryTimeList .hw-story-row{border-bottom:1px solid #edf1f5;padding:8px 0}#hwStoryTimeList .hw-story-row small{display:block;line-height:1.45;color:#536471;overflow-wrap:anywhere}#hwStoryTimeList .hw-story-row .hw-story-head{display:flex;align-items:center;justify-content:space-between;gap:7px}#hwStoryTimeList .hw-story-row .hw-story-head b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#hwStoryTimeList .hw-story-row .hw-story-actions{display:flex;align-items:center;gap:4px;flex:none}#hwStoryTimeList .hw-story-row .hw-story-actions button{padding:4px 6px;font-size:11px}';
+document.head.append(hwStoryCSS);
+function hwCloudStoryMs(p){const time=Date.parse(p?.story_at||"");if(Number.isFinite(time))return time;
+ const legacy=Date.parse(p?.created_at||"");if(!Number.isFinite(legacy))return 0;
+ const d=new Date(legacy);d.setFullYear(d.getFullYear()-33);return d.getTime();}
+function hwCloudWorldNow(){const d=new Date();d.setFullYear(d.getFullYear()-33);return d.getTime();}
+function hwCloudStoryText(p){const ms=hwCloudStoryMs(p);return ms?new Date(ms).toLocaleString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}):"未安排";}
+function hwCloudStoryBounds(p){
+ let low=Date.parse("1993-11-01T08:00:00Z"),high=hwCloudWorldNow();
+ for(const id of [p.parent_id,p.quote_id]){const target=v32.posts.find(x=>x.id===id);if(target)low=Math.max(low,hwCloudStoryMs(target)+1000);}
+ for(const x of v32.posts)if(x.parent_id===p.id||x.quote_id===p.id)high=Math.min(high,hwCloudStoryMs(x)-1000);
+ return {low,high};
+}
+function hwCloudRenderStoryList(){
+ const list=$("hwStoryTimeList");if(!list||!admin)return;
+ const roots=v32.posts.filter(x=>!x.parent_id).sort((a,b)=>hwCloudStoryMs(b)-hwCloudStoryMs(a));
+ const children=new Map();for(const p of v32.posts)if(p.parent_id){const a=children.get(p.parent_id)||[];a.push(p);children.set(p.parent_id,a);}
+ const rows=[],seen=new Set();
+ function draw(p,level){
+  if(!p||seen.has(p.id))return;seen.add(p.id);
+  const name=v32PostAuthor(p),canWrite=p.author_kind==="character";
+  const time=hwCloudStoryText(p);
+  rows.push('<div class="hw-story-row" style="padding-left:'+Math.min(level,4)*7+'px">'
+    +'<div class="hw-story-head"><b>'+(level?"↳ ":"")+S(name)+'</b><div class="hw-story-actions"><button type="button" data-hw-story="edit" data-id="'+S(p.id)+'" '+(canWrite?'':'disabled title="玩家帖子受账号权限保护"')+'>✎ 时间</button><button type="button" data-hw-story="random" data-id="'+S(p.id)+'" '+(canWrite?'':'disabled')+'>🎲</button></div></div>'
+    +'<small>'+S(time)+' · '+S((p.body||"[图片]").slice(0,75))+'</small></div>');
+  const kids=(children.get(p.id)||[]).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b));
+  for(const item of kids)draw(item,level+1);
+ }
+ for(const root of roots)draw(root,0);
+ list.innerHTML='<p class="hw-mini">所有云端主帖与回复 · '+v32.posts.length+'条。人物帖及评论可修改；玩家帖只保留自动安排的历史时间。</p>'+rows.join("");
+}
+async function hwCloudAdjustTime(action,id){
+ if(!admin)throw Error("需要开发者权限");
+ const p=v32.posts.find(x=>x.id===id);if(!p||p.author_kind!=="character")throw Error("这条内容没有开发者修改权限");
+ const {low,high}=hwCloudStoryBounds(p);if(high<low)throw Error("现有父帖与回复时间冲突，无法随机。请先调整有关内容");
+ let time;
+ if(action==="random"){
+  const fraction=p.parent_id?Math.pow(Math.random(),2.1):Math.random();
+  time=low+(high-low)*fraction;
+ }else{
+  const original=hwCloudStoryText(p);
+  const input=prompt("填写1993年的故事时间，例如 1993-11-15 19:42\n有效范围："+new Date(low).toLocaleString("zh-CN")+" 至 "+new Date(high).toLocaleString("zh-CN"),original.replace(/[年月]/g,"-").replace("日","").replace(/\//g,"-"));
+  if(input===null)return;
+  const hit=/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(input.trim());
+  if(!hit)throw Error("请输入 1993-11-15 19:42 这样的格式");
+  const [,year,month,day,hour,minute,second]=hit.map((x,i)=>i?Number(x):x);
+  const d=new Date(year,month-1,day,hour,minute,second||0);
+  if(year<1993||d.getFullYear()!==year||d.getMonth()!==month-1||d.getDate()!==day)throw Error("日期无效或早于霍格沃茨起点");
+  time=d.getTime();
+ }
+ if(time<low||time>high)throw Error("时间超出合法范围：不能早于父评论或晚于已存在的回复，也不能超过当前世界时间");
+ const iso=new Date(time).toISOString();
+ const result=await u().from("hw_posts").update({story_at:iso}).eq("id",id).eq("author_kind","character").select("id,story_at");
+ if(result.error)throw result.error;if(!result.data?.length)throw Error("云端没有保存变更，请检查权限");
+ await v32Reload();
+ status("✅ 历史发布时间已更新，作者、正文和原始公开时间保持不变。");
+}
+$("hwStoryTimeList").addEventListener("click",e=>{
+ const btn=e.target.closest("[data-hw-story]");if(!btn)return;
+ btn.disabled=true;
+ hwCloudAdjustTime(btn.dataset.hwStory,btn.dataset.id)
+  .catch(err=>{status("时间未修改："+(err.message||String(err)));alert(err.message||String(err))})
+  .finally(()=>{btn.disabled=false});
+});
+
+async function v32Reload(){if(!admin)return;const[posts,people,users]=await Promise.all([u().from('hw_posts').select('*').order('story_at',{ascending:false}).limit(3000),u().from('hw_characters').select('id,name,handle,avatar_url,badge_type').limit(1000),u().from('hw_profiles').select('id,display_name,handle,avatar_url').limit(1000)]);for(const x of [posts,people,users])if(x.error)throw x.error;v32.posts=posts.data||[];v32.people=new Map((people.data||[]).map(x=>[x.id,x]));v32.users=new Map((users.data||[]).map(x=>[x.id,x]));v32RenderPostList();v32RenderDetail();hwCloudRenderStoryList();if(!v33RenderAllPosts()&&!$('v33-feed')?.contains(document.activeElement))v33RefreshView();}
 $('hwTimelineRefresh').onclick=()=>v32Reload().catch(e=>status('读取帖子失败：'+H.errMsg(e)));
 $('hwTimelineFilter').onchange=v32RenderPostList;
 $('hwTimelineItems').onclick=e=>{const b=e.target.closest('[data-v32-open]');if(!b)return;v32.selected=b.dataset.v32Open;v32RenderPostList();v32RenderDetail();};
@@ -4292,7 +4463,7 @@ async function publish(){
       chars.push({id:fallback.id,handle:fallback.handle,name:fallback.name,avatar_url:await cloudImage(fallback.avatar),cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:cloudBadgeType(fallback.badgeType,fallback.verified),meta:{}});
     }
   }
-  const docPostRows=[];const existingResp=await u().from('hw_posts').select('id,source_key,created_at').like('source_key','v26:%').limit(5000);
+  const docPostRows=[];const existingResp=await u().from('hw_posts').select('id,source_key,created_at,story_at,published_at').like('source_key','v26:%').limit(5000);
   if(existingResp.error)throw existingResp.error;const existing=new Map((existingResp.data||[]).map(row=>[row.id,row]));
   async function createPost(src,lang,key,authorId,parentId=null,quoteId=null){if(!authorId)return;
    const id='v26:'+key,old=existing.get(id);
@@ -4303,7 +4474,7 @@ async function publish(){
     const q=src.quote;
     metrics.quote_snapshot={author_id:String(q.authorId||''),author_name:String(q.authorName||''),author_handle:String(q.authorHandle||''),author_verified:!!q.authorVerified,text:String(q.text||'').slice(0,12000),image_url:await cloudImage(q.media),time_label:String(q.time||'')};
    }
-   docPostRows.push({id,source_key:id,author_kind:'character',character_id:authorId,user_id:null,parent_id:parentId,quote_id:quoteId,body:String(src.text||'').slice(0,12000),image_url:await cloudImage(src.media),language:lang,metrics,created_at:legacyCreatedAt(src.time,old?.created_at)});
+   docPostRows.push({id,source_key:id,author_kind:'character',character_id:authorId,user_id:null,parent_id:parentId,quote_id:quoteId,body:String(src.text||'').slice(0,12000),image_url:await cloudImage(src.media),language:lang,metrics,created_at:legacyCreatedAt(src.time,old?.created_at),story_at:src.hwStoryAt||old?.story_at||null,published_at:old?.published_at||new Date().toISOString()});
   }
   // main posts first: comment foreign keys rely on them
   for(const lang of ['zh','en']){const doc=snapshot.drafts?.[lang];if(!doc?.post)continue;const charId=personIdByPost(doc.post,people);await createPost(doc.post,lang,lang+':main',charId,null)}
@@ -4373,6 +4544,25 @@ async function publish(){
   const rank=new Map(docPostRows.map(p=>[p.id,p]));const depths=new Map();function depth(p,seen=new Set()){if(!p||seen.has(p.id))return 0;if(depths.has(p.id))return depths.get(p.id);seen.add(p.id);const dep=1+Math.max(depth(rank.get(p.parent_id),seen),depth(rank.get(p.quote_id),seen));depths.set(p.id,dep);seen.delete(p.id);return dep;}
   for(const post of docPostRows){const edited=v32Overrides[post.id];if(edited){post.body=edited.body;post.metrics=edited.metrics;if(edited.created_at)post.created_at=edited.created_at;}}
   docPostRows.sort((a,b)=>depth(a)-depth(b));
+  // Re-publications preserve old stories and publication identity. Only new rows need time.
+  const hwStoryNow=()=>{const d=new Date();d.setFullYear(d.getFullYear()-33);return d.getTime()};
+  const hwStoryById=new Map();
+  for(const row of docPostRows){
+    const parent=hwStoryById.get(row.parent_id)||hwStoryById.get(row.quote_id);
+    let at=Date.parse(row.story_at||'');
+    if(!Number.isFinite(at)){
+      if(parent){
+        const seed=Math.random();
+        const delay=seed<0.70?(2+Math.random()*50)*60000:
+                    seed<0.95?(60+Math.random()*500)*60000:
+                    (600+Math.random()*1800)*60000;
+        at=Math.min(hwStoryNow(),parent+delay);
+      }else at=hwStoryNow()-2*3600000;
+    }
+    if(parent&&at<=parent)at=parent+1000;
+    if(at>hwStoryNow()){if(parent&&parent>=hwStoryNow())throw Error('父帖超出当前世界时间：'+row.id);at=hwStoryNow();}
+    row.story_at=new Date(at).toISOString();hwStoryById.set(row.id,at);
+  }
   for(const p of docPostRows){const{error}=await u().from('hw_posts').upsert(p,{onConflict:'id'});if(error)throw Error('同步 '+p.id+' 失败：'+error.message);}
   const migrationFirstPublish=localStorage.getItem('hw-gh-migration-first-publish')==='1';
   // Remove only stale V26-mirrored rows; leave real visitors' posts and reactions untouched.
@@ -4479,7 +4669,7 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
 const hwHomeOldPreview=renderPreviewOnly;
 let hwHomeExpanded='',hwHomeBusy=false,hwHomeFetched=false;
 function hwHomeMarkup(){
- const cloud=admin?v32.posts.filter(p=>!p.parent_id&&!p.quote_id):[];
+ const cloud=admin?v32.posts.filter(p=>!p.parent_id&&!p.quote_id).sort((a,b)=>hwCloudStoryMs(b)-hwCloudStoryMs(a)):[];
  const local=u23Refs();
  const es=x=>esc(String(x??''));
  let out='<div class="hw-home-head"><b>🏠 全站帖子 · 开发者首页</b><small>浏览人物和玩家的帖子；下方按钮仅供开发者管理</small><button data-hwh="refresh">↻ 刷新云端</button></div>';
@@ -4487,9 +4677,9 @@ function hwHomeMarkup(){
   out+='<div class="hw-home-label">☁️ 云端真实帖子 · 人物及玩家 ('+cloud.length+')</div>';
   if(!cloud.length)out+='<div class="hw-home-empty">'+(hwHomeBusy?'正在读取…':'暂无帖子，点击刷新重试')+'</div>';
   for(const p of cloud){
-   const person=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id),name=v32PostAuthor(p),m=p.metrics||{},replies=v32.posts.filter(x=>x.parent_id===p.id),open=hwHomeExpanded==='c:'+p.id;
-   out+='<article class="hw-home-post"><header><b>'+es(name)+'</b><small> · '+(p.author_kind==='character'?'人物':'玩家')+' · '+es(new Date(p.created_at).toLocaleString('zh-CN'))+'</small></header><p>'+es(p.body||'[图片]').replace(/\n/g,'<br>')+'</p><div class="hw-home-count">💬 '+es(m.replies??replies.length)+'　⇄ '+es(m.reposts||0)+'　♥ '+es(m.likes||0)+'　◉ '+es(m.views||0)+'</div><div class="hw-home-buttons"><button data-hwh="cloud-comments" data-id="'+es(p.id)+'">查看评论 ('+replies.length+')</button><button data-hwh="cloud-manage" data-id="'+es(p.id)+'">✎ '+(p.author_kind==='character'?'编辑数字 / 添加评论':'管理评论')+'</button></div>';
-   if(open)out+='<div class="hw-home-comments">'+(replies.map(r=>'<div><b>'+es(v32PostAuthor(r))+'</b>：'+es(r.body||'[图片]')+'</div>').join('')||'暂无评论')+'</div>';
+   const person=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id),name=v32PostAuthor(p),m=p.metrics||{},replies=v32.posts.filter(x=>x.parent_id===p.id).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b)),open=hwHomeExpanded==='c:'+p.id;
+   out+='<article class="hw-home-post"><header><b>'+es(name)+'</b><small> · '+(p.author_kind==='character'?'人物':'玩家')+' · '+es(new Date(p.story_at||p.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))+'</small></header><p>'+es(p.body||'[图片]').replace(/\n/g,'<br>')+'</p><div class="hw-home-count">💬 '+es(m.replies??replies.length)+'　⇄ '+es(m.reposts||0)+'　♥ '+es(m.likes||0)+'　◉ '+es(m.views||0)+'</div><div class="hw-home-buttons"><button data-hwh="cloud-comments" data-id="'+es(p.id)+'">查看评论 ('+replies.length+')</button><button data-hwh="cloud-manage" data-id="'+es(p.id)+'">✎ '+(p.author_kind==='character'?'编辑数字 / 添加评论':'管理评论')+'</button></div>';
+   if(open)out+='<div class="hw-home-comments">'+(replies.map(r=>'<div><b>'+es(v32PostAuthor(r))+'</b> · '+es(hwCloudStoryText(r))+'：'+es(r.body||'[图片]')+'</div>').join('')||'暂无评论')+'</div>';
    out+='</article>';
   }
  }else out+='<div class="hw-home-label">登录开发者账号后可读取云端真实玩家帖子</div>';
