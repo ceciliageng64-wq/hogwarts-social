@@ -4137,7 +4137,7 @@ function hwDevFeedHTML(){
     +'<div class="u23-profile-meta">'+(where?'<span>⌖ '+where+'</span>':'')+'<span>📅 '+joined+'</span></div></div>'
     +'<div class="u23-profile-tabs" style="display:flex;justify-content:space-around;border-bottom:1px solid var(--border,#ddd)">'
     +tabs.map(([tab,label])=>'<button type="button" data-hw-dev-feed="cloud-profile-tab" data-tab="'+tab+'" style="padding:13px;border-bottom:'+(tab===hwDevCloudProfileTab?'3px solid #1d9bf0':'3px solid transparent')+'">'+label+'</button>').join('')+'</div>'
-    +(posts.map(p=>hwDevCloudCard(p)).join('')||'<div class="u23-empty">这里还没有内容</div>');
+    +(hwDevCloudProfileTab==='replies'?posts.map(p=>'<article class="u23-card" style="padding:15px"><div class="u23-card-body"><b>'+esc(p.authorName)+'</b> <small>'+esc(p.time)+'</small><p style="white-space:pre-wrap">'+esc(p.body||'[图片]')+'</p><button type="button" data-hw-dev-feed="cloud-open" data-id="'+esc(p.rootPostId||p.parent_id)+'">查看原帖与评论</button></div></article>').join(''):posts.map(p=>hwDevCloudCard(p)).join('')||'<div class="u23-empty">这里还没有内容</div>');
   }
   if(hwDevFeedPage==='post'&&hwDevFeedFocus.startsWith('cloud:')){
    const post=hwDevCloudData().find(p=>p.id===hwDevFeedFocus.slice(6));
@@ -4528,7 +4528,7 @@ window.hwDevCloudFeed={
  }).sort((a,b)=>b.sortTime-a.sortTime),
  replies:id=>{const result=[],seen=new Set();function walk(parent){for(const p of v32.posts.filter(x=>x.parent_id===parent).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b))){if(seen.has(p.id))continue;seen.add(p.id);const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);result.push({...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||'',time:hwCloudStoryText(p)});walk(p.id)}}walk(id);return result;},
  reply:id=>{const p=v32.posts.find(x=>x.id===id);if(!p)return null;const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);return {...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||''};},
- playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>({...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),replyCount:0})).sort((a,b)=>b.sortTime-a.sortTime),
+ playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>{let root=p,seen=new Set();while(root?.parent_id&&!seen.has(root.id)){seen.add(root.id);root=v32.posts.find(x=>x.id===root.parent_id)}return {...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),rootPostId:root?.id||p.parent_id,replyCount:0}}).sort((a,b)=>b.sortTime-a.sortTime),
  player:id=>v32.users.get(id),
  characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
  sendReply:async(id,characterId,body,parentId='')=>{
@@ -4547,7 +4547,9 @@ window.hwDevCloudFeed={
   const p=v32.posts.find(x=>x.id===id&&x.parent_id&&x.author_kind==='character');
   if(!p)throw Error('仅能编辑人物评论');
   if(!v32.people.has(characterId))throw Error('请选择有效人物');
-  const parent=v32.posts.find(x=>x.id===parentId);if(!parent||parent.id===id||(!parent.parent_id&&p.parent_id!==parent.id&&parent.id!==p.parent_id)||parent.parent_id&&parent.parent_id!==p.parent_id&&parent.id!==p.parent_id)throw Error('回复对象无效，请选择主帖或同帖评论');
+  const parent=v32.posts.find(x=>x.id===parentId);if(!parent||parent.id===id)throw Error('回复对象无效');
+  const rootOf=x=>{const seen=new Set();while(x?.parent_id){if(seen.has(x.id))return null;seen.add(x.id);x=v32.posts.find(row=>row.id===x.parent_id)}return x?.id};
+  const root=rootOf(p);if(!root||rootOf(parent)!==root||parent.parent_id&&parent.parent_id!==root)throw Error('只能选择本帖主帖或其直属评论作为回复对象');
   const {data,error}=await u().from('hw_posts').update({body:String(body).trim(),character_id:characterId,parent_id:parentId}).eq('id',id).eq('author_kind','character').select('id');
   if(error)throw error;if(!data?.length)throw Error('没有修改权限');
   await v32Reload();
