@@ -4048,10 +4048,10 @@ const hwDevCloudData=()=>window.hwDevCloudFeed?.list()||[];
 function hwDevCloudReplies(post){const rows=window.hwDevCloudFeed?.replies(post.id)||[];return '<div class="hw-dev-cloud-replies">'+(rows.map(r=>'<div><b>'+esc(r.authorName)+'</b> · '+esc(r.time)+'<div>'+esc(r.body||'[图片]').replace(/\n/g,'<br>')+'</div>'+(r.image_url?'<img src="'+esc(r.image_url)+'" loading="lazy" style="max-width:100%;max-height:190px;border-radius:10px" alt="评论图片">':'')+'</div>').join('')||'<div>暂无评论</div>')+'</div>';}
 function hwDevCloudCard(post,detail=false){
  const user=post.author_kind==='user',name=esc(post.authorName),handle=esc(post.authorHandle||''),pid=esc(post.user_id||''),id=esc(post.id);
- const avatar=post.authorAvatar?'<img src="'+esc(post.authorAvatar)+'" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:50%">':'<span style="width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--surface);font-size:23px">'+(user?'🎮':'🪄')+'</span>';
+ const avatarInner=post.authorAvatar?'<img src="'+esc(post.authorAvatar)+'" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:50%">':'<span style="width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--surface);font-size:23px">'+(user?'🎮':'🪄')+'</span>'; const avatar=user?'<button type="button" data-hw-dev-feed="cloud-profile" data-id="'+pid+'" aria-label="打开玩家主页" style="border:0;background:none;padding:0;cursor:pointer">'+avatarInner+'</button>':avatarInner;
  const author=user?'<button type="button" data-hw-dev-feed="cloud-profile" data-id="'+pid+'" style="border:0;background:none;color:inherit;font:inherit;font-weight:750;cursor:pointer;padding:0;text-align:left">'+name+'</button>':name;
  const picture=post.image_url?'<img src="'+esc(post.image_url)+'" alt="帖子配图" loading="lazy" style="max-width:100%;max-height:390px;object-fit:contain;border-radius:15px;margin:10px 0">':'';
- const actions='<div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 0"><button type="button" data-hw-dev-feed="cloud-open" data-id="'+id+'">💬 查看评论 ('+post.replyCount+')</button><button type="button" data-hw-dev-feed="cloud-random" data-id="'+id+'">🎲 随机加一条人物评论</button></div>';
+ const actions='<div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 0"><button type="button" data-hw-dev-feed="cloud-open" data-id="'+id+'">💬 查看评论 ('+post.replyCount+')</button><button type="button" data-hw-dev-feed="cloud-manage" data-id="'+id+'">✎ 编辑互动数字 / 写人物评论</button></div>';
  return '<div class="hw-dev-feed-entry" style="border-bottom:1px solid var(--border,#ddd);padding:12px 16px">'
  +'<div style="display:flex;align-items:center;gap:10px">'+avatar+'<div><strong>'+author+'</strong> <span style="font-size:12px;opacity:.7">@'+handle+'</span><div style="font-size:12px;opacity:.7">'+esc(post.time)+'</div></div></div>'
  +'<div style="padding:9px 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">'+esc(post.body||'')+'</div>'+picture
@@ -4134,12 +4134,7 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='back'){hwDevFeedPage=hwDevFeedPage==='post'&&hwDevPlayerProfileId?'player-profile':'home';hwDevFeedFocus='';render();return;}
   if(action==='cloud-profile'){hwDevPlayerProfileId=target.dataset.id||'';hwDevFeedPage='player-profile';hwDevFeedFocus='';render();return;}
   if(action==='cloud-open'){hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
-  if(action==='cloud-random'){
-   if(target.disabled)return;
-   target.disabled=true;
-   window.hwDevCloudFeed?.randomReply(target.dataset.id).then(()=>{toast('已以人物身份发布随机评论');render()}).catch(err=>{toast('评论发布失败：'+(err?.message||err));target.disabled=false});
-   return;
-  }
+  if(action==='cloud-manage'){const id=target.dataset.id;window.hwDevCloudFeed?.select(id);$('workspace')?.classList.remove('editor-closed');$('hwTimelineDetail')?.scrollIntoView({behavior:'smooth',block:'center'});toast('已打开帖子编辑区：可选择人物、编辑评论草稿及互动数字');return;}
   if(action==='undo-delete'){hwDevFeedUndoDelete();return;}
   if(action==='undo-comment'){hwDevCommentUndoDelete();return;}
   if(action==='delete'){hwDevFeedDelete(u23Find(key));return;}
@@ -4355,7 +4350,7 @@ const cloudPostText=p=>String(p.body||'').slice(0,130);
 function v32PostAuthor(p){if(p.author_kind==='character'){const x=v32.people.get(p.character_id);return x?.name||'人物账号'}return v32.users.get(p.user_id)?.display_name||'玩家';}
 function v32RenderPostList(){const shown=v32.posts.filter(p=>!p.parent_id&&p.author_kind==='character');const list=$('hwTimelineItems');if(!list)return;list.innerHTML=shown.map(p=>`<button type="button" data-v32-open="${S(p.id)}" class="${p.id===v32.selected?'active':''}"><b>${S(v32PostAuthor(p))}</b> <small>${S(p.author_kind==='user'?'玩家帖子':'人物帖子')} · ${S(new Date(p.story_at||p.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}</small>${S(cloudPostText(p)||'[图片]')}</button>`).join('')||'<div style="padding:14px;color:#536471">这里还没有帖子。</div>'}
 function v32Metrics(p){return ['replies','reposts','likes','views','bookmarks'].map((key,i)=>{const names=['评论','转发','喜欢','浏览','书签'];return `<label>${names[i]}<input data-v32-metric="${key}" value="${S(String(p.metrics?.[key]||'0'))}" maxlength="25"></label>`}).join('')}
-function v32RenderDetail(){const box=$('hwTimelineDetail'),p=v32.posts.find(p=>p.id===v32.selected);if(!box)return;if(!p){box.innerHTML='<small class="hw-mini">点击上面的帖子查看评论及编辑选项。</small>';return;}const child=v32.posts.filter(x=>x.parent_id===p.id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)),isChar=p.author_kind==='character';const chars=[...v32.people].map(([id,c])=>`<option value="${S(id)}" ${id===p.character_id?'selected':''}>${S(c.name)}</option>`).join('');box.innerHTML=`<div class="hw-inbox-meta"><b>${S(v32PostAuthor(p))}</b> · ${S(p.author_kind==='user'?'玩家帖子（不可代替玩家编辑）':'人物帖子')}<br><small>同一条帖子在首页、作者主页和详情里共享内容。</small></div><label>正文<textarea id="v32Body" rows="4" ${isChar?'':'readonly'}>${S(p.body||'')}</textarea></label>${isChar?`<div class="hw-metric-grid">${v32Metrics(p)}</div><div class="hw-actions"><button type="button" id="v32Save" class="hw-primary">保存正文和互动数字</button><button type="button" id="v32Delete">删除人物帖子</button></div>`:''}<b style="font-size:13px">评论 · ${child.length} 条</b><div id="v32Comments">${child.map(x=>`<div class="hw-cloud-reply"><b>${S(v32PostAuthor(x))}</b>：${S(x.body||'[图片]')}<small> ${S(new Date(x.story_at||x.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}</small></div>`).join('')||'<span class="hw-mini">暂无评论。</span>'}</div><label>选择评论人物<select id="v32ReplyCharacter">${chars}</select></label><label>评论内容<textarea id="v32ReplyText" rows="3" placeholder="输入评论，或点随机生成…"></textarea></label><div class="hw-actions"><button type="button" id="v32RandomReply">🎲 随机评论</button><button type="button" id="v32SendReply" class="hw-primary">发布人物评论</button></div>`;
+function v32RenderDetail(){const box=$('hwTimelineDetail'),p=v32.posts.find(p=>p.id===v32.selected);if(!box)return;if(!p){box.innerHTML='<small class="hw-mini">点击上面的帖子查看评论及编辑选项。</small>';return;}const child=v32.posts.filter(x=>x.parent_id===p.id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)),isChar=p.author_kind==='character';const chars=[...v32.people].map(([id,c])=>`<option value="${S(id)}" ${id===p.character_id?'selected':''}>${S(c.name)}</option>`).join('');box.innerHTML=`<div class="hw-inbox-meta"><b>${S(v32PostAuthor(p))}</b> · ${S(p.author_kind==='user'?'玩家帖子（不可代替玩家编辑）':'人物帖子')}<br><small>同一条帖子在首页、作者主页和详情里共享内容。</small></div><label>正文<textarea id="v32Body" rows="4" ${isChar?'':'readonly'}>${S(p.body||'')}</textarea></label>${`<div class="hw-metric-grid">${v32Metrics(p)}</div><div class="hw-actions"><button type="button" id="v32Save" class="hw-primary">${isChar?'保存正文和互动数字':'保存玩家帖互动数字'}</button>${isChar?'<button type="button" id="v32Delete">删除人物帖子</button>':''}</div>`}<b style="font-size:13px">评论 · ${child.length} 条</b><div id="v32Comments">${child.map(x=>`<div class="hw-cloud-reply"><b>${S(v32PostAuthor(x))}</b>：${S(x.body||'[图片]')}<small> ${S(new Date(x.story_at||x.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}</small></div>`).join('')||'<span class="hw-mini">暂无评论。</span>'}</div><label>选择评论人物<select id="v32ReplyCharacter">${chars}</select></label><label>评论内容<textarea id="v32ReplyText" rows="3" placeholder="输入评论，或点随机生成…"></textarea></label><div class="hw-actions"><button type="button" id="v32RandomReply">🎲 随机评论</button><button type="button" id="v32SendReply" class="hw-primary">发布人物评论</button></div>`;
 }
 
 /* Cloud-backed historical time editor. Does not touch author, post body or media. */
@@ -4439,20 +4434,8 @@ window.hwDevCloudFeed={
  }).sort((a,b)=>b.sortTime-a.sortTime),
  replies:id=>v32.posts.filter(p=>p.parent_id===id).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b)).map(p=>({...p,authorName:v32PostAuthor(p),time:hwCloudStoryText(p)})),
  player:id=>v32.users.get(id),
- refresh:()=>v32Reload(),
- randomReply:async id=>{
-  if(!admin||!await H.isAdmin())throw Error('需要登录开发者账号');
-  const post=v32.posts.find(p=>p.id===id);
-  if(!post||post.parent_id)throw Error('找不到这条帖子');
-  const characters=[...v32.people.values()].filter(p=>p.id&&p.name);
-  if(!characters.length)throw Error('人物列表尚未加载');
-  const chosen=characters[Math.floor(Math.random()*characters.length)];
-  const candidates=['我真的笑了😭','等一下，这个展开我没想到💀','这条我先收藏了，太精彩了。','不是，你们怎么什么都知道？👀','霍格沃茨今天也太热闹了吧','这事我得问问其他人。','别笑，我是真的好奇。','请问这是真的吗？？'];
-  const body=candidates[Math.floor(Math.random()*candidates.length)];
-  const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:chosen.id,user_id:null,parent_id:post.id,quote_id:null,body,language:post.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
-  if(error)throw error;
-  await v32Reload();
- }
+ select:id=>{v32.selected=id;v32RenderPostList();v32RenderDetail();},
+ refresh:()=>v32Reload()
 };
 
 async function v32Reload(){if(!admin)return;const[posts,people,users]=await Promise.all([u().from('hw_posts').select('*').order('story_at',{ascending:false}).limit(3000),u().from('hw_characters').select('id,name,handle,avatar_url,badge_type').limit(1000),u().from('hw_profiles').select('id,display_name,handle,avatar_url').limit(1000)]);for(const x of [posts,people,users])if(x.error)throw x.error;v32.posts=posts.data||[];v32.people=new Map((people.data||[]).map(x=>[x.id,x]));v32.users=new Map((users.data||[]).map(x=>[x.id,x]));v32RenderPostList();v32RenderDetail();hwCloudRenderStoryList();window.dispatchEvent(new Event('hw-dev-cloud-refreshed'));if(!v33RenderAllPosts()&&!$('v33-feed')?.contains(document.activeElement))v33RefreshView();if(state.clientMode==='developer'&&state.viewMode==='hw-home')renderPreviewOnly();}
@@ -4461,7 +4444,7 @@ $('hwTimelineFilter').onchange=v32RenderPostList;
 $('hwTimelineItems').onclick=e=>{const b=e.target.closest('[data-v32-open]');if(!b)return;v32.selected=b.dataset.v32Open;v32RenderPostList();v32RenderDetail();};
 $('hwTimelineDetail').onclick=async e=>{const action=e.target.closest('button')?.id;if(!action)return;const p=v32.posts.find(x=>x.id===v32.selected);if(!p)return;const button=e.target.closest('button');button.disabled=true;try{
  if(action==='v32RandomReply'){$('v32ReplyText').value=['我真的笑出声了😭','不是吧，怎么连这里也开始吵起来了💀','等一下，这事我得问问凯蒂。','格兰芬多表示我们有话要说🦁','这个我支持，但训练还是不能迟到🙂','这条得留着，等比赛结束再看。'][Math.floor(Math.random()*6)];return;}
- if(action==='v32Save'){if(p.author_kind!=='character')throw Error('玩家发帖只能由玩家本人修改');const body=$('v32Body').value.trim();const metrics={...(p.metrics||{})};for(const input of $('hwTimelineDetail').querySelectorAll('[data-v32-metric]'))metrics[input.dataset.v32Metric]=input.value.trim()||'0';const{error}=await u().from('hw_posts').update({body,metrics}).eq('id',p.id).eq('author_kind','character');if(error)throw error;v32RememberOverride(p.id,body,metrics);status('✅ 帖子内容已更新到首页、主页和评论详情。');}
+ if(action==='v32Save'){const metrics={...(p.metrics||{})};for(const input of $('hwTimelineDetail').querySelectorAll('[data-v32-metric]'))metrics[input.dataset.v32Metric]=input.value.trim()||'0';if(p.author_kind==='character'){const body=$('v32Body').value.trim();const{error}=await u().from('hw_posts').update({body,metrics}).eq('id',p.id).eq('author_kind','character');if(error)throw error;v32RememberOverride(p.id,body,metrics);status('人物帖子正文和互动数字已更新。');}else{const{error}=await u().from('hw_posts').update({metrics}).eq('id',p.id).eq('author_kind','user');if(error)throw error;status('玩家帖互动数字已更新；玩家正文保持不变。');}}
  if(action==='v32Delete'){if(p.author_kind!=='character'||!confirm('确定删除这条人物帖子及其评论吗？此操作无法撤销。'))return;const{error}=await u().from('hw_posts').delete().eq('id',p.id).eq('author_kind','character');if(error)throw error;delete v32Overrides[p.id];try{localStorage.setItem('hw-v32-cloud-overrides',JSON.stringify(v32Overrides))}catch{}v32.selected='';status('帖子已从云端删除。');}
  if(action==='v32SendReply'){const body=$('v32ReplyText').value.trim(),character_id=$('v32ReplyCharacter').value;if(!body||!character_id)throw Error('请选择角色并输入评论');const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id,user_id:null,parent_id:p.id,quote_id:null,body,language:p.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});if(error)throw error;status('✅ 角色评论已发布，玩家刷新后即可看到。');}
  await v32Reload();
