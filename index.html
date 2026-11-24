@@ -2986,10 +2986,34 @@ async function v25CaptureUser(full=false){
  const copy=root.cloneNode(true);
  if(isChat)copy.classList.add('v26-current-chat-capture');
  copy.style.cssText+=`;width:${width}px!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;min-height:0!important;`;
- // Editor wraps some real content (comment text, avatar, media) in action buttons.
-// Unwrap those buttons rather than deleting the content alongside the controls.
- copy.querySelectorAll('[data-hw-dev-comment="avatar"],[data-hw-dev-comment="edit-text"],[data-hw-dev-comment="media"]').forEach(el=>{
-   el.replaceWith(...Array.from(el.childNodes));
+ // Developer editing uses buttons as wrappers around actual comment text and photos.
+// Screenshot markup must retain *semantic content elements*: removing a button and
+// leaving loose text nodes can make text vanish inside SVG foreignObject captures.
+ copy.querySelectorAll('[data-hw-dev-comment="edit-text"]').forEach(button=>{
+   const paragraph=document.createElement('p');
+   paragraph.className='hw-shot-comment-text';
+   paragraph.style.cssText='display:block;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;font-size:14px;margin:5px 0 7px;color:inherit';
+   for(const child of Array.from(button.childNodes)){
+     if(child.nodeType===1&&child.getAttribute('aria-hidden')==='true')continue;
+     paragraph.appendChild(child.cloneNode(true));
+   }
+   button.replaceWith(paragraph);
+ });
+ // If an inline editor is open, represent its current draft as visible text.
+ copy.querySelectorAll('.hw-dev-comment-editor').forEach(editor=>{
+   const input=editor.querySelector('textarea');
+   const paragraph=document.createElement('p');
+   paragraph.className='hw-shot-comment-text';
+   paragraph.style.cssText='display:block;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;font-size:14px;margin:5px 0 7px;color:inherit';
+   paragraph.textContent=input?.value||input?.textContent||'';
+   editor.replaceWith(paragraph);
+ });
+ copy.querySelectorAll('[data-hw-dev-comment="avatar"],[data-hw-dev-comment="media"]').forEach(button=>{
+   const display=document.createElement('div');
+   display.style.cssText=button.getAttribute('style')||'';
+   display.style.cursor='default';
+   while(button.firstChild)display.appendChild(button.firstChild);
+   button.replaceWith(display);
  });
  // Never export developer actions, editable metrics, or the management rows.
  copy.querySelectorAll('.pv-post-edittools,.u25-user-shotbar,[data-u23="edit-own"],.quote-edit-preview,.x-delete-preview,.hw-dev-card-quick,.hw-dev-comment-admin,.hw-dev-comment-head-actions,.hw-dev-comment-editor,.hw-dev-feed-tools,[data-hw-dev-comment-metric],[data-hw-dev-feed],[data-hw-dev-comment],.v25-screenbar').forEach(el=>el.remove());
