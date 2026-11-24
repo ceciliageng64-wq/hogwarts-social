@@ -3605,6 +3605,88 @@ u23Comments=function(ref){
   const ids=new Set(comments.map(r=>String(r.id)));
   return extra.length?[...comments,...extra.filter(r=>!ids.has(String(r.id)))]:comments;
 };
+
+// V39.9 developer comment workstation: inline text/count editing and per-comment avatar picker.
+let hwDevCommentEditTarget=null;
+function hwDevGetComment(ref,id){
+  if(!ref)return null;
+  return u23Comments(ref).find(row=>String(row.id)===String(id))||null;
+}
+// Include comments attached to player posts when synchronizing a generated commenter's avatar.
+allAccountOccurrences=function(handle){
+  const who=canonicalHandle(handle),out=[],seen=new Set();
+  const add=row=>{
+    if(!row||typeof row!=='object'||seen.has(row))return;
+    if(canonicalHandle(row.handle)===who){seen.add(row);out.push(row);}
+  };
+  for(const lang of ['zh','en']){
+    const draft=state.drafts?.[lang];
+    if(draft)for(const row of [draft.post,...(draft.replies||[]),...(draft.quotes||[])])add(row);
+    for(const collection of [state.profilePosts,state.profileReposts]){
+      const owners=collection?.[lang]||{};
+      for(const posts of Object.values(owners))if(Array.isArray(posts))for(const post of posts){
+        add(post);
+        for(const row of [...(post.hwThread?.replies||[]),...(post.hwThread?.quotes||[])])add(row);
+      }
+    }
+    const commentGroups=state.userComments?.[lang]||{};
+    for(const rows of Object.values(commentGroups))if(Array.isArray(rows))for(const row of rows)add(row);
+  }
+  for(const person of state.people||[])add(person);
+  return out;
+};
+function hwDevOpenCommentAvatar(ref,id){
+  const row=hwDevGetComment(ref,id);
+  if(!row||!row.handle){toast('找不到这条评论');return;}
+  avatarEditingHandle=canonicalHandle(row.handle);
+  $('randomAvatarModal').hidden=false;
+  renderRandomAvatarPicker();
+  $('randomAvatarClose').focus({preventScroll:true});
+}
+const hwDevBaseCommentCard=u23CommentCard;
+u23CommentCard=function(r,ref){
+  let html=hwDevBaseCommentCard(r,ref);
+  if(state.clientMode!=='developer'||!hwDevFeedPage)return html;
+  const key=ref.key,id=String(r.id);
+  const avatar=u23UserCard(u23PersonByHandle(r.handle)||r,true);
+  const avatarButton='<button type="button" data-hw-dev-comment="avatar" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="点击更换这位网友的头像" aria-label="更换头像" style="display:block;flex:0 0 41px;width:41px;height:41px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer;overflow:hidden">'+avatar+'</button>';
+  html=html.replace(avatar,avatarButton);
+  const isEditing=hwDevCommentEditTarget?.key===key&&hwDevCommentEditTarget?.id===id;
+  const originalText='<p>'+inlineMentions(r.text||'')+'</p>';
+  const textMarkup=isEditing
+    ?'<div class="hw-dev-comment-editor" style="margin:5px 0 8px"><textarea data-hw-dev-comment-textarea data-key="'+esc(key)+'" data-id="'+esc(id)+'" rows="3" style="display:block;width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--accent,#1d9bf0);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit;resize:vertical">'+esc(r.text||'')+'</textarea><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:7px"><button type="button" data-hw-dev-comment="cancel-text" data-key="'+esc(key)+'" data-id="'+esc(id)+'">取消</button><button type="button" data-hw-dev-comment="save-text" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="background:#1d9bf0;color:#fff;border-radius:999px;padding:6px 13px">保存</button></div></div>'
+    :'<button type="button" class="hw-dev-comment-text" data-hw-dev-comment="edit-text" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="点击直接编辑评论文字" style="display:block;width:100%;padding:1px 0;margin:5px 0 7px;border:0;background:transparent;color:inherit;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;font:inherit;font-size:14px;cursor:text">'+inlineMentions(r.text||'　')+' <span aria-hidden="true" style="font-size:11px;opacity:.45">✎</span></button>';
+  html=html.replace(originalText,textMarkup);
+  const fields=[['replies','回复'],['likes','点赞'],['reposts','转发'],['views','浏览'],['bookmarks','收藏']];
+  const controls='<div class="hw-dev-comment-admin" style="display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:7px 12px 10px 65px;border-bottom:1px solid var(--stroke,#e5e7eb)">'
+    +'<button type="button" data-hw-dev-comment="random-metrics" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">🎲 随机数字</button>'
+    +fields.map(([field,label])=>'<label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted)">'+label+'<input type="text" inputmode="text" data-hw-dev-comment-metric="'+field+'" data-key="'+esc(key)+'" data-id="'+esc(id)+'" value="'+esc(r[field]??'0')+'" aria-label="'+label+'" style="width:48px;min-width:0;padding:4px 5px;border:1px solid var(--stroke,#ddd);border-radius:6px;background:var(--surface);color:var(--ink);font-size:11px"></label>').join('')
+    +'</div>';
+  return html+controls;
+};
+function hwDevCommentControl(action,key,id,button){
+  const ref=u23Find(key),row=hwDevGetComment(ref,id);
+  if(!ref||!row)return;
+  if(action==='avatar'){hwDevOpenCommentAvatar(ref,id);return;}
+  if(action==='edit-text'){
+    hwDevCommentEditTarget={key,id};
+    render();
+    $('feedContent').querySelector('[data-hw-dev-comment-textarea]')?.focus();
+    return;
+  }
+  if(action==='cancel-text'){hwDevCommentEditTarget=null;render();return;}
+  if(action==='save-text'){
+    const area=$('feedContent').querySelector('[data-hw-dev-comment-textarea]');
+    const value=String(area?.value??row.text??'').trim();
+    if(!value&&!row.media){toast('评论内容不能为空');return;}
+    row.text=value;hwDevCommentEditTarget=null;persist();render();toast('评论内容已保存');return;
+  }
+  if(action==='random-metrics'){
+    Object.assign(row,randomMetricPack('reply'));
+    persist();render();toast('这条评论的互动数字已随机更新');
+  }
+}
+
 function hwDevFeedHTML(){
   const refs=u23Refs();
   if(hwDevFeedPage==='post'){
@@ -3646,6 +3728,12 @@ $('xNavLinks').addEventListener('click',e=>{
 },true);
 $('feedContent').addEventListener('click',e=>{
   if(state.clientMode!=='developer'||!hwDevFeedPage)return;
+  const commentControl=e.target.closest('[data-hw-dev-comment]');
+  if(commentControl){
+    e.preventDefault();e.stopImmediatePropagation();
+    hwDevCommentControl(commentControl.dataset.hwDevComment,commentControl.dataset.key,commentControl.dataset.id,commentControl);
+    return;
+  }
   const target=e.target.closest('[data-hw-dev-feed],[data-u23]');
   if(!target)return;
   e.preventDefault();e.stopImmediatePropagation();
@@ -3663,6 +3751,20 @@ $('feedContent').addEventListener('click',e=>{
     hwDevFeedPage='';state.profileSelected=target.dataset.id;pvSwitch('profile');return;
   }
   if(key){hwDevFeedFocus=key;hwDevFeedPage='post';render();}
+},true);
+$('feedContent').addEventListener('change',e=>{
+  if(state.clientMode!=='developer'||!hwDevFeedPage)return;
+  const input=e.target.closest('[data-hw-dev-comment-metric]');
+  if(!input)return;
+  const ref=u23Find(input.dataset.key),row=hwDevGetComment(ref,input.dataset.id);
+  if(!row)return;
+  const field=input.dataset.hwDevCommentMetric;
+  if(!['replies','likes','reposts','views','bookmarks'].includes(field))return;
+  row[field]=String(input.value??'').trim()||'0';
+  persist();render();toast('评论数字已保存');
+},true);
+$('feedContent').addEventListener('keydown',e=>{
+  if(e.target.matches('[data-hw-dev-comment-metric]')&&e.key==='Enter'){e.preventDefault();e.target.blur();}
 },true);
 })();
 </script>
