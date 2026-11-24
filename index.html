@@ -3525,6 +3525,67 @@ function hwDevFeedTarget(ref){
   const parts=String(ref.key).split(':');
   return parts.length===3?{lang:state.lang,kind:ref.type==='repost'?'repost':'post',owner:parts[1],id:parts[2]}:null;
 }
+
+/* V41: developer's local timestamp tools honor the historical post/reply chain. */
+function hwDevWorldMillis(){const d=new Date();d.setFullYear(d.getFullYear()-33);return d.getTime();}
+function hwDevCloudKey(ref,row){
+ const lg=state.lang;
+ let root=ref.type==='main'?'v26:'+lg+':main':'v26:'+lg+':'+(ref.type==='repost'?'repost':'profile')+':'+ref.ownerId+':'+ref.post.id;
+ if(!row)return [root];
+ if(ref.type==='main')return ['v26:'+lg+':reply:'+row.id];
+ const part=root+':reply:'+row.id;
+ const other='v26:'+lg+':profile-comment:'+ref.ownerId+':'+ref.post.id+':'+row.id;
+ return [part,other];
+}
+function hwDevLocalCloudTime(ref,row){
+ if(!ref)return NaN;
+ for(const key of hwDevCloudKey(ref,row)){
+  const iso=window.hwCloudStoryForLegacy?.(key);
+  if(iso&&Number.isFinite(Date.parse(iso)))return Date.parse(iso);
+ }
+ return NaN;
+}
+function hwDevLocalTime(ref,row=null,stack=new Set()){
+ const object=row||ref?.post;if(!object)return hwDevWorldMillis()-86400000;
+ if(stack.has(object))return hwDevWorldMillis()-86400000;
+ const own=Date.parse(object.hwStoryAt||'');
+ if(Number.isFinite(own))return own;
+ const cloud=hwDevLocalCloudTime(ref,row);
+ if(Number.isFinite(cloud))return cloud;
+ if(!row){
+  const real=Number(ref.post.created)||Number(ref.created)||Date.now()-3600000;
+  const d=new Date(real);d.setFullYear(d.getFullYear()-33);return Math.min(hwDevWorldMillis()-1000,d.getTime());
+ }
+ const all=u23Comments(ref),root=ref.post;
+ const parent=row.parentId?all.find(x=>String(x.id)===String(row.parentId)):root;
+ stack.add(object);
+ const base=parent===root?hwDevLocalTime(ref,null,stack):hwDevLocalTime(ref,parent,stack);
+ stack.delete(object);
+ const idx=Math.max(0,all.indexOf(row));
+ return Math.min(hwDevWorldMillis()-1000,base+(idx+1)*11*60000);
+}
+function hwDevLocalLabel(ms){const d=new Date(ms);return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function hwDevRandomStoryTime(ref,row=null){
+ const start=Date.parse('1993-11-01T08:00:00Z'),current=hwDevWorldMillis();
+ let lower=start,upper=current;
+ const comments=u23Comments(ref);
+ if(row){
+  const parent=row.parentId?comments.find(x=>String(x.id)===String(row.parentId)):null;
+  lower=Math.max(lower,hwDevLocalTime(ref,parent||null)+1000);
+  for(const child of comments)if(String(child.parentId||'')===String(row.id))upper=Math.min(upper,hwDevLocalTime(ref,child)-1000);
+ }else{
+  for(const child of comments)if(!child.parentId)upper=Math.min(upper,hwDevLocalTime(ref,child)-1000);
+ }
+ if(upper<lower)return null;
+ return new Date(lower+(upper-lower)*(row?Math.pow(Math.random(),2.2):Math.random())).toISOString();
+}
+const hwDevOriginalHumanPost=u23HumanPost;
+u23HumanPost=function(ref){const post=hwDevOriginalHumanPost(ref);
+ if(ref.type==='external')return post;
+ return {...post,time:hwDevLocalLabel(hwDevLocalTime(ref))};};
+const hwDevOriginalRefs=u23Refs;
+u23Refs=function(){return hwDevOriginalRefs().sort((a,b)=>hwDevLocalTime(b)-hwDevLocalTime(a));};
+
 function hwDevFeedRandom(ref,action){
   if(!ref)return;
   const key=hwDevFeedTarget(ref);
@@ -3543,7 +3604,12 @@ function hwDevFeedRandom(ref,action){
         if(count<d().replies.length)d().post.replies=String(d().replies.length);
       }
     }else if(action==='metrics')Object.assign(d().post,randomMetricPack('post'));
-    else if(action==='time')d().post.time=randomRelativeTime();
+    else if(action==='time'){
+      const stamp=hwDevRandomStoryTime(ref);
+      if(!stamp){toast('此帖子已有更早的下级评论，暂无可用时间；请先调整相关评论');return;}
+      d().post.hwStoryAt=stamp;
+      d().post.time=hwDevLocalLabel(Date.parse(stamp));
+    }
   }finally{
     state.hwSelectedPost=previousSelected;
     state.viewMode=previousView;
@@ -3709,7 +3775,7 @@ document.head.insertAdjacentHTML('beforeend','<style>'
   +'</style>');
 const hwDevBaseCommentCard=u23CommentCard;
 u23CommentCard=function(r,ref){
-  let html=hwDevBaseCommentCard(r,ref);
+  let html=hwDevBaseCommentCard({...r,time:hwDevLocalLabel(hwDevLocalTime(ref,r))},ref);
   if(state.clientMode!=='developer'||!hwDevFeedPage)return html;
   const key=ref.key,id=String(r.id);
   const avatar=u23UserCard(u23PersonByHandle(r.handle)||r,true);
@@ -3838,7 +3904,12 @@ function hwDevCommentControl(action,key,id,button){
   const ref=u23Find(key),row=hwDevGetComment(ref,id);
   if(!ref||!row)return;
   if(action==='avatar'){hwDevOpenCommentAvatar(ref,id);return;}
-  if(action==='random-time'){row.time=randomRelativeTime();persist();render();toast('这条评论的发布时间已随机更新');return;}
+  if(action==='random-time'){
+    const stamp=hwDevRandomStoryTime(ref,row);
+    if(!stamp){toast('评论与父级或下级的时间范围冲突，无法随机；请先调整相关时间');return;}
+    row.hwStoryAt=stamp;row.time=hwDevLocalLabel(Date.parse(stamp));
+    persist();render();toast('评论时间已在合法范围内更新');return;
+  }
   if(action==='delete-reply'){hwDevCommentDelete(ref,id);return;}
   if(action==='media'){hwDevCommentMediaTarget={key,id};hwDevCommentMediaFile.click();return;}
   if(action==='clear-media'){row.media='';render();persist();toast('已移除这条评论的配图');return;}
@@ -4145,6 +4216,7 @@ cloudTimelineBox.innerHTML=`<div class="hw-inbox-head"><b>📝 全部帖子 · �
 cloudTimelineBox.hidden=true;document.body.append(cloudTimelineBox);
 const cloudTimelineStyle=document.createElement('style');cloudTimelineStyle.textContent=`#hwCloudTimelineBox{margin-top:16px;gap:10px}#hwTimelineItems{max-height:340px;overflow:auto;border:1px solid #dbe5ed;border-radius:12px}#hwTimelineItems button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e9edf1;background:#fff;color:#0f1419;padding:10px;cursor:pointer;line-height:1.5}#hwTimelineItems button:hover,#hwTimelineItems button.active{background:#edf7ff}#hwTimelineItems button small{display:block;color:#536471}#hwTimelineDetail{display:grid;gap:9px}#hwTimelineDetail textarea,#hwTimelineDetail input,#hwTimelineDetail select{width:100%;box-sizing:border-box;border:1px solid #d7e1e8;border-radius:9px;padding:9px;background:#fff;color:#0f1419}#hwTimelineDetail .hw-metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#hwTimelineDetail label{display:grid;gap:4px}#hwTimelineDetail .hw-cloud-reply{border:1px solid #e9edf1;border-radius:9px;padding:8px;line-height:1.45}#hwTimelineDetail .hw-cloud-reply small{color:#536471}#hwTimelineDetail .hw-actions{display:flex;gap:8px;flex-wrap:wrap}#hwTimelineDetail .hw-actions button{flex:1;min-width:90px}`;document.head.append(cloudTimelineStyle);
 const v32={posts:[],people:new Map(),users:new Map(),selected:'',expanded:false};
+window.hwCloudStoryForLegacy=id=>v32.posts.find(p=>p.id===id)?.story_at||null;
 // Keep direct cloud edits through subsequent local draft publishing, rather than silently reverting them.
 let v32Overrides={};try{v32Overrides=JSON.parse(localStorage.getItem('hw-v32-cloud-overrides')||'{}')||{}}catch{}
 function v32RememberOverride(id,body,metrics,created_at){if(!/^v26:/.test(id))return;v32Overrides[id]={body,metrics,created_at};try{localStorage.setItem('hw-v32-cloud-overrides',JSON.stringify(v32Overrides))}catch{}}
