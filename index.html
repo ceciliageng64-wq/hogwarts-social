@@ -1454,7 +1454,21 @@ $('peopleList').onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matche
 $('quickNewPerson').onclick=()=>{personEditingId='';personInlineDraft=null;renderPeopleList();$('personFormTitle').scrollIntoView({behavior:'smooth',block:'center'});$('personName').focus({preventScroll:true})};
 $('loadExamples').onclick=()=>{let n=mergeSamplePeople();changed();toast(T('examplesAdded')+' · '+n)};
 $('extractPeople').onclick=()=>{let count=0;for(const p of [d().post,...d().replies]){if(!personByHandle(p.handle)){if(upsertPerson(p))count++}else{let saved=personByHandle(p.handle);if(!saved.avatar&&p.avatar){saved.avatar=p.avatar;count++}}}changed();toast(T('peopleExtracted')+': '+count)};
-function openEditorPage(which){$('workspace').classList.remove('editor-closed');tab(which);render();if(innerWidth<870)$('controls').scrollIntoView({behavior:'smooth',block:'start'})}$('fakeNavPost').onclick=()=>openEditorPage('post');$('feedContent').addEventListener('click',e=>{if(e.target.closest('.compose-post-button')){clearReplyForm();openEditorPage('replies')}});
+function openEditorPage(which){$('workspace').classList.remove('editor-closed');tab(which);render();if(innerWidth<870)$('controls').scrollIntoView({behavior:'smooth',block:'start'})}$('fakeNavPost').onclick=()=>openEditorPage('post');$('feedContent').addEventListener('change',e=>{
+ if(state.clientMode!=='developer'||!e.target.matches('[data-cloud-reply-image]'))return;
+ const input=e.target,file=input.files?.[0],form=input.closest('[data-cloud-composer]'),id=form?.dataset.cloudComposer;
+ if(!id||!file)return;
+ if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)||file.size>10*1024*1024){toast('仅支持 JPG / PNG / WEBP / GIF，最大 10 MB');input.value='';return;}
+ const saved=hwDevCloudReplyDrafts.get(id)||{};
+ saved.body=form.querySelector('[data-cloud-reply-field="body"]')?.value||'';
+ saved.characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value||'';
+ saved.parentId=form.querySelector('[data-cloud-reply-field="parent"]')?.value||'';
+ hwDevCloudReplyDrafts.set(id,saved);
+ const prev=hwDevCloudReplyImages.get(id);if(prev?.preview)URL.revokeObjectURL(prev.preview);
+ hwDevCloudReplyImages.set(id,{file,preview:URL.createObjectURL(file)});
+ render();
+});
+$('feedContent').addEventListener('click',e=>{if(e.target.closest('.compose-post-button')){clearReplyForm();openEditorPage('replies')}});
 $('replyManager').onclick=e=>{let b=e.target.closest('button[data-action]');if(!b)return;let i=d().replies.findIndex(r=>r.id===b.dataset.id);if(i<0)return;let act=b.dataset.action;if(act==='reply')return startReplyTo(b.dataset.id);if(act==='edit')return editReply(b.dataset.id);if(act==='delete')return removeReplyQuick(b.dataset.id);if(act==='up'&&i>0)[d().replies[i-1],d().replies[i]]=[d().replies[i],d().replies[i-1]];if(act==='down'&&i<d().replies.length-1)[d().replies[i+1],d().replies[i]]=[d().replies[i],d().replies[i+1]];changed()};
 function renderRandomAvatarPicker(){
  const who=avatarEditingHandle,row=allAccountOccurrences(who)[0];
@@ -4220,20 +4234,6 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='cloud-profile'){hwDevPlayerProfileId=target.dataset.id||'';hwDevCloudProfileTab='posts';hwDevFeedPage='player-profile';hwDevFeedFocus='';render();return;}
   if(action==='cloud-open'){hwDevCloudReturn=hwDevFeedPage==='player-profile'?'player-profile':'home';hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
   if(action==='cloud-image-remove'){const item=hwDevCloudReplyImages.get(target.dataset.id);if(item?.preview)URL.revokeObjectURL(item.preview);hwDevCloudReplyImages.delete(target.dataset.id);render();return;}
-$('feedContent').addEventListener('change',e=>{
- if(state.clientMode!=='developer'||!e.target.matches('[data-cloud-reply-image]'))return;
- const input=e.target,file=input.files?.[0],form=input.closest('[data-cloud-composer]'),id=form?.dataset.cloudComposer;
- if(!id||!file)return;
- if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)||file.size>10*1024*1024){toast('仅支持 JPG / PNG / WEBP / GIF，最大 10 MB');input.value='';return;}
- const saved=hwDevCloudReplyDrafts.get(id)||{};
- saved.body=form.querySelector('[data-cloud-reply-field="body"]')?.value||'';
- saved.characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value||'';
- saved.parentId=form.querySelector('[data-cloud-reply-field="parent"]')?.value||'';
- hwDevCloudReplyDrafts.set(id,saved);
- const prev=hwDevCloudReplyImages.get(id);if(prev?.preview)URL.revokeObjectURL(prev.preview);
- hwDevCloudReplyImages.set(id,{file,preview:URL.createObjectURL(file)});
- render();
-});
   if(action==='cloud-generate'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]'),input=form?.querySelector('[data-cloud-reply-field="body"]');if(!input)return;const at=input.value.match(/^@[^\s]+\s+/)?.[0]||'';input.value=at+hwDevCloudReplySamples[Math.floor(Math.random()*hwDevCloudReplySamples.length)];const item=hwDevCloudReplyDrafts.get(id)||{};item.body=input.value;hwDevCloudReplyDrafts.set(id,item);input.focus();return;}
   if(action==='cloud-publish'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]');if(!form)return;const characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value,body=form.querySelector('[data-cloud-reply-field="body"]')?.value.trim(),parentId=form.querySelector('[data-cloud-reply-field="parent"]')?.value||'';if(!characterId||(!body&&!hwDevCloudReplyImages.has(id))){toast('请选择评论人物并填写文字或添加图片');return;}if(target.disabled)return;target.disabled=true;const oldText=target.textContent;target.textContent='发布中…';window.hwDevCloudFeed.sendReply(id,characterId,body,parentId,hwDevCloudReplyImages.get(id)?.file||null).then(()=>{hwDevCloudReplyDrafts.delete(id);const item=hwDevCloudReplyImages.get(id);if(item?.preview)URL.revokeObjectURL(item.preview);hwDevCloudReplyImages.delete(id);toast('人物评论已发布，玩家端可见');render();}).catch(err=>{toast('评论发布失败：'+(err?.message||err));target.disabled=false;target.textContent=oldText;});return;}
   if(action==='cloud-manage'){hwDevCloudReturn=hwDevFeedPage==='player-profile'?'player-profile':'home';hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
