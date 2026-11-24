@@ -4077,7 +4077,13 @@ function hwDevCloudReplies(post){
     +(replyTo?'<div style="font-size:12px;opacity:.7">回复 @'+esc(replyTo.authorHandle||replyTo.authorName)+'</div>':'')
     +'<p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0">'+esc(r.body||'[图片]')+'</p>'
     +(r.image_url?'<img src="'+esc(r.image_url)+'" loading="lazy" style="max-width:100%;max-height:190px;border-radius:10px" alt="评论图片">':'')
-    +(editing?'<div data-cloud-reply-editor="'+pid+'"><textarea rows="3" data-cloud-edit-body style="width:100%;padding:9px;border-radius:8px;background:var(--surface);color:var(--ink)">'+esc(r.body||'')+'</textarea><button type="button" data-hw-dev-feed="cloud-edit-save" data-id="'+pid+'">保存修改</button> <button type="button" data-hw-dev-feed="cloud-edit-cancel">取消</button></div>':'')
+    +(editing?'<div data-cloud-reply-editor="'+pid+'" style="padding:10px 0">'
+      +'<label style="display:block">评论人物<select data-cloud-edit-author style="width:100%;padding:8px;background:var(--surface);color:var(--ink)">'
+      +(window.hwDevCloudFeed?.characters()||[]).map(p=>'<option value="'+esc(p.id)+'" '+(p.id===r.character_id?'selected':'')+'>'+esc(p.name)+' (@'+esc(p.handle||'')+')</option>').join('')+'</select></label>'
+      +'<label style="display:block;margin:8px 0">回复谁<select data-cloud-edit-parent style="width:100%;padding:8px;background:var(--surface);color:var(--ink)"><option value="'+esc(post.id)+'" '+(r.parent_id===post.id?'selected':'')+'>回复主帖</option>'
+      +rows.filter(x=>x.id!==r.id&&x.parent_id===post.id).map(x=>'<option value="'+esc(x.id)+'" '+(r.parent_id===x.id?'selected':'')+'>@'+esc(x.authorHandle||x.authorName)+'：'+esc((x.body||'').slice(0,28))+'</option>').join('')+'</select></label>'
+      +'<label>评论正文及 @<textarea rows="3" data-cloud-edit-body style="width:100%;padding:9px;border-radius:8px;background:var(--surface);color:var(--ink)">'+esc(r.body||'')+'</textarea></label>'
+      +'<button type="button" data-hw-dev-feed="cloud-edit-save" data-id="'+pid+'">保存修改</button> <button type="button" data-hw-dev-feed="cloud-edit-cancel">取消</button></div>':'')
     +'<div style="display:flex;gap:7px;flex-wrap:wrap"><button type="button" data-hw-dev-feed="cloud-reply-to" data-id="'+pid+'" data-post="'+esc(post.id)+'">↳ 回复</button>'
     +(r.author_kind==='character'?'<button type="button" data-hw-dev-feed="cloud-edit-reply" data-id="'+pid+'">✎ 编辑</button>':'')
     +'<button type="button" data-hw-dev-feed="cloud-delete-reply" data-id="'+pid+'" style="color:#b33">🗑 删除</button></div>'+renderChildren(r.id,depth+1)+'</div>';
@@ -4207,9 +4213,9 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='cloud-edit-reply'){hwDevCloudEditingReply=target.dataset.id;render();return;}
   if(action==='cloud-edit-cancel'){hwDevCloudEditingReply='';render();return;}
   if(action==='cloud-edit-save'){
-   const id=target.dataset.id,body=target.closest('[data-cloud-reply-editor]')?.querySelector('[data-cloud-edit-body]')?.value.trim();
+   const id=target.dataset.id,box=target.closest('[data-cloud-reply-editor]'),body=box?.querySelector('[data-cloud-edit-body]')?.value.trim(),characterId=box?.querySelector('[data-cloud-edit-author]')?.value,parentId=box?.querySelector('[data-cloud-edit-parent]')?.value;
    if(!body){toast('评论正文不能为空');return;}target.disabled=true;
-   window.hwDevCloudFeed.editReply(id,body).then(()=>{hwDevCloudEditingReply='';toast('评论修改成功');render()}).catch(err=>{toast('修改失败：'+err.message);target.disabled=false});return;
+   window.hwDevCloudFeed.editReply(id,body,characterId,parentId).then(()=>{hwDevCloudEditingReply='';toast('评论修改成功');render()}).catch(err=>{toast('修改失败：'+err.message);target.disabled=false});return;
   }
   if(action==='cloud-delete-reply'){
    const id=target.dataset.id;if(!confirm('确定删除这条评论吗？楼中楼回复也可能一起删除。'))return;
@@ -4536,11 +4542,13 @@ window.hwDevCloudFeed={
   if(error)throw error;
   await v32Reload();
  },
- editReply:async(id,body)=>{
+ editReply:async(id,body,characterId,parentId)=>{
   if(!admin)throw Error('需要开发者账号');
   const p=v32.posts.find(x=>x.id===id&&x.parent_id&&x.author_kind==='character');
   if(!p)throw Error('仅能编辑人物评论');
-  const {data,error}=await u().from('hw_posts').update({body:String(body).trim()}).eq('id',id).eq('author_kind','character').select('id');
+  if(!v32.people.has(characterId))throw Error('请选择有效人物');
+  const parent=v32.posts.find(x=>x.id===parentId);if(!parent||parent.id===id||(!parent.parent_id&&p.parent_id!==parent.id&&parent.id!==p.parent_id)||parent.parent_id&&parent.parent_id!==p.parent_id&&parent.id!==p.parent_id)throw Error('回复对象无效，请选择主帖或同帖评论');
+  const {data,error}=await u().from('hw_posts').update({body:String(body).trim(),character_id:characterId,parent_id:parentId}).eq('id',id).eq('author_kind','character').select('id');
   if(error)throw error;if(!data?.length)throw Error('没有修改权限');
   await v32Reload();
  },
