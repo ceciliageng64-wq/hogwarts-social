@@ -4508,17 +4508,42 @@ window.hwDevCloudFeed={
   return {...p,authorName:person?.name||person?.display_name||'玩家',authorHandle:person?.handle||'',authorAvatar:person?.avatar_url||'',
    time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),replyCount:v32.posts.filter(x=>x.parent_id===p.id).length};
  }).sort((a,b)=>b.sortTime-a.sortTime),
- replies:id=>v32.posts.filter(p=>p.parent_id===id).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b)).map(p=>({...p,authorName:v32PostAuthor(p),time:hwCloudStoryText(p)})),
+ replies:id=>{const result=[],seen=new Set();function walk(parent){for(const p of v32.posts.filter(x=>x.parent_id===parent).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b))){if(seen.has(p.id))continue;seen.add(p.id);const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);result.push({...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||'',time:hwCloudStoryText(p)});walk(p.id)}}walk(id);return result;},
+ reply:id=>{const p=v32.posts.find(x=>x.id===id);if(!p)return null;const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);return {...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||''};},
+ playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>({...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),replyCount:0})).sort((a,b)=>b.sortTime-a.sortTime),
  player:id=>v32.users.get(id),
  characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
- sendReply:async(id,characterId,body)=>{
+ sendReply:async(id,characterId,body,parentId='')=>{
   if(!admin)throw Error('请先登录开发者账号');
   const post=v32.posts.find(p=>p.id===id&&!p.parent_id),person=v32.people.get(characterId);
   if(!post)throw Error('帖子不存在或已被删除');
   if(!person)throw Error('请选择有效的人物');
   const text=String(body||'').trim();if(!text)throw Error('评论不能为空');
-  const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:person.id,user_id:null,parent_id:id,quote_id:null,body:text,language:post.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
+  const parent=parentId?v32.posts.find(p=>p.id===parentId):null;if(parentId&&(!parent||parent.parent_id!==id))throw Error('回复对象不属于本帖');
+  const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:person.id,user_id:null,parent_id:parentId||id,quote_id:null,body:text,language:post.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
   if(error)throw error;
+  await v32Reload();
+ },
+ editReply:async(id,body)=>{
+  if(!admin)throw Error('需要开发者账号');
+  const p=v32.posts.find(x=>x.id===id&&x.parent_id&&x.author_kind==='character');
+  if(!p)throw Error('仅能编辑人物评论');
+  const {data,error}=await u().from('hw_posts').update({body:String(body).trim()}).eq('id',id).eq('author_kind','character').select('id');
+  if(error)throw error;if(!data?.length)throw Error('没有修改权限');
+  await v32Reload();
+ },
+ deleteReply:async id=>{
+  if(!admin)throw Error('需要开发者账号');
+  const p=v32.posts.find(x=>x.id===id&&x.parent_id);if(!p)throw Error('这条评论不存在');
+  const {data,error}=await u().from('hw_posts').delete().eq('id',id).not('parent_id','is',null).select('id');
+  if(error)throw error;if(!data?.length)throw Error('没有删除权限');
+  await v32Reload();
+ },
+ saveMetrics:async(id,metrics)=>{
+  if(!admin)throw Error('需要开发者账号');
+  const p=v32.posts.find(x=>x.id===id);if(!p)throw Error('找不到帖子');
+  const {data,error}=await u().from('hw_posts').update({metrics:{...(p.metrics||{}),...metrics}}).eq('id',id).select('id');
+  if(error)throw error;if(!data?.length)throw Error('互动数字没有保存');
   await v32Reload();
  },
  select:id=>{v32.selected=id;v32RenderPostList();v32RenderDetail();},
