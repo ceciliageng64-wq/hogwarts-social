@@ -808,7 +808,7 @@ async function deleteMyAccount(){
  try{
   const {data:{session},error}=await C.auth.getSession();
   if(error||!session?.access_token)throw Error('登录状态已过期，请重新登录。');
-  const resp=await fetch(H.PROJECT_URL+'/functions/v1/hogwarts-player-delete',{method:'POST',headers:{'Authorization':'Bearer '+session.access_token,'apikey':H.PUBLISHABLE_KEY,'Content-Type':'application/json'},body:'{}',cache:'no-store'});
+  const resp=await fetch(H.PROJECT_URL+'/functions/v1/hogwarts-player-delete',{method:'POST',headers:{'Authorization':'Bearer '+session.access_token,'apikey':H.PUBLISHABLE_KEY,'Content-Type':'application/json'},body:JSON.stringify({confirm:'注销'}),cache:'no-store'});
   const result=await resp.json().catch(()=>({}));
   if(!resp.ok||!result.ok)throw Error(result.error||'服务器未能完成注销。');
   await H.signOut().catch(()=>{});
