@@ -1034,6 +1034,14 @@ EXTRA_QUOTE_ARCHIVE["en"]["houses"].push(...["the houses are arguing in four dif
 EXTRA_QUOTE_ARCHIVE["en"]["confession"].push(...["quoting for the person too shy to send the letter", "anonymous, except half the dorm already knows", "the confession wall deserves a salary", "please tag the person in the blue scarf (respectfully)", "your crush is probably reading this right now", "we are not beating the hopeless romantic allegations"]);
 EXTRA_QUOTE_ARCHIVE["en"]["daily"].push(...["the stairs moved but my deadlines did not", "sending this instead of doing my homework", "breakfast gossip is the only morning motivation", "my owl is late again, on brand", "somebody please return my borrowed quill", "tomorrow i will log off earlier (false)"]);
 
+// Additional editable random-comment materials (append only; keep existing corpus intact).
+EXTRA_COMMENT_ARCHIVE["zh"]["all"].push(...["等一下这个评论区怎么还分支剧情","原帖三句话评论区写了一本小说","谁帮我捋一下时间线","说真的我们是不是漏了什么信息","我先不站队，等当事人说话","这层回复比上课点名还紧张","看到这里我默默放下了南瓜汁","不是，楼上你怎么知道的","我来晚了，谁给我划重点","先存个档，等晚点再回来","哈哈哈哈哈我室友问我笑什么","这个问号非常有灵魂","有的人是来看帖的有的人是来续写的","请给不在现场的人一点上下文","我有一种下一秒要反转的预感","大家都先别传未经证实的消息","我本来想认真回答的，结果笑了","现在退出评论区还来得及吗"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["romance"].push(...["人家可能只是普通朋友，别乱配对呀","我先不嗑，等本人开口","这个回复怎么有点欲盖弥彰","他们对视那一下谁看到了","先确认双方都愿意再起哄吧","旁观者比当事人还着急","这糖是自己来的，不是我硬嗑的"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["quidditch"].push(...["这个走位我愿称之为教科书级","我还没看懂犯规判罚，谁解释一下","守门员今天真的值得掌声","赛后复盘能不能别变成互怼","说到训练我突然想起作业没写","别吵了，下一场球场上见"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["houses"].push(...["鹰院能不能先不要做数据分析","蛇院和狮院又开始隔空喊话了","其实四个学院都有好人啊","学院分数不是万能的，别上头","獾院今日份围观席已就位","谁来主持一场跨学院和平讨论"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["confession"].push(...["匿名也请尊重一下被提到的人","如果是我我会想先私下问问","这是什么礼堂大型猜谜活动","表白墙管理员今天辛苦了","我怀疑我知道是谁但我不说","这次可以有个完整后续吗"]);
+EXTRA_COMMENT_ARCHIVE["zh"]["daily"].push(...["有人知道今天晚餐有没有布丁吗","我的羽毛笔又不见了","图书馆的靠窗位置永远抢不到","周末只想去霍格莫德喝杯热饮","有人想组队复习魔法史吗","我和移动楼梯今天又吵了一架"]);
+
 function appendRandomComments(count=1){
  const seen=new Set(),theme=classifySocialTheme();
  for(let i=0;i<count;i++){
@@ -4047,7 +4055,26 @@ let hwDevPlayerProfileId='',hwDevCloudReturn='home',hwDevCloudProfileTab='posts'
 const hwDevCloudData=()=>window.hwDevCloudFeed?.list()||[];
 
 const hwDevCloudReplyDrafts=new Map();
-const hwDevCloudReplySamples=['我真的笑出声了😭','等一下，这是什么展开💀','不是吧，你们连这个都知道？','有意思，继续说。👀','霍格沃茨今天也很热闹。','这条我先记下了。','不是，你认真的吗？','我觉得事情没那么简单。'];
+const hwDevCloudReplySamples=['我真的笑出声了😭','等一下，这是什么展开💀','不是吧，你们连这个都知道？','有意思，继续说。👀','霍格沃茨今天也很热闹。','这条我先记下了。','不是，你认真的吗？','我觉得事情没那么简单。','我刚从魔药课出来就看见这个？？','这层比原帖还精彩','先别急，我还在等另一位当事人','谁来给我补一下前情提要','猫头鹰都没你们传消息快','有证据吗，还是又是礼堂传闻','你们说话能不能不要只说一半','先蹲一个后续，我不走了','梅林啊，这是什么展开','不是所有沉默都代表默认吧','这个评论我先收藏一下','我室友看完直接不说话了','讲真，这件事还有另一种解释','等等，楼上说的是真的吗','我觉得先听听本人怎么说','你这句话我得好好消化一下','这条回复有点东西','啊？这也能扯到学院杯','别拉踩学院了先说正事','热评里居然有熟人','谁懂，在公共休息室刷到这条','一整个震惊住了','你们都没睡吗','我先声明只是路过吃瓜','课可以明天上，后续不能明天看','这样公开说真的没关系吗','笑死，我想看楼主怎么回','魁地奇训练都没这层激烈','这一层建议单独开帖','我甚至能想象教授看到的表情','先别嗑，问问当事人愿不愿意','有点心疼当事人，希望别传谣'];
+// Follow the actual cloud parent chain, including rows outside the limited local cache.
+async function hwDevCloudRootId(row){
+ const visited=new Set();
+ let current=row;
+ for(let depth=0;current&&depth<100;depth++){
+  if(visited.has(current.id))throw Error('评论回复关系存在循环');
+  visited.add(current.id);
+  if(!current.parent_id)return current.id;
+  const nextId=current.parent_id;
+  current=v32.posts.find(p=>p.id===nextId);
+  if(!current){
+   const {data,error}=await u().from('hw_posts').select('id,parent_id').eq('id',nextId).maybeSingle();
+   if(error)throw error;
+   if(!data)throw Error('回复对象的上级评论不存在');
+   current=data;
+  }
+ }
+ throw Error('评论回复关系异常');
+}
 function hwDevCloudReplyComposer(post){
  const people=window.hwDevCloudFeed?.characters()||[],saved=hwDevCloudReplyDrafts.get(post.id)||{},rows=window.hwDevCloudFeed?.replies(post.id)||[];
  const chosen=saved.characterId||people[0]?.id||'',target=rows.find(x=>x.id===saved.parentId);
@@ -4081,7 +4108,7 @@ function hwDevCloudReplies(post){
       +'<label style="display:block">评论人物<select data-cloud-edit-author style="width:100%;padding:8px;background:var(--surface);color:var(--ink)">'
       +(window.hwDevCloudFeed?.characters()||[]).map(p=>'<option value="'+esc(p.id)+'" '+(p.id===r.character_id?'selected':'')+'>'+esc(p.name)+' (@'+esc(p.handle||'')+')</option>').join('')+'</select></label>'
       +'<label style="display:block;margin:8px 0">回复谁<select data-cloud-edit-parent style="width:100%;padding:8px;background:var(--surface);color:var(--ink)"><option value="'+esc(post.id)+'" '+(r.parent_id===post.id?'selected':'')+'>回复主帖</option>'
-      +rows.filter(x=>x.id!==r.id&&x.parent_id===post.id).map(x=>'<option value="'+esc(x.id)+'" '+(r.parent_id===x.id?'selected':'')+'>@'+esc(x.authorHandle||x.authorName)+'：'+esc((x.body||'').slice(0,28))+'</option>').join('')+'</select></label>'
+      +rows.filter(x=>x.id!==r.id).map(x=>'<option value="'+esc(x.id)+'" '+(r.parent_id===x.id?'selected':'')+'>@'+esc(x.authorHandle||x.authorName)+'：'+esc((x.body||'').slice(0,28))+'</option>').join('')+'</select></label>'
       +'<label>评论正文及 @<textarea rows="3" data-cloud-edit-body style="width:100%;padding:9px;border-radius:8px;background:var(--surface);color:var(--ink)">'+esc(r.body||'')+'</textarea></label>'
       +'<button type="button" data-hw-dev-feed="cloud-edit-save" data-id="'+pid+'">保存修改</button> <button type="button" data-hw-dev-feed="cloud-edit-cancel">取消</button></div>':'')
     +'<div style="display:flex;gap:7px;flex-wrap:wrap"><button type="button" data-hw-dev-feed="cloud-reply-to" data-id="'+pid+'" data-post="'+esc(post.id)+'">↳ 回复</button>'
@@ -4537,7 +4564,11 @@ window.hwDevCloudFeed={
   if(!post)throw Error('帖子不存在或已被删除');
   if(!person)throw Error('请选择有效的人物');
   const text=String(body||'').trim();if(!text)throw Error('评论不能为空');
-  const parent=parentId?v32.posts.find(p=>p.id===parentId):null;let ancestor=parent,visited=new Set();while(ancestor?.parent_id&&!visited.has(ancestor.id)){visited.add(ancestor.id);ancestor=v32.posts.find(p=>p.id===ancestor.parent_id)}if(parentId&&(!parent||ancestor?.id!==id))throw Error('回复对象不属于本帖');
+  if(parentId){
+   let parent=v32.posts.find(p=>p.id===parentId);
+   if(!parent){const {data,error}=await u().from('hw_posts').select('id,parent_id').eq('id',parentId).maybeSingle();if(error)throw error;parent=data;}
+   if(!parent||await hwDevCloudRootId(parent)!==id)throw Error('回复对象不属于本帖');
+  }
   const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:person.id,user_id:null,parent_id:parentId||id,quote_id:null,body:text,language:post.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
   if(error)throw error;
   await v32Reload();
@@ -4547,9 +4578,20 @@ window.hwDevCloudFeed={
   const p=v32.posts.find(x=>x.id===id&&x.parent_id&&x.author_kind==='character');
   if(!p)throw Error('仅能编辑人物评论');
   if(!v32.people.has(characterId))throw Error('请选择有效人物');
-  const parent=v32.posts.find(x=>x.id===parentId);if(!parent||parent.id===id)throw Error('回复对象无效');
-  const rootOf=x=>{const seen=new Set();while(x?.parent_id){if(seen.has(x.id))return null;seen.add(x.id);x=v32.posts.find(row=>row.id===x.parent_id)}return x?.id};
-  const root=rootOf(p);if(!root||rootOf(parent)!==root||parent.parent_id&&parent.parent_id!==root)throw Error('只能选择本帖主帖或其直属评论作为回复对象');
+  let parent=v32.posts.find(x=>x.id===parentId);
+  if(!parent){const {data,error}=await u().from('hw_posts').select('id,parent_id').eq('id',parentId).maybeSingle();if(error)throw error;parent=data;}
+  if(!parent||parent.id===id)throw Error('回复对象无效');
+  const root=await hwDevCloudRootId(p);
+  if(await hwDevCloudRootId(parent)!==root)throw Error('回复对象不属于本帖');
+  // A comment cannot become a child of its own descendants.
+  let cursor=parent;const seen=new Set();
+  while(cursor?.parent_id){
+   if(cursor.id===id||seen.has(cursor.id))throw Error('不能回复自己的下级评论');
+   seen.add(cursor.id);
+   const next=cursor.parent_id;
+   cursor=v32.posts.find(x=>x.id===next);
+   if(!cursor){const {data,error}=await u().from('hw_posts').select('id,parent_id').eq('id',next).maybeSingle();if(error)throw error;cursor=data;}
+  }
   const {data,error}=await u().from('hw_posts').update({body:String(body).trim(),character_id:characterId,parent_id:parentId}).eq('id',id).eq('author_kind','character').select('id');
   if(error)throw error;if(!data?.length)throw Error('没有修改权限');
   await v32Reload();
