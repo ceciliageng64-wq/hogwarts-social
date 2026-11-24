@@ -3338,10 +3338,16 @@ QUOTE_BANK.zh.daily.push('管理员已回归霍格沃茨时间线，围观请先
 /* V29: Cloud player messages are surfaced inside the original character DM preview.
    Cloud chats are kept separate from local mock threads and never persisted into V26 drafts. */
 const hwCloudView={rows:[],selected:''};
+let hwCloudInlineImage=null,hwCloudInlineImageConversation='',hwCloudInlineImagePreview='';
+function hwCloudClearInlineImage(){hwCloudInlineImage=null;hwCloudInlineImageConversation='';if(hwCloudInlineImagePreview){URL.revokeObjectURL(hwCloudInlineImagePreview);hwCloudInlineImagePreview='';}}
+function hwCloudInlinePreviewFor(id){
+ if(!hwCloudInlineImage||hwCloudInlineImageConversation!==id)return '';
+ return '<div class="hw-cloud-inline-preview" style="display:flex;gap:8px;align-items:center;padding:7px 12px;border-top:1px solid var(--stroke,#ddd)"><img src="'+esc(hwCloudInlineImagePreview)+'" alt="待发送图片" style="max-height:74px;max-width:100px;object-fit:contain;border-radius:8px"><small>已选择图片 · '+esc(hwCloudInlineImage.name||'图片')+'</small><button type="button" data-cloud-chat="clear-image" title="取消图片">✕</button></div>';
+}
 window.hwCloudDmViewer=()=>state.viewerId;
 window.hwCloudDMUpdate=(rows)=>{
  hwCloudView.rows=Array.isArray(rows)?rows:[];
- if(hwCloudView.selected&&!hwCloudView.rows.some(c=>c.id===hwCloudView.selected))hwCloudView.selected='';
+ if(hwCloudView.selected&&!hwCloudView.rows.some(c=>c.id===hwCloudView.selected)){hwCloudView.selected='';hwCloudClearInlineImage();}
  if(state.viewMode==='dm')renderPreviewOnly();
 };
 function hwCloudDraw(){
@@ -3349,9 +3355,9 @@ function hwCloudDraw(){
  const app=$('feedContent')?.querySelector('.dm-app'),list=app?.querySelector('.dm-scroll');
  if(!list)return;
  const chats=hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId));
- if(!chats.length){hwCloudView.selected='';if(window.hwCloudIsAdmin?.()){list.innerHTML='<div class="dm-empty">当前人物暂无真实玩家私信。这里不会混入本地模拟聊天。</div>';const right=app.querySelector('.dm-thread');if(right)right.innerHTML='<div class="dm-empty">请切换人物查看对应的真实玩家会话。</div>';}return;}
+ if(!chats.length){hwCloudView.selected='';hwCloudClearInlineImage();if(window.hwCloudIsAdmin?.()){list.innerHTML='<div class="dm-empty">当前人物暂无真实玩家私信。这里不会混入本地模拟聊天。</div>';const right=app.querySelector('.dm-thread');if(right)right.innerHTML='<div class="dm-empty">请切换人物查看对应的真实玩家会话。</div>';}return;}
  // Live inbox is authoritative if present. Do not mix old local mock chats.
- if(!chats.some(c=>c.id===hwCloudView.selected))hwCloudView.selected=chats[0].id;
+ if(!chats.some(c=>c.id===hwCloudView.selected)){hwCloudView.selected=chats[0].id;hwCloudClearInlineImage();}
  list.innerHTML='';
  const container=document.createElement('section');container.className='hw-cloud-chat-list';
  container.innerHTML='<div class="hw-cloud-chat-title">☁ 玩家来信 · '+chats.length+'</div>'+chats.map(c=>{
@@ -3363,7 +3369,7 @@ function hwCloudDraw(){
   const c=chats.find(row=>row.id===hwCloudView.selected);
   if(!c){hwCloudView.selected='';return}
   const right=app.querySelector('.dm-thread');if(!right)return;
-  right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px" src="${esc(m.image_resolved)}" alt="私信图片">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div><div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…"></textarea><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
+  right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px" src="${esc(m.image_resolved)}" alt="私信图片">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div><div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…"></textarea><label for="hwCloudInlineImageInput" title="添加图片" aria-label="添加图片" style="cursor:pointer;font-size:22px;padding:7px">🖼️</label><input id="hwCloudInlineImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
   requestAnimationFrame(()=>{const pane=right.querySelector('.dm-messages');if(pane)pane.scrollTop=pane.scrollHeight;});
  }
 }
@@ -3373,7 +3379,7 @@ $('feedContent').addEventListener('click',async e=>{
  if(state.viewMode!=='dm'||state.clientMode==='user')return;
  const cloud=e.target.closest('[data-cloud-chat]');
  if(cloud){e.preventDefault();e.stopImmediatePropagation();
-  if(cloud.dataset.cloudChat==='open'){hwCloudView.selected=cloud.dataset.id;renderPreviewOnly()}
+  if(cloud.dataset.cloudChat==='open'){if(hwCloudView.selected!==cloud.dataset.id)hwCloudClearInlineImage();hwCloudView.selected=cloud.dataset.id;renderPreviewOnly()}
   if(cloud.dataset.cloudChat==='delete'){
    const current=hwCloudView.rows.find(c=>c.id===hwCloudView.selected);
    if(!current){toast('请先选择要删除的真实会话');return;}
@@ -3386,14 +3392,28 @@ $('feedContent').addEventListener('click',async e=>{
    finally{cloud.disabled=false;}
    return;
   }
+  if(cloud.dataset.cloudChat==='clear-image'){hwCloudClearInlineImage();$('feedContent').querySelector('.hw-cloud-inline-preview')?.remove();return;}
   if(cloud.dataset.cloudChat==='send'){
-   const content=$('hwCloudInlineInput')?.value?.trim();if(!content)return;
+   const content=$('hwCloudInlineInput')?.value?.trim()||'';
+   const file=hwCloudInlineImageConversation===hwCloudView.selected?hwCloudInlineImage:null;
+   if(!content&&!file){toast('请输入文字或选择图片');return;}
    cloud.disabled=true;
-   try{if(!window.hwCloudDMSend)throw Error('云端暂未连接');await window.hwCloudDMSend(hwCloudView.selected,content)}catch(err){toast('发送失败：'+(err.message||err))}finally{cloud.disabled=false}
+   try{if(!window.hwCloudDMSend)throw Error('云端暂未连接');await window.hwCloudDMSend(hwCloudView.selected,content,file);hwCloudClearInlineImage();}
+   catch(err){toast('发送失败：'+(err.message||err))}
+   finally{cloud.disabled=false}
   }
   return;
  }
- if(e.target.closest('[data-dm="select"]'))hwCloudView.selected='';
+ if(e.target.closest('[data-dm="select"]')){hwCloudView.selected='';hwCloudClearInlineImage();}
+},true);
+$('feedContent').addEventListener('change',e=>{
+ if(e.target.id!=='hwCloudInlineImageInput'||state.viewMode!=='dm'||state.clientMode==='user')return;
+ const file=e.target.files?.[0];e.target.value='';if(!file)return;
+ if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)){toast('请选择 PNG、JPG、WEBP 或 GIF 图片');return;}
+ if(file.size>10*1024*1024){toast('图片不可超过 10 MB');return;}
+ hwCloudClearInlineImage();hwCloudInlineImage=file;hwCloudInlineImageConversation=hwCloudView.selected;hwCloudInlineImagePreview=URL.createObjectURL(file);
+ const composer=$('feedContent').querySelector('.dm-thread .dm-composer');
+ composer?.insertAdjacentHTML('beforebegin',hwCloudInlinePreviewFor(hwCloudView.selected));
 },true);
 
 window.hwLegacySnapshot=()=>JSON.parse(JSON.stringify(state));
@@ -4440,13 +4460,15 @@ window.hwCloudDMDeleteConversation=async(conversationId)=>{
  await refreshIntegratedDM();
  status('✅ 已删除当前整段真实玩家私信');
 };
-window.hwCloudDMSend=async(conversationId,body)=>{
+window.hwCloudDMSend=async(conversationId,body,file=null)=>{
  if(!admin)throw Error('请先登录开发者账号');
  const convo=(await u().from('hw_conversations').select('id,character_id').eq('id',conversationId).maybeSingle());
  if(convo.error||!convo.data)throw Error('没有找到该会话');
  const viewer=window.hwCloudDmViewer?.();
  if(String(viewer)!==String(convo.data.character_id))throw Error('当前登录人物不是这段会话的收件人，请切换角色');
- const res=await u().from('hw_messages').insert({conversation_id:conversationId,sender_kind:'character',body});
+ if(!String(body||'').trim()&&!file)throw Error('请填写消息或添加图片');
+ const image_url=file?await H.uploadPrivate(file,conversationId):null;
+ const res=await u().from('hw_messages').insert({conversation_id:conversationId,sender_kind:'character',body:body||'',image_url});
  if(res.error)throw res.error;
  await refreshIntegratedDM();status('✅ 已通过当前人物的私信发送给玩家。');
 };
