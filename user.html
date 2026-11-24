@@ -145,7 +145,7 @@ body.dark .account-danger{background:#281316!important;color:#ff8496!important}
 @media(max-width:600px){.profile-edit{margin:10px;padding:13px}.profile-save-actions button{flex:1}}
 </style>
 <style>
-.hw-unread-nav-badge{display:inline-flex;min-width:20px;height:20px;padding:0 5px;align-items:center;justify-content:center;border-radius:999px;background:var(--btn);color:#fff;font-size:11px;font-weight:700;margin-left:auto}
+.hw-world-clock{color:var(--sub);font-size:11px;white-space:nowrap;margin-left:7px;font-weight:500}.hw-unread-nav-badge{display:inline-flex;min-width:20px;height:20px;padding:0 5px;align-items:center;justify-content:center;border-radius:999px;background:var(--btn);color:#fff;font-size:11px;font-weight:700;margin-left:auto}
 .hw-unread-nav-badge[hidden],.nav-item[hidden]{display:none!important}
 .hw-unread-dot{display:inline-block;width:7px;height:7px;min-width:7px;margin:0 6px 1px 4px;border-radius:50%;background:var(--btn);vertical-align:middle}
 .hw-unread-info{padding:17px 18px;border-bottom:1px solid var(--line);line-height:1.5}
@@ -174,7 +174,7 @@ body.dark .account-danger{background:#281316!important;color:#ff8496!important}
 
   <main id="captureMain" class="center">
     <header class="topbar">
-      <div class="topbar-main"><button id="back-button" class="top-icon" aria-label="返回" hidden>‹</button><h1 id="page-title">首页</h1></div>
+      <div class="topbar-main"><button id="back-button" class="top-icon" aria-label="返回" hidden>‹</button><h1 id="page-title">首页</h1><span class="hw-world-clock" id="hw-world-clock" title="与现实时间同步的霍格沃茨日期">1993年</span></div>
       <div class="top-actions"><button class="icon-btn" id="theme-toggle" title="浅色/深色">◐</button><div class="hw-shot-wrap" data-noscreenshot><button class="small-outline hw-shot-launch" id="shot-toggle" aria-expanded="false" aria-controls="hw-shot-menu" type="button">📷 截图 ▾</button><div class="hw-shot-menu" id="hw-shot-menu" hidden><strong>选择截图范围</strong><button class="hw-shot-choice" id="shot-current" type="button">📄 当前内容（私信时只截当前对话）</button><button class="hw-shot-choice" id="shot-full" type="button">🖼️ 完整页面（含聊天列表与全部记录）</button><small>截图不包含按钮菜单、登录弹窗和外部悬浮条。</small></div></div></div>
     </header>
     <div class="brand-line"><button id="brand-button" class="brand-link" type="button">《今日霍格沃茨不宜恋爱》</button></div>
@@ -346,6 +346,10 @@ const hwUnreadTimers=new Map();
 function hwWorldNow(){const d=new Date();d.setFullYear(d.getFullYear()-33);return d.getTime()}
 function hwStoryStamp(p){const stamp=Date.parse(p?.story_at||"");if(Number.isFinite(stamp))return stamp;
  const raw=Date.parse(p?.created_at||"");if(!Number.isFinite(raw))return 0;const d=new Date(raw);d.setFullYear(d.getFullYear()-33);return d.getTime();}
+function hwWorldClockTick(){const x=$("hw-world-clock");if(!x)return;const d=new Date(hwWorldNow());
+ x.textContent=d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+setInterval(hwWorldClockTick,45000);
 function hwStorySort(a,b){return hwStoryStamp(b)-hwStoryStamp(a)||(Date.parse(b.created_at||"")-Date.parse(a.created_at||""))}
 function hwStoryLabel(p){const at=hwStoryStamp(p);if(!at)return "1993年";
  const elapsed=Math.max(0,Math.floor((hwWorldNow()-at)/60000));
@@ -353,6 +357,19 @@ function hwStoryLabel(p){const at=hwStoryStamp(p);if(!at)return "1993年";
  if(elapsed<1440)return Math.floor(elapsed/60)+"小时前";
  if(elapsed<20160)return Math.floor(elapsed/1440)+"天前";
  const d=new Date(at);return d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+async function hwUnreadSyncSeen(){
+ const person=state.user?.id;if(!person||!C||!hwUnread.ready)return;
+ try{const {data,error}=await C.from("hw_post_reads").select("post_id").eq("user_id",person).limit(10000);
+  if(error)throw error;if(state.user?.id!==person)return;
+  for(const r of data||[])hwUnread.seen.add(r.post_id);
+  if(state.view==="unread"){renderPage();return;}
+  for(const el of document.querySelectorAll("#content article.post[data-hw-unread-id]")){
+   if(hwUnread.seen.has(el.dataset.hwUnreadId)){el.dataset.hwUnreadId="";el.querySelector(".hw-unread-dot")?.remove();}
+  }
+  hwUnreadBadge();
+ }catch(err){console.warn("阅读同步暂时失败",err)}
+}
+window.addEventListener("focus",()=>{hwUnreadSyncSeen()});
 function hwUnreadReset(){hwUnread.baselineAt=null;hwUnread.seen.clear();hwUnread.ready=false;hwUnread.pending.clear();hwUnreadReturn=false;
  if(hwUnreadObserver){hwUnreadObserver.disconnect();hwUnreadObserver=null}
  for(const t of hwUnreadTimers.values())clearTimeout(t);hwUnreadTimers.clear();}
@@ -430,10 +447,10 @@ function hwUnreadWatch(){
    const exposed=Math.max(0,Math.min(innerHeight,rect.bottom)-Math.max(0,rect.top));
    if(!document.hidden&&el.isConnected&&exposed>Math.min(110,rect.height*0.25))hwUnreadSeen(id);
   },ms));
- }},{threshold:0.22});
+ }},{threshold:0.05});
  for(const el of document.querySelectorAll("#content article.post[data-hw-unread-id]"))if(el.dataset.hwUnreadId)hwUnreadObserver.observe(el);
 }
-document.addEventListener("visibilitychange",()=>{if(document.hidden){for(const t of hwUnreadTimers.values())clearTimeout(t);hwUnreadTimers.clear()}});
+document.addEventListener("visibilitychange",()=>{if(document.hidden){for(const t of hwUnreadTimers.values())clearTimeout(t);hwUnreadTimers.clear()}else hwUnreadSyncSeen()});
 function hwOpenUnread(id){hwUnreadReturn=true;navigate("post",{id});requestAnimationFrame(()=>{
  const target=document.querySelector("#content article.post[data-hw-unread-id]");
  if(target)target.scrollIntoView({behavior:"smooth",block:"center"});
@@ -558,7 +575,7 @@ function renderPage(){document.body.classList.toggle('dark',state.theme==='dark'
  if(secretEl)secretEl.hidden=!state.bannerVisible;const brandLine=document.querySelector('.brand-line');if(brandLine)brandLine.hidden=state.view==='profile';
  const me=state.myProfile;if(navCurrent)navCurrent.innerHTML=`${avatar(me?.avatar_url,me?.display_name||'游客')}<span class="nav-user-name">${E(me?.display_name||'游客模式')}<br><small>${E(me?'@'+me.handle:'登录后可互动')}</small></span>`;
  if(identity)identity.innerHTML=me?`<h2>欢迎回来</h2><p>${E(me.display_name)} · @${E(me.handle)}</p><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="small-outline" data-action="edit-me">编辑我的资料</button><button class="small-outline" data-action="sign-out">退出登录</button><button class="small-outline account-danger" data-action="delete-account">注销账号</button></div>`:`<h2>欢迎来到霍格沃茨</h2><p>游客直接看剧情，不用注册。要点赞、评论、私信时，编一个游戏账号和密码即可。<br><small>🎮 玩家登录与开发者后台独立，互不退出或覆盖。</small></p><button class="primary" data-action="login">🎮 游戏账号 / 游客</button>`;
- if(content)content.innerHTML=({feed:renderFeed,post:renderDetail,explore:renderExplore,profile:renderProfile,me:renderProfile,messages:renderMessages,bookmarks:renderBookmarks,unread:hwUnreadPage})[state.view]?.()||renderFeed();
+ if(content)content.innerHTML=({feed:renderFeed,post:renderDetail,explore:renderExplore,profile:renderProfile,me:renderProfile,messages:renderMessages,bookmarks:renderBookmarks,unread:hwUnreadPage})[state.view]?.()||renderFeed();hwWorldClockTick();
  renderContactsPanel();renderCastSearch();
  const sc=$('chat-scroll');if(sc)sc.scrollTop=sc.scrollHeight;hwUnreadBadge();requestAnimationFrame(hwUnreadWatch);
 }
