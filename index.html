@@ -3623,6 +3623,7 @@ function hwDevFeedCommentPanel(ref,full=false){
   const displayed=full?comments:comments.slice(-12);
   const count=comments.length;
   return '<section data-hw-dev-comments-for="'+esc(ref.key)+'" style="padding:12px 16px;border-bottom:1px solid var(--border,#ddd)">'
+    +(hwDevLastDeletedComment?.key===ref.key?'<div role="status" style="display:flex;gap:10px;align-items:center;padding:9px 0">评论已删除 <button type="button" data-hw-dev-feed="undo-comment" data-key="'+esc(ref.key)+'" style="color:#1d9bf0">↶ 撤销评论删除</button></div>':'')
     +'<div style="font-weight:600;padding-bottom:8px">'+(full?'全部评论':'最近评论')+'（'+count+'）</div>'
     +(displayed.map(r=>'<div class="u23-comment-indent">'+u23CommentCard(r,ref)+'</div>').join('')||'<div class="u23-empty">暂无评论</div>')
     +(!full&&count>displayed.length?'<button type="button" data-hw-dev-feed="open" data-key="'+esc(ref.key)+'">查看全部评论</button>':'')
@@ -3712,15 +3713,108 @@ u23CommentCard=function(r,ref){
   html=html.replace(originalText,textMarkup);
   const fields=[['replies','回复'],['likes','点赞'],['reposts','转发'],['views','浏览'],['bookmarks','收藏']];
   const controls='<div class="hw-dev-comment-admin" style="display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:7px 12px 10px 65px;border-bottom:1px solid var(--stroke,#e5e7eb)">'
+    +'<button type="button" data-hw-dev-comment="random-time" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="仅随机这条评论的时间" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">🕒 随机时间</button>'
     +'<button type="button" data-hw-dev-comment="random-metrics" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">🎲 随机数字</button>'
+    +'<button type="button" data-hw-dev-comment="media" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">🖼 '+(validImg(r.media)?'更换配图':'添加配图')+'</button>'
+    +(validImg(r.media)?'<button type="button" data-hw-dev-comment="clear-media" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">移除配图</button>':'')
+    +'<button type="button" data-hw-dev-comment="delete-reply" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="直接删除这条评论（包含其下级回复）" style="margin-left:auto;border:1px solid #e9bec1;border-radius:999px;padding:5px 9px;background:var(--surface);color:#ba293a;font-size:11px">'+icon('trash','',14)+' 删除评论</button>'
     +fields.map(([field,label])=>'<label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted)">'+label+'<input type="text" inputmode="text" data-hw-dev-comment-metric="'+field+'" data-key="'+esc(key)+'" data-id="'+esc(id)+'" value="'+esc(r[field]??'0')+'" aria-label="'+label+'" style="width:48px;min-width:0;padding:4px 5px;border:1px solid var(--stroke,#ddd);border-radius:6px;background:var(--surface);color:var(--ink);font-size:11px"></label>').join('')
     +'</div>';
+  if(validImg(r.media)){
+    const holder=document.createElement('div');
+    holder.innerHTML=html;
+    const img=holder.querySelector('.u23-comment img.u23-media');
+    if(img){
+      const clickable=document.createElement('button');
+      clickable.type='button';
+      clickable.dataset.hwDevComment='media';
+      clickable.dataset.key=key;
+      clickable.dataset.id=id;
+      clickable.title='点击更换这条评论的配图';
+      clickable.setAttribute('aria-label','更换评论配图');
+      clickable.style.cssText='display:block;width:100%;padding:0;border:0;background:transparent;text-align:left;cursor:pointer';
+      img.replaceWith(clickable);
+      clickable.appendChild(img);
+      html=holder.innerHTML;
+    }
+  }
   return html+controls;
 };
+// Uploads change only one comment's picture, not its post.
+let hwDevCommentMediaTarget=null,hwDevLastDeletedComment=null;
+const hwDevCommentMediaFile=document.createElement('input');
+hwDevCommentMediaFile.type='file';
+hwDevCommentMediaFile.accept='image/*';
+hwDevCommentMediaFile.hidden=true;
+document.body.appendChild(hwDevCommentMediaFile);
+hwDevCommentMediaFile.addEventListener('change',async()=>{
+  const file=hwDevCommentMediaFile.files?.[0];
+  hwDevCommentMediaFile.value='';
+  const target=hwDevCommentMediaTarget;hwDevCommentMediaTarget=null;
+  if(!file||!target)return;
+  const row=hwDevGetComment(u23Find(target.key),target.id);
+  if(!row){toast('评论不存在，无法添加图片');return;}
+  try{
+    const src=await imageFile(file,1200);
+    row.media=src;
+    persist();render();toast('评论配图已更新');
+  }catch(err){toast(err?.message||'图片处理失败');}
+});
+function hwDevCommentSources(ref){
+  if(ref.type==='main')return [hwActualDraft().replies];
+  const lists=[];
+  const posts=ref.post?.hwThread?.replies;
+  const user=state.userComments?.[state.lang]?.[ref.key];
+  if(Array.isArray(posts))lists.push(posts);
+  if(Array.isArray(user)&&user!==posts)lists.push(user);
+  return lists;
+}
+function hwDevCommentDelete(ref,id){
+  if(!ref)return;
+  const lists=hwDevCommentSources(ref);
+  const all=lists.flat(),ids=new Set([String(id)]);
+  if(!all.some(r=>String(r.id)===String(id)))return;
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(const row of all)if(!ids.has(String(row.id))&&ids.has(String(row.parentId))){
+      ids.add(String(row.id));changed=true;
+    }
+  }
+  const removed=[];
+  for(const list of lists){
+    const rows=[];
+    for(let i=0;i<list.length;i++)if(ids.has(String(list[i].id)))rows.push({index:i,row:list[i]});
+    if(rows.length){
+      for(let i=rows.length-1;i>=0;i--)list.splice(rows[i].index,1);
+      removed.push({list,rows});
+    }
+  }
+  if(!removed.length)return;
+  hwDevLastDeletedComment={key:ref.key,removed,count:ids.size};
+  if(hwDevCommentEditTarget?.key===ref.key&&ids.has(String(hwDevCommentEditTarget.id)))hwDevCommentEditTarget=null;
+  render();persist();toast('评论已删除，可撤销');
+}
+function hwDevCommentUndoDelete(){
+  const prior=hwDevLastDeletedComment;
+  if(!prior)return;
+  for(const entry of prior.removed){
+    for(const item of entry.rows){
+      if(!entry.list.some(r=>String(r.id)===String(item.row.id)))
+        entry.list.splice(Math.min(item.index,entry.list.length),0,item.row);
+    }
+  }
+  hwDevLastDeletedComment=null;
+  render();persist();toast('评论已恢复');
+}
 function hwDevCommentControl(action,key,id,button){
   const ref=u23Find(key),row=hwDevGetComment(ref,id);
   if(!ref||!row)return;
   if(action==='avatar'){hwDevOpenCommentAvatar(ref,id);return;}
+  if(action==='random-time'){row.time=randomRelativeTime();persist();render();toast('这条评论的发布时间已随机更新');return;}
+  if(action==='delete-reply'){hwDevCommentDelete(ref,id);return;}
+  if(action==='media'){hwDevCommentMediaTarget={key,id};hwDevCommentMediaFile.click();return;}
+  if(action==='clear-media'){row.media='';render();persist();toast('已移除这条评论的配图');return;}
   if(action==='edit-text'){
     hwDevCommentEditTarget={key,id};
     render();
@@ -3819,6 +3913,7 @@ $('feedContent').addEventListener('click',e=>{
   const key=target.dataset.key;
   if(action==='back'){hwDevFeedPage='home';hwDevFeedFocus='';render();return;}
   if(action==='undo-delete'){hwDevFeedUndoDelete();return;}
+  if(action==='undo-comment'){hwDevCommentUndoDelete();return;}
   if(action==='delete'){hwDevFeedDelete(u23Find(key));return;}
   if(action==='edit'){hwDevFeedEdit(u23Find(key));return;}
   if(action==='metrics'||action==='time'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
