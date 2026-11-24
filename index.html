@@ -1322,7 +1322,27 @@ function syncPersonAcrossDrafts(oldP,newP){
  $('bulkText').value=replaceMentions($('bulkText').value);
 }
 function saveInlinePerson(){if(!personEditingId||!personInlineDraft)return;const p=personById(personEditingId);if(!p)return;const f=$('peopleList');const name=f.querySelector('[data-inline-field="name"]')?.value.trim().slice(0,80);const handle=f.querySelector('[data-inline-field="handle"]')?.value.trim().replace(/^@/,'').replace(/[^A-Za-z0-9_]/g,'').slice(0,50);if(!name||!handle){toast(T('needPerson'));return}if(state.people.some(x=>x.id!==p.id&&x.handle.toLowerCase()===handle.toLowerCase())){toast(T('duplicatePerson'));return}const old={...p};Object.assign(p,{name,handle,verified:!!f.querySelector('[data-inline-field="verified"]')?.checked,badgeType:f.querySelector('[data-inline-field="badgeType"]')?.value||'blue',avatar:personInlineDraft.avatar||''});syncPersonAcrossDrafts(old,p);personEditingId='';personInlineDraft=null;syncFields();persist();toast(T('profileSynced'))}
-function applyPerson(id,target){let p=personById(id);if(!p)return;if(target==='post'){Object.assign(d().post,{name:p.name,handle:p.handle,avatar:p.avatar,verified:p.verified});syncFields()}else{ $('replyName').value=p.name;$('replyHandle').value=p.handle;$('replyVerified').checked=p.verified;replyAvatar=p.avatar;render()}persist();toast(T('profileApplied'))}
+function applyPerson(id,target){
+ let p=personById(id);if(!p)return;
+ if(target==='post'){
+  // The original Adrian post is not the new-character composer.
+  // Route other authors to their independent profile publisher.
+  const handle=canonicalHandle(p.handle);
+  if(!hwEditorTarget()&&handle!=='pucey7'&&handle!=='adrianpucey'){
+   state.profileSelected=p.id;state.profileTab='posts';state.viewMode='profile';
+   render();persist();
+   toast('已切换到'+p.name+'的独立发帖页，阿德里安原帖不受影响');
+   $('pvComposeInput')?.focus({preventScroll:true});
+   return;
+  }
+  Object.assign(d().post,{name:p.name,handle:p.handle,avatar:p.avatar,verified:p.verified});
+  syncFields();
+ }else{
+  $('replyName').value=p.name;$('replyHandle').value=p.handle;
+  $('replyVerified').checked=p.verified;replyAvatar=p.avatar;render();
+ }
+ persist();toast(T('profileApplied'));
+}
 function saveCurrentPerson(target){let p=target==='post'?d().post:{name:$('replyName').value,handle:$('replyHandle').value,avatar:replyAvatar,verified:$('replyVerified').checked};let result=upsertPerson(p);if(!result){toast(T('needPerson'));return}changed();toast(T('peopleSaved'))}
 function insertMention(id,target){let p=personById(id);if(!p)return;let input=$(target==='post'?'postText':'replyText');let start=input.selectionStart??input.value.length,end=input.selectionEnd??start;let before=input.value.slice(0,start),after=input.value.slice(end),mention='@'+p.handle;let value=before+(before&&!/[\s(　]$/.test(before)?' ':'')+mention+' '+after;let caret=value.length-after.length;input.value=value;if(target==='post')d().post.text=value;input.focus({preventScroll:true});input.setSelectionRange(caret,caret);changed()}
 function validImg(src){return typeof src==='string'&&/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(src)}
@@ -2470,16 +2490,16 @@ function u23Me(){u23Ensure();let p=personById(state.userAccountId)||personById('
 function u23Page(p){if(!p)return {};if(!state.profilePages||typeof state.profilePages!=='object')state.profilePages={};if(!state.profilePages[p.id])state.profilePages[p.id]={bio:'',location:'Hogwarts',website:'',joined:'1991-09',following:'128',followers:'2,481',cover:''};return state.profilePages[p.id]}
 function u23Profile(id){return personById(id)||u23Me()}
 function u23PersonByHandle(handle){return personByHandle(handle)||(String(handle||'').toLowerCase()==='pucey7'?personByHandle('adrianpucey'):null)}
-function u23OwnerFor(ref){if(ref.type==='main')return u23PersonByHandle(d().post.handle)||state.people.find(x=>x.name===d().post.name)||{...d().post};return personById(ref.ownerId)||u23PersonByHandle(ref.post.authorHandle)||null}
+function u23OwnerFor(ref){if(ref.type==='main'){const main=hwActualDraft().post;return u23PersonByHandle(main.handle)||state.people.find(x=>x.name===main.name)||{...main};}return personById(ref.ownerId)||u23PersonByHandle(ref.post.authorHandle)||null}
 function u23Refs(){u23Ensure();let arr=[];
- const main=d().post;arr.push({key:'main',type:'main',ownerId:(u23PersonByHandle(main.handle)||{}).id||'',post:main,created:Date.now()-3500000});
+ const main=hwActualDraft().post;arr.push({key:'main',type:'main',ownerId:(u23PersonByHandle(main.handle)||{}).id||'',post:main,created:Date.now()-3500000});
  for(const [ownerId,items] of Object.entries(state.profilePosts?.[state.lang]||{}))if(Array.isArray(items))for(const post of items)arr.push({key:'post:'+ownerId+':'+post.id,type:'post',ownerId,post,created:Number(post.created)||Date.now()-2500000});
  for(const [ownerId,items] of Object.entries(state.profileReposts?.[state.lang]||{}))if(Array.isArray(items))for(const post of items)arr.push({key:'repost:'+ownerId+':'+post.id,type:'repost',ownerId,post,created:Number(post.created)||Date.now()-2400000});
  return arr.sort((a,b)=>b.created-a.created);
 }
 function u23Find(key){return u23Refs().find(r=>r.key===key)||null}
 function u23Comments(ref){if(!ref)return [];
- if(ref.type==='main')return d().replies;
+ if(ref.type==='main')return hwActualDraft().replies;
  return state.userComments[state.lang][ref.key]||[];
 }
 function u23Likes(){let me=u23Me();return state.profileLikes[state.lang][me.id]||(state.profileLikes[state.lang][me.id]=[])}
@@ -3345,8 +3365,8 @@ function v273OwnQuoteReposts(){
  const owner=pvBaseOwner();if(!owner)return [];
  const ownerHandle=String(owner.handle||'').toLowerCase();
  const alias=typeof canonicalHandle==='function'?canonicalHandle(ownerHandle):ownerHandle;
- const main=d().post;
- return (d().quotes||[]).filter(q=>{
+ const main=hwActualDraft().post;
+ return (hwActualDraft().quotes||[]).filter(q=>{
   const handle=String(q.handle||'').toLowerCase();
   return handle===ownerHandle||(typeof canonicalHandle==='function'&&canonicalHandle(handle)===alias)||String(q.name||'')===String(owner.name||'');
  }).map((q,i)=>({id:'v273-ownquote-'+q.id,created:Number(q.created)||Date.now()-3600000-(i*60000),
@@ -3469,7 +3489,24 @@ window.hw38EditorInspection=()=>({selected:state.hwSelectedPost||null,post:hwEdi
 
 const hwPrevPersist=persist;
 persist=function(){hwPrevPersist();};
-(async function init(){try{database=await connectDB()}catch{}let prev=database?await loadDB():null;if(!prev){try{prev=JSON.parse(localStorage.getItem('x-post-template-editor-v2')||'null')}catch{}}if(prev?.drafts?.zh?.post&&prev?.drafts?.en?.post){state={lang:prev.lang==='en'?'en':'zh',theme:prev.theme==='dark'?'dark':'light',hideBrand:!!prev.hideBrand,avatarPreset:safeAvatarPreset(prev.avatarPreset),people:Array.isArray(prev.people)?prev.people.map(safePerson).filter(Boolean):[],avatarLibrary:safeAssetList(prev.avatarLibrary,80),avatarClaims:prev.avatarClaims&&typeof prev.avatarClaims==='object'&&!Array.isArray(prev.avatarClaims)?{...prev.avatarClaims}:{},mediaLibrary:safeAssetList(prev.mediaLibrary,80),commentLibrary:safeTextList(prev.commentLibrary),mediaChance:[0,.15,.30,.50,.75].includes(Number(prev.mediaChance))?Number(prev.mediaChance):.30,repeatChance:Number.isFinite(Number(prev.repeatChance))?Math.max(0,Math.min(.30,Number(prev.repeatChance))):.20,viewerId:String(prev.viewerId||'sample_my_account'),samplePeopleLoaded:!!prev.samplePeopleLoaded,officialVerifiedV12:!!prev.officialVerifiedV12,drafts:prev.drafts,viewMode:prev.viewMode,profileSelected:prev.profileSelected,profilePages:prev.profilePages||{},profilePosts:prev.profilePosts||{zh:{},en:{}},profileLikes:prev.profileLikes||{zh:{},en:{}},profileReposts:prev.profileReposts||{zh:{},en:{}},userComments:prev.userComments||{zh:{},en:{}},userBookmarks:prev.userBookmarks||{zh:[],en:[]},userReplyLikes:prev.userReplyLikes||{zh:[],en:[]},userAccountId:prev.userAccountId||'sample_my_account',userLocalAvatar:prev.userLocalAvatar??null,userLocalAvatarBase:prev.userLocalAvatarBase||'',userFollowing:Array.isArray(prev.userFollowing)?prev.userFollowing:[],u26Notice:!!prev.u26Notice,u23DmOwnerMigrated:!!prev.u23DmOwnerMigrated,clientMode:prev.clientMode||'developer',userNav:prev.userNav||'home',userViewedId:prev.userViewedId||'',userFocus:prev.userFocus||'',userProfileTab:prev.userProfileTab||'posts',profileTab:prev.profileTab,dmThreads:Array.isArray(prev.dmThreads)?prev.dmThreads:[],dmSelected:prev.dmSelected||"",dmFilter:prev.dmFilter||"all",dmSeeded:!!prev.dmSeeded}}for(const lg of ['zh','en'])inferReplyParents(state.drafts[lg].replies,state.drafts[lg].post.handle);if(!state.samplePeopleLoaded)mergeSamplePeople();upgradeLegacySampleNames();upgradeOfficialNames();ensureOfficialVerified();if(!personByHandle('my_account')){const p=samplePeople()[0];state.people.unshift(p)}reconcileAvatarClaims();if(document.documentElement.dataset.u23ViewerOnly==='true'){state.clientMode='user';state.viewMode='thread';state.userNav=state.userNav||'home';}if(innerWidth<=870)$('workspace').classList.add('editor-closed');v26InitState();v26SyncMirrors();syncFields();renderAssetLibraries();render();persist()})();
+// Recover only a recognizably intact V39.9 Adrian template accidentally relabeled
+// by switching the main editor's author. Never reset text, counts, comments or media.
+function hwRepairSwappedAdrianTemplate(){
+ for(const lang of ['zh','en']){
+  const main=state.drafts?.[lang]?.post;
+  const original=lang==='zh'?'要拿到大结果了朋友们。':'Big news coming, friends.';
+  if(!main||String(main.text||'').trim()!==original)continue;
+  const handle=canonicalHandle(main.handle);
+  if(handle==='pucey7'||handle==='adrianpucey')continue;
+  const owner=personByHandle('pucey7')||personByHandle('adrianpucey');
+  main.name=lang==='zh'?'阿德里安·普赛':'Adrian Pucey';
+  main.handle='pucey7';
+  main.avatar=owner?.avatar||'';
+  main.verified=!!owner?.verified;
+  main.badgeType=owner?.badgeType||'blue';
+ }
+}
+(async function init(){try{database=await connectDB()}catch{}let prev=database?await loadDB():null;if(!prev){try{prev=JSON.parse(localStorage.getItem('x-post-template-editor-v2')||'null')}catch{}}if(prev?.drafts?.zh?.post&&prev?.drafts?.en?.post){state={lang:prev.lang==='en'?'en':'zh',theme:prev.theme==='dark'?'dark':'light',hideBrand:!!prev.hideBrand,avatarPreset:safeAvatarPreset(prev.avatarPreset),people:Array.isArray(prev.people)?prev.people.map(safePerson).filter(Boolean):[],avatarLibrary:safeAssetList(prev.avatarLibrary,80),avatarClaims:prev.avatarClaims&&typeof prev.avatarClaims==='object'&&!Array.isArray(prev.avatarClaims)?{...prev.avatarClaims}:{},mediaLibrary:safeAssetList(prev.mediaLibrary,80),commentLibrary:safeTextList(prev.commentLibrary),mediaChance:[0,.15,.30,.50,.75].includes(Number(prev.mediaChance))?Number(prev.mediaChance):.30,repeatChance:Number.isFinite(Number(prev.repeatChance))?Math.max(0,Math.min(.30,Number(prev.repeatChance))):.20,viewerId:String(prev.viewerId||'sample_my_account'),samplePeopleLoaded:!!prev.samplePeopleLoaded,officialVerifiedV12:!!prev.officialVerifiedV12,drafts:prev.drafts,viewMode:prev.viewMode,profileSelected:prev.profileSelected,profilePages:prev.profilePages||{},profilePosts:prev.profilePosts||{zh:{},en:{}},profileLikes:prev.profileLikes||{zh:{},en:{}},profileReposts:prev.profileReposts||{zh:{},en:{}},userComments:prev.userComments||{zh:{},en:{}},userBookmarks:prev.userBookmarks||{zh:[],en:[]},userReplyLikes:prev.userReplyLikes||{zh:[],en:[]},userAccountId:prev.userAccountId||'sample_my_account',userLocalAvatar:prev.userLocalAvatar??null,userLocalAvatarBase:prev.userLocalAvatarBase||'',userFollowing:Array.isArray(prev.userFollowing)?prev.userFollowing:[],u26Notice:!!prev.u26Notice,u23DmOwnerMigrated:!!prev.u23DmOwnerMigrated,clientMode:prev.clientMode||'developer',userNav:prev.userNav||'home',userViewedId:prev.userViewedId||'',userFocus:prev.userFocus||'',userProfileTab:prev.userProfileTab||'posts',profileTab:prev.profileTab,dmThreads:Array.isArray(prev.dmThreads)?prev.dmThreads:[],dmSelected:prev.dmSelected||"",dmFilter:prev.dmFilter||"all",dmSeeded:!!prev.dmSeeded}}hwRepairSwappedAdrianTemplate();for(const lg of ['zh','en'])inferReplyParents(state.drafts[lg].replies,state.drafts[lg].post.handle);if(!state.samplePeopleLoaded)mergeSamplePeople();upgradeLegacySampleNames();upgradeOfficialNames();ensureOfficialVerified();if(!personByHandle('my_account')){const p=samplePeople()[0];state.people.unshift(p)}reconcileAvatarClaims();if(document.documentElement.dataset.u23ViewerOnly==='true'){state.clientMode='user';state.viewMode='thread';state.userNav=state.userNav||'home';}if(innerWidth<=870)$('workspace').classList.add('editor-closed');v26InitState();v26SyncMirrors();syncFields();renderAssetLibraries();render();persist()})();
 
 /* V39.9 safe patch: developer home follows the player timeline, without changing DM routing. */
 let hwDevFeedPage='', hwDevFeedFocus='', hwDevFeedExpanded='', hwDevLastDeletedPost=null;
@@ -3490,19 +3527,33 @@ function hwDevFeedTarget(ref){
 }
 function hwDevFeedRandom(ref,action){
   if(!ref)return;
-  const previousPage=hwDevFeedPage,previousFocus=hwDevFeedFocus;
+  const key=hwDevFeedTarget(ref);
+  if(key&&!hw38Lookup(key)){toast('找不到这条帖子，请刷新后再试');return;}
+  const previousSelected=state.hwSelectedPost,previousView=state.viewMode;
   const reveal=action==='comment-one'||action==='comment-five';
-  // Existing editor generation operates on the selected post's own thread.
-  hw38Open(hwDevFeedTarget(ref),action);
-  hwDevFeedPage=previousPage;
-  hwDevFeedFocus=previousFocus;
+  try{
+    // Operate on the chosen post's own data, never mutate the selected
+    // editor target or permanently substitute another author for Adrian.
+    state.hwSelectedPost=key;
+    if(reveal){
+      const before=d().replies.length;
+      appendRandomComments(action==='comment-five'?5:1);
+      if(d().replies.length>before){
+        const count=numFromDisplay(d().post.replies)||0;
+        if(count<d().replies.length)d().post.replies=String(d().replies.length);
+      }
+    }else if(action==='metrics')Object.assign(d().post,randomMetricPack('post'));
+  }finally{
+    state.hwSelectedPost=previousSelected;
+    state.viewMode=previousView;
+  }
   if(reveal)hwDevFeedExpanded=ref.key;
-  render();persist();
+  syncFields();persist();
   if(reveal){
     const panel=Array.from($('feedContent').querySelectorAll('[data-hw-dev-comments-for]'))
       .find(el=>el.dataset.hwDevCommentsFor===ref.key);
     if(panel)panel.scrollIntoView({block:'nearest',behavior:'smooth'});
-  }
+  }else toast('当前帖子的互动数字已更新');
 }
 function hwDevFeedTools(ref){
   return '<button type="button" data-hw-dev-feed="metrics" data-key="'+esc(ref.key)+'">🎲 随机互动数字</button>'
@@ -3723,7 +3774,10 @@ $('xNavLinks').addEventListener('click',e=>{
   const nav=e.target.closest('.x-nav-link');
   if(nav&&nav===$('xNavLinks').querySelector('.x-nav-link')){
     e.preventDefault();e.stopImmediatePropagation();
-    hwDevFeedPage='home';hwDevFeedFocus='';render();persist();
+    hwDevFeedPage='home';hwDevFeedFocus='';
+    // A visit to Home returns the global editor to Adrian's original post.
+    state.hwSelectedPost=null;state.viewMode='thread';
+    syncFields();persist();
   }else if(hwDevFeedPage&&nav){hwDevFeedPage='';hwDevFeedFocus='';}
 },true);
 $('feedContent').addEventListener('click',e=>{
