@@ -2986,7 +2986,13 @@ async function v25CaptureUser(full=false){
  const copy=root.cloneNode(true);
  if(isChat)copy.classList.add('v26-current-chat-capture');
  copy.style.cssText+=`;width:${width}px!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;min-height:0!important;`;
- copy.querySelectorAll('.pv-post-edittools,.u25-user-shotbar,[data-u23="edit-own"],.quote-edit-preview,.x-delete-preview,.hw-dev-card-quick,[data-hw-dev-feed],[data-hw-dev-comment],.hw-dev-comment-actions,.hw-dev-comment-editor,.hw-dev-feed-tools,[data-hw-dev-comment-metric],.v25-screenbar').forEach(el=>el.remove());
+ // Editor wraps some real content (comment text, avatar, media) in action buttons.
+// Unwrap those buttons rather than deleting the content alongside the controls.
+ copy.querySelectorAll('[data-hw-dev-comment="avatar"],[data-hw-dev-comment="edit-text"],[data-hw-dev-comment="media"]').forEach(el=>{
+   el.replaceWith(...Array.from(el.childNodes));
+ });
+ // Never export developer actions, editable metrics, or the management rows.
+ copy.querySelectorAll('.pv-post-edittools,.u25-user-shotbar,[data-u23="edit-own"],.quote-edit-preview,.x-delete-preview,.hw-dev-card-quick,.hw-dev-comment-admin,.hw-dev-comment-head-actions,.hw-dev-comment-editor,.hw-dev-feed-tools,[data-hw-dev-comment-metric],[data-hw-dev-feed],[data-hw-dev-comment],.v25-screenbar').forEach(el=>el.remove());
  // Keep the visible text of compositions, not form fields/controls.
  copy.querySelectorAll('textarea,select,input').forEach(el=>{
    if(el.tagName==='TEXTAREA'){
