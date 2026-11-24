@@ -452,7 +452,8 @@ function hwUnreadWatch(){
 }
 document.addEventListener("visibilitychange",()=>{if(document.hidden){for(const t of hwUnreadTimers.values())clearTimeout(t);hwUnreadTimers.clear()}else hwUnreadSyncSeen()});
 function hwOpenUnread(id){hwUnreadReturn=true;navigate("post",{id});requestAnimationFrame(()=>{
- const target=document.querySelector("#content article.post[data-hw-unread-id]");
+ const posts=Array.from(document.querySelectorAll("#content article.post[data-hw-unread-id]")).filter(x=>x.dataset.hwUnreadId);
+ const target=posts.find(x=>postById(x.dataset.hwUnreadId)?.parent_id)||posts[0];
  if(target)target.scrollIntoView({behavior:"smooth",block:"center"});
 });}
 
