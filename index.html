@@ -557,12 +557,7 @@ body.u23-user .compact-note{display:none}
       <section class="asset-section"><h3 data-i18n="avatarLibraryTitle">头像库</h3>
         <label class="upload-button asset-upload" for="avatarLibraryFiles" data-i18n="uploadAvatarLibrary">＋ 批量上传头像</label><input id="avatarLibraryFiles" type="file" accept="image/*" multiple>
         <div id="avatarLibraryGrid" class="asset-grid"></div>
-        <div class="avatar-mass-gallery" style="margin-top:18px;border-top:1px solid var(--stroke);padding-top:14px">
-          <h4 style="margin:0 0 7px">🎨 万款头像素材 · 轻量生成库</h4>
-          <p style="font-size:12px;color:var(--muted);margin:0 0 9px">10,000 款不同组合，按页加载；不占用上传图片名额。点击头像即可作为主帖或评论头像使用，也可交给随机网友自动分配。</p>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button type="button" class="smallbutton" id="hwAvatarMassPrev">上一页</button><span id="hwAvatarMassPageLabel" style="font-size:12px"></span><button type="button" class="smallbutton" id="hwAvatarMassNext">下一页</button><button type="button" class="smallbutton" id="hwAvatarMassShuffle">🎲 随机翻页</button></div>
-          <div id="hwAvatarMassGrid" class="asset-grid"></div>
-        </div></section>
+        </section>
       <section class="asset-section"><h3 data-i18n="mediaLibraryTitle">图片 / 表情包库</h3>
         <label class="upload-button asset-upload" for="mediaLibraryFiles" data-i18n="uploadMediaLibrary">＋ 批量上传图片 / 表情包</label><input id="mediaLibraryFiles" type="file" accept="image/*" multiple>
         <div class="field"><label data-i18n="randomMediaChance">随机评论配图概率</label><select id="randomMediaChance"><option value="0">0%</option><option value=".15">15%</option><option value=".30">30%</option><option value=".50">50%</option><option value=".75">75%</option></select></div>
@@ -959,55 +954,6 @@ function reconcileAvatarClaims(){
  // If a previous file contains duplicate rows with the same image, all identical uploads share one owner.
  for(const asset of state.avatarLibrary||[])if(imageToOwner.has(asset.src))state.avatarClaims[asset.id]=imageToOwner.get(asset.src);
 }
-// V41: 10,000 deterministic, lightweight avatar portraits. Only the visible 48 are rendered.
-const HW_MASS_AVATAR_TOTAL=10000,HW_MASS_AVATAR_PER_PAGE=48;
-let hwMassAvatarPage=0;
-const HW_MASS_SKIN=['#f7d7bc','#eac49f','#d6a47f','#b87e5c','#8d583f','#6b4538','#d2b197','#f2c8ab'];
-const HW_MASS_HAIR=['#231c22','#3e302c','#62402b','#8e593a','#b47a42','#d6b47c','#aa6a57','#8c8693','#dbd6c4','#5a3737'];
-const HW_MASS_CLOTH=['#425469','#225b54','#7a3649','#65578a','#886942','#3f535a','#586b32','#914d3e','#384f78','#79475b'];
-function hwMassAvatarSvg(index){
- const n=Math.max(0,Math.min(HW_MASS_AVATAR_TOTAL-1,Math.floor(Number(index)||0)));
- const skin=HW_MASS_SKIN[(n*7+Math.floor(n/13))%HW_MASS_SKIN.length],hair=HW_MASS_HAIR[(n*3+Math.floor(n/7))%HW_MASS_HAIR.length],cloth=HW_MASS_CLOTH[(n*9+Math.floor(n/11))%HW_MASS_CLOTH.length];
- const hue=(n*137.508)%360,bg1='hsl('+hue.toFixed(1)+' 44% 79%)',bg2='hsl('+((hue+63)%360).toFixed(1)+' 38% 57%)';
- const eye=(n%3===0?'#38566a':n%3===1?'#634b38':'#38443b');
- const hairStyle=(Math.floor(n/5)%5);
- const hairPaths=[
- '<path d="M41 76 Q31 20 91 23 Q145 16 139 80 Q124 49 107 47 Q85 58 59 48Z" />',
- '<path d="M34 93 Q25 22 87 19 Q150 19 144 91 L130 69 Q112 37 70 49 L48 88Z" />',
- '<path d="M39 75 Q40 20 88 26 Q131 23 140 76 Q123 30 91 43 Q60 37 39 75Z" />',
- '<path d="M38 89 Q28 27 83 23 Q141 10 146 92 Q134 72 122 61 Q85 58 68 40Z" />',
- '<path d="M37 84 Q31 23 86 20 Q143 21 141 88 Q128 43 105 47 Q88 68 61 45Z" />'
- ][hairStyle];
- const bangs= n%4===0?'<path d="M49 58 Q72 34 91 52 Q110 31 134 60" fill="none" stroke="'+hair+'" stroke-width="13" stroke-linecap="round"/>':'';
- const spectacles=n%6===0?'<g fill="none" stroke="#48515a" stroke-width="3"><circle cx="70" cy="89" r="13"/><circle cx="110" cy="89" r="13"/><path d="M83 88 Q90 83 97 88"/></g>':'';
- const freckles=n%7===0?'<g fill="#a86d54" opacity=".6"><circle cx="66" cy="108" r="1.7"/><circle cx="74" cy="111" r="1.3"/><circle cx="107" cy="110" r="1.5"/><circle cx="114" cy="107" r="1.6"/></g>':'';
- const badge=n%9===0?'<path d="M126 147 l7 7 -7 7 -7 -7Z" fill="#e1bb6c"/>':'';
- const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><defs><linearGradient id="b" x2="1" y2="1"><stop stop-color="'+bg1+'"/><stop offset="1" stop-color="'+bg2+'"/></linearGradient></defs><rect width="180" height="180" fill="url(#b)"/><circle cx="146" cy="31" r="26" fill="#fff" opacity=".13"/><path d="M16 180 Q23 137 63 137 L90 148 L117 137 Q157 135 164 180" fill="'+cloth+'"/><path d="M73 130 L73 151 Q90 161 107 151 L107 130" fill="'+skin+'"/><ellipse cx="90" cy="88" rx="47" ry="58" fill="'+skin+'"/><g fill="'+hair+'">'+hairPaths+'</g>'+bangs+'<path d="M60 90 Q69 84 78 90 M102 90 Q111 84 120 90" fill="none" stroke="'+eye+'" stroke-width="4" stroke-linecap="round"/><path d="M90 95 l-3 16 q4 3 9 0" fill="none" stroke="#9c705c" stroke-width="2.5" stroke-linecap="round"/><path d="M78 121 Q90 '+(n%2?'129':'125')+' 102 121" fill="none" stroke="#a1605e" stroke-width="2.6" stroke-linecap="round"/>'+spectacles+freckles+badge+'</svg>';
- return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-}
-function hwMassAvatarForHandle(handle){
- let h=2166136261;for(const c of String(handle||'')){h=Math.imul(h^c.charCodeAt(0),16777619);}
- const used=new Set();for(const lang of ['zh','en'])for(const row of [...(state.drafts?.[lang]?.replies||[]),...(state.drafts?.[lang]?.quotes||[])])if(row.avatar?.startsWith('data:image/svg+xml'))used.add(row.avatar);
- let index=(h>>>0)%HW_MASS_AVATAR_TOTAL;
- for(let step=0;step<HW_MASS_AVATAR_TOTAL;step++){const src=hwMassAvatarSvg(index);if(!used.has(src))return src;index=(index+1)%HW_MASS_AVATAR_TOTAL}
- return hwMassAvatarSvg((h>>>0)%HW_MASS_AVATAR_TOTAL);
-}
-function renderHwMassAvatarGallery(){
- const grid=$('hwAvatarMassGrid');if(!grid)return;
- const totalPages=Math.ceil(HW_MASS_AVATAR_TOTAL/HW_MASS_AVATAR_PER_PAGE);
- hwMassAvatarPage=((hwMassAvatarPage%totalPages)+totalPages)%totalPages;
- const label=$('hwAvatarMassPageLabel');if(label)label.textContent='第 '+(hwMassAvatarPage+1)+' / '+totalPages+' 页 · 共 '+HW_MASS_AVATAR_TOTAL+' 款';
- const first=hwMassAvatarPage*HW_MASS_AVATAR_PER_PAGE,count=Math.min(HW_MASS_AVATAR_PER_PAGE,HW_MASS_AVATAR_TOTAL-first);
- grid.innerHTML=Array.from({length:count},(_,i)=>{const id=first+i,src=hwMassAvatarSvg(id);return '<div class="asset-tile"><img loading="lazy" src="'+src+'" alt="虚拟头像 '+(id+1)+'"><small>#'+String(id+1).padStart(5,'0')+'</small><div class="asset-actions"><button type="button" data-mass-avatar="'+id+'" data-target="post">主帖</button><button type="button" data-mass-avatar="'+id+'" data-target="reply">评论</button></div></div>'}).join('');
-}
-function hwMassAvatarSet(index,target){
- const src=hwMassAvatarSvg(index);
- if(target==='post')d().post.avatar=src;
- else replyAvatar=src;
- changed();
- toast('已应用头像 #'+String(index+1).padStart(5,'0'));
-}
-
 function makeTemporaryCommenter(){
  const existing=findExistingGeneratedAccount();
  // Adjustable 0–30% account reuse. Gallery-avatar owners are more likely to be seen again.
@@ -1032,7 +978,6 @@ function makeTemporaryCommenter(){
  }
  if(!personByHandle(newPerson.handle)&&state.avatarLibrary?.length&&Math.random()<.65){const img=randomAvailableAvatar(newPerson.handle);if(img)newPerson.avatar=img}
  // When no uploaded portrait was assigned, draw from the large virtual gallery.
- if(!personByHandle(newPerson.handle)&&(!state.avatarLibrary?.some(a=>a.src===newPerson.avatar)))newPerson.avatar=hwMassAvatarForHandle(newPerson.handle);
  return newPerson;
 }
 function chooseLibraryComment(theme){const eligible=(state.commentLibrary||[]).filter(x=>x.topic==='all'||x.topic===theme);return eligible.length?shufflePick(eligible).text:null}
@@ -1421,13 +1366,13 @@ function insertMention(id,target){let p=personById(id);if(!p)return;let input=$(
 function validImg(src){return typeof src==='string'&&/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(src)}
 function loadImage(src){return new Promise((resolve,reject)=>{let im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(new Error(T('badImage')));im.src=src})}
 async function imageFile(file,dimension){if(!file)return null;if(file.size>20*1024*1024)throw Error(T('bigImage'));if(!/^image\//.test(file.type))throw Error(T('badImage'));let data=await new Promise((resolve,reject)=>{let f=new FileReader();f.onload=()=>resolve(f.result);f.onerror=()=>reject(Error(T('badImage')));f.readAsDataURL(file)});let im=await loadImage(data),scale=Math.min(1,dimension/Math.max(im.naturalWidth,im.naturalHeight));let cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(im.naturalWidth*scale));cv.height=Math.max(1,Math.round(im.naturalHeight*scale));let c=cv.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,cv.width,cv.height);c.drawImage(im,0,0,cv.width,cv.height);return cv.toDataURL('image/jpeg',.85)}
-const HW_LIBRARY_IMAGE_LIMIT=160;
+const HW_LIBRARY_IMAGE_LIMIT=10000;
 const HW_LIBRARY_TEXT_LIMIT=5000;
 function safeAssetList(a,limit){return Array.isArray(a)?a.slice(0,limit).filter(x=>x&&validImg(x.src)).map(x=>({id:String(x.id||('asset'+Math.random())).slice(0,60),name:String(x.name||'image').slice(0,80),src:x.src})):[]}
 function safeTextList(a){return Array.isArray(a)?a.slice(0,HW_LIBRARY_TEXT_LIMIT).filter(x=>x&&String(x.text||'').trim()).map(x=>({id:String(x.id||('txt'+Math.random())).slice(0,60),text:String(x.text).slice(0,3000),topic:['all','romance','quidditch','houses','confession','daily'].includes(x.topic)?x.topic:'all'})):[]}
 function ensureLibraries(){if(!Array.isArray(state.avatarLibrary))state.avatarLibrary=[];if(!Array.isArray(state.mediaLibrary))state.mediaLibrary=[];if(!Array.isArray(state.commentLibrary))state.commentLibrary=[];if(!Number.isFinite(Number(state.mediaChance)))state.mediaChance=.30}
 function renderAssetLibraries(){ensureLibraries();
- renderHwMassAvatarGallery();
+
  for(const [kind,target] of [['avatar','avatarLibraryGrid'],['media','mediaLibraryGrid']]){
   const items=kind==='avatar'?state.avatarLibrary:state.mediaLibrary;
   $(target).innerHTML=items.length?items.map(asset=>`<div class="asset-tile ${kind==='media'?'media':''}"><img loading="lazy" src="${esc(asset.src)}" alt=""><small title="${esc(asset.name)}">${esc(asset.name)}</small>${kind==='avatar'?`<span class="avatar-library-owned">${esc(assignedOwner(asset)?T('randomAvatarAssigned')+assignedOwner(asset):T('randomAvatarAvailable'))}</span>`:''}<div class="asset-actions">${kind==='avatar'&&assignedOwner(asset)?`<button type="button" class="release-avatar" data-asset-action="release" data-kind="${kind}" data-id="${esc(asset.id)}" title="${esc(T('avatarReleaseNote'))}">${esc(T('avatarRelease'))}</button>`:''}<button type="button" data-asset-action="post" data-kind="${kind}" data-id="${esc(asset.id)}">${esc(T('useInPost'))}</button><button type="button" data-asset-action="reply" data-kind="${kind}" data-id="${esc(asset.id)}">${esc(T('useInReply'))}</button><button type="button" class="danger" data-asset-action="delete" data-kind="${kind}" data-id="${esc(asset.id)}">×</button></div></div>`).join(''):`<p class="asset-empty">${esc(T('emptyLibrary'))}</p>`;
@@ -1436,7 +1381,7 @@ function renderAssetLibraries(){ensureLibraries();
  $('randomMediaChance').value=String(state.mediaChance??.30);$('repeatChanceRange').value=String(Math.round(100*(state.repeatChance??.20)));$('repeatChanceValue').textContent=Math.round(100*(state.repeatChance??.20))+'%';
 }
 async function addLibraryImages(files,kind){ensureLibraries();const list=kind==='avatar'?state.avatarLibrary:state.mediaLibrary;let successes=0;
- for(const file of Array.from(files||[]).slice(0,25)){
+ for(const file of Array.from(files||[]).slice(0,200)){
   if(list.length>=HW_LIBRARY_IMAGE_LIMIT){toast(T('libraryLimit'));break}
   try{const src=await imageFile(file,kind==='avatar'?360:960);if(src){list.push({id:'asset'+Date.now().toString(36)+Math.random().toString(36).slice(2,9),name:file.name,src});successes++}}
   catch(e){toast(e.message||T('badImage'))}
@@ -1449,10 +1394,6 @@ function useAsset(kind,id,target){const lib=kind==='avatar'?state.avatarLibrary:
  changed();
 }
 function deleteLibraryAsset(kind,id){const key=kind==='avatar'?'avatarLibrary':'mediaLibrary';if(kind==='avatar'&&assignedOwner((state.avatarLibrary||[]).find(x=>x.id===id)||{}))releaseAvatarAsset(id);state[key]=state[key].filter(x=>x.id!==id);if(kind==='avatar'&&state.avatarClaims)delete state.avatarClaims[id];renderAssetLibraries();persist();toast(T('assetRemoved'))}
-$('hwAvatarMassPrev').onclick=()=>{hwMassAvatarPage--;renderHwMassAvatarGallery()};
-$('hwAvatarMassNext').onclick=()=>{hwMassAvatarPage++;renderHwMassAvatarGallery()};
-$('hwAvatarMassShuffle').onclick=()=>{hwMassAvatarPage=Math.floor(Math.random()*Math.ceil(HW_MASS_AVATAR_TOTAL/HW_MASS_AVATAR_PER_PAGE));renderHwMassAvatarGallery()};
-$('hwAvatarMassGrid').onclick=e=>{const b=e.target.closest('[data-mass-avatar]');if(!b)return;hwMassAvatarSet(Number(b.dataset.massAvatar),b.dataset.target)};
 for(const [id,kind] of [['avatarLibraryFiles','avatar'],['mediaLibraryFiles','media']]){$(id).addEventListener('change',async e=>{const files=[...(e.target.files||[])];e.target.value='';await addLibraryImages(files,kind)})}
 for(const [id,kind] of [['avatarLibraryGrid','avatar'],['mediaLibraryGrid','media']])$(id).onclick=e=>{const b=e.target.closest('button[data-asset-action]');if(!b)return;if(b.dataset.assetAction==='delete')deleteLibraryAsset(kind,b.dataset.id);else if(b.dataset.assetAction==='release'&&kind==='avatar')releaseAvatarAsset(b.dataset.id);else useAsset(kind,b.dataset.id,b.dataset.assetAction)};
 $('randomMediaChance').onchange=e=>{state.mediaChance=Number(e.target.value);persist()};
