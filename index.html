@@ -3697,6 +3697,16 @@ function hwDevOpenCommentAvatar(ref,id){
   renderRandomAvatarPicker();
   $('randomAvatarClose').focus({preventScroll:true});
 }
+// Compact developer-only actions next to each comment's displayed timestamp.
+document.head.insertAdjacentHTML('beforeend','<style>'
+  +'.hw-dev-comment-stamp{display:inline-flex;align-items:center;gap:5px;max-width:100%;white-space:nowrap;vertical-align:middle}'
+  +'.hw-dev-comment-stamp>.hw-dev-comment-time{font-size:13px;color:var(--muted);white-space:nowrap}'
+  +'.hw-dev-comment-head-actions{display:inline-flex;align-items:center;gap:3px;flex:0 0 auto}'
+  +'.hw-dev-comment-head-actions button{display:inline-flex;justify-content:center;align-items:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;font-size:14px}'
+  +'.hw-dev-comment-head-actions button:hover{background:var(--hover);color:var(--accent)}'
+  +'.hw-dev-comment-head-actions .hw-dev-comment-delete{color:#bb3040}'
+  +'.hw-dev-comment-head-actions .hw-dev-comment-delete:hover{color:#bb3040;background:rgba(187,48,64,.1)}'
+  +'</style>');
 const hwDevBaseCommentCard=u23CommentCard;
 u23CommentCard=function(r,ref){
   let html=hwDevBaseCommentCard(r,ref);
@@ -3711,13 +3721,30 @@ u23CommentCard=function(r,ref){
     ?'<div class="hw-dev-comment-editor" style="margin:5px 0 8px"><textarea data-hw-dev-comment-textarea data-key="'+esc(key)+'" data-id="'+esc(id)+'" rows="3" style="display:block;width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--accent,#1d9bf0);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit;resize:vertical">'+esc(r.text||'')+'</textarea><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:7px"><button type="button" data-hw-dev-comment="cancel-text" data-key="'+esc(key)+'" data-id="'+esc(id)+'">取消</button><button type="button" data-hw-dev-comment="save-text" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="background:#1d9bf0;color:#fff;border-radius:999px;padding:6px 13px">保存</button></div></div>'
     :'<button type="button" class="hw-dev-comment-text" data-hw-dev-comment="edit-text" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="点击直接编辑评论文字" style="display:block;width:100%;padding:1px 0;margin:5px 0 7px;border:0;background:transparent;color:inherit;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;font:inherit;font-size:14px;cursor:text">'+inlineMentions(r.text||'　')+' <span aria-hidden="true" style="font-size:11px;opacity:.45">✎</span></button>';
   html=html.replace(originalText,textMarkup);
+  // Keep both actions inline with the comment's timestamp, rather than in the admin toolbar.
+  const headHolder=document.createElement('div');
+  headHolder.innerHTML=html;
+  const commentHead=headHolder.querySelector('.u23-comment .u23-name-row');
+  if(commentHead){
+    const timeLabel=Array.from(commentHead.children).find(el=>el.tagName==='SPAN'&&el.textContent.includes('·')&&!el.classList.contains('verified'));
+    const group=document.createElement('span');
+    group.className='hw-dev-comment-stamp';
+    group.innerHTML='<span class="hw-dev-comment-head-actions">'
+      +'<button type="button" data-hw-dev-comment="random-time" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="随机这条评论的时间" aria-label="随机评论时间">🕒</button>'
+      +'<button type="button" class="hw-dev-comment-delete" data-hw-dev-comment="delete-reply" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="删除这条评论" aria-label="删除评论">'+icon('trash','',15)+'</button>'
+      +'</span>';
+    if(timeLabel){
+      timeLabel.classList.add('hw-dev-comment-time');
+      timeLabel.replaceWith(group);
+      group.prepend(timeLabel);
+    }else commentHead.appendChild(group);
+    html=headHolder.innerHTML;
+  }
   const fields=[['replies','回复'],['likes','点赞'],['reposts','转发'],['views','浏览'],['bookmarks','收藏']];
   const controls='<div class="hw-dev-comment-admin" style="display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:7px 12px 10px 65px;border-bottom:1px solid var(--stroke,#e5e7eb)">'
-    +'<button type="button" data-hw-dev-comment="random-time" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="仅随机这条评论的时间" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">🕒 随机时间</button>'
     +'<button type="button" data-hw-dev-comment="random-metrics" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">🎲 随机数字</button>'
     +'<button type="button" data-hw-dev-comment="media" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">🖼 '+(validImg(r.media)?'更换配图':'添加配图')+'</button>'
     +(validImg(r.media)?'<button type="button" data-hw-dev-comment="clear-media" data-key="'+esc(key)+'" data-id="'+esc(id)+'" style="border:1px solid var(--stroke,#ddd);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--ink);font-size:11px">移除配图</button>':'')
-    +'<button type="button" data-hw-dev-comment="delete-reply" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="直接删除这条评论（包含其下级回复）" style="margin-left:auto;border:1px solid #e9bec1;border-radius:999px;padding:5px 9px;background:var(--surface);color:#ba293a;font-size:11px">'+icon('trash','',14)+' 删除评论</button>'
     +fields.map(([field,label])=>'<label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted)">'+label+'<input type="text" inputmode="text" data-hw-dev-comment-metric="'+field+'" data-key="'+esc(key)+'" data-id="'+esc(id)+'" value="'+esc(r[field]??'0')+'" aria-label="'+label+'" style="width:48px;min-width:0;padding:4px 5px;border:1px solid var(--stroke,#ddd);border-radius:6px;background:var(--surface);color:var(--ink);font-size:11px"></label>').join('')
     +'</div>';
   if(validImg(r.media)){
