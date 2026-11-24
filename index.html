@@ -4761,24 +4761,28 @@ setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
 
 /* V39.9 developer house feed */
 const hwHomeOldPreview=renderPreviewOnly;
-let hwHomeExpanded='',hwHomeBusy=false,hwHomeFetched=false;
+let hwHomeExpanded='',hwHomeBusy=false,hwHomeFetched=false,hwHomeFilter='all';
 function hwHomeMarkup(){
- const cloud=admin?v32.posts.filter(p=>!p.parent_id&&!p.quote_id).sort((a,b)=>hwCloudStoryMs(b)-hwCloudStoryMs(a)):[];
+ const allCloud=admin?v32.posts.filter(p=>!p.parent_id&&!p.quote_id).sort((a,b)=>hwCloudStoryMs(b)-hwCloudStoryMs(a)):[];
+ const cloud=hwHomeFilter==='all'?allCloud:allCloud.filter(p=>p.author_kind===hwHomeFilter);
+ const playerCount=allCloud.filter(p=>p.author_kind==='user').length,characterCount=allCloud.filter(p=>p.author_kind==='character').length;
  const local=u23Refs();
  const es=x=>esc(String(x??''));
- let out='<div class="hw-home-head"><b>🏠 全站帖子 · 开发者首页</b><small>浏览人物和玩家的帖子；下方按钮仅供开发者管理</small><button data-hwh="refresh">↻ 刷新云端</button></div>';
+ let out='<div class="hw-home-head"><b>🏠 全站帖子 · 开发者首页</b><small>这里同时显示真实玩家与人物发表的帖子。玩家帖只读，人物帖可编辑。</small><button data-hwh="refresh">↻ 刷新云端</button></div>';
+ out+='<div class="hw-home-filters" role="group" aria-label="筛选作者"><button data-hwh="filter" data-filter="all" class="'+(hwHomeFilter==='all'?'active':'')+'">全部 ('+allCloud.length+')</button><button data-hwh="filter" data-filter="user" class="'+(hwHomeFilter==='user'?'active':'')+'">🎮 玩家 ('+playerCount+')</button><button data-hwh="filter" data-filter="character" class="'+(hwHomeFilter==='character'?'active':'')+'">🪄 人物 ('+characterCount+')</button></div>';
  if(admin){
-  out+='<div class="hw-home-label">☁️ 云端真实帖子 · 人物及玩家 ('+cloud.length+')</div>';
+  out+='<div class="hw-home-label">☁️ 云端真实帖子 · '+(hwHomeFilter==='user'?'玩家':hwHomeFilter==='character'?'人物':'全部')+' ('+cloud.length+')</div>';
   if(!cloud.length)out+='<div class="hw-home-empty">'+(hwHomeBusy?'正在读取…':'暂无帖子，点击刷新重试')+'</div>';
   for(const p of cloud){
    const person=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id),name=v32PostAuthor(p),m=p.metrics||{},replies=v32.posts.filter(x=>x.parent_id===p.id).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b)),open=hwHomeExpanded==='c:'+p.id;
-   out+='<article class="hw-home-post"><header><b>'+es(name)+'</b><small> · '+(p.author_kind==='character'?'人物':'玩家')+' · '+es(new Date(p.story_at||p.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))+'</small></header><p>'+es(p.body||'[图片]').replace(/\n/g,'<br>')+'</p><div class="hw-home-count">💬 '+es(m.replies??replies.length)+'　⇄ '+es(m.reposts||0)+'　♥ '+es(m.likes||0)+'　◉ '+es(m.views||0)+'</div><div class="hw-home-buttons"><button data-hwh="cloud-comments" data-id="'+es(p.id)+'">查看评论 ('+replies.length+')</button><button data-hwh="cloud-manage" data-id="'+es(p.id)+'">✎ '+(p.author_kind==='character'?'编辑数字 / 添加评论':'管理评论')+'</button></div>';
+   const photo=p.image_url&&/^https:\/\//i.test(p.image_url)?'<img class="hw-home-photo" src="'+es(p.image_url)+'" loading="lazy" alt="帖子配图">':'';
+   out+='<article class="hw-home-post"><header><b>'+es(name)+'</b><small> · '+(p.author_kind==='character'?'人物':'🎮 玩家')+' · '+es(new Date(p.story_at||p.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))+'</small></header><p>'+es(p.body|| (photo?'':'[图片]')).replace(/\n/g,'<br>')+'</p>'+photo+'<div class="hw-home-count">💬 '+es(m.replies??replies.length)+'　⇄ '+es(m.reposts||0)+'　♥ '+es(m.likes||0)+'　◉ '+es(m.views||0)+'</div><div class="hw-home-buttons"><button data-hwh="cloud-comments" data-id="'+es(p.id)+'">查看评论 ('+replies.length+')</button><button data-hwh="cloud-manage" data-id="'+es(p.id)+'">'+(p.author_kind==='character'?'✎ 编辑数字 / 添加评论':'💬 以人物身份评论')+'</button></div>';
    if(open)out+='<div class="hw-home-comments">'+(replies.map(r=>'<div><b>'+es(v32PostAuthor(r))+'</b> · '+es(hwCloudStoryText(r))+'：'+es(r.body||'[图片]')+'</div>').join('')||'暂无评论')+'</div>';
    out+='</article>';
   }
  }else out+='<div class="hw-home-label">登录开发者账号后可读取云端真实玩家帖子</div>';
- out+='<div class="hw-home-label">✎ 本地人物及测试帖子 ('+local.length+')</div>';
- for(const ref of local){
+ if(hwHomeFilter!=='user')out+='<div class="hw-home-label">✎ 本地人物及测试帖子 ('+local.length+')</div>';
+ for(const ref of hwHomeFilter==='user'?[]:local){
   const replies=u23Comments(ref),open=hwHomeExpanded==='l:'+ref.key,k=es(ref.key);
   out+='<div class="hw-home-local">'+u23PostCard(ref)+'<div class="hw-home-buttons"><button data-hwh="local-comments" data-key="'+k+'">查看评论 ('+replies.length+')</button><button data-hwh="local-edit" data-key="'+k+'">✎ 完整编辑</button><button data-hwh="local-comment-one" data-key="'+k+'">🎲 评论 +1</button><button data-hwh="local-comment-five" data-key="'+k+'">🎲 评论 +5</button><button data-hwh="local-metrics" data-key="'+k+'">🎲 随机数字</button></div>';
   if(open)out+='<div class="hw-home-comments">'+(replies.map(r=>'<div><b>'+es(r.name||r.handle)+'</b>：'+es(r.text||'')+'</div>').join('')||'暂无评论')+'</div>';
@@ -4817,6 +4821,7 @@ $('feedContent').addEventListener('click',e=>{
  const action=b.dataset.hwh||(b.dataset.u23==='thread'?'local-comments':'');if(!action)return;
  const key=b.dataset.key,id=b.dataset.id;
  if(action==='refresh'){hwHomeRefresh();return}
+ if(action==='filter'){const filter=b.dataset.filter;if(['all','user','character'].includes(filter)){hwHomeFilter=filter;hwHomeExpanded='';renderPreviewOnly()}return}
  if(action==='cloud-comments'||action==='local-comments'){let v=(action==='cloud-comments'?'c:'+id:'l:'+key);hwHomeExpanded=hwHomeExpanded===v?'':v;renderPreviewOnly();return}
  if(action==='cloud-manage'){
   v32.selected=id;v32RenderPostList();v32RenderDetail();
@@ -4831,7 +4836,7 @@ $('feedContent').addEventListener('click',e=>{
  if(operation)hw38Open(selected,operation);
 },true);
 const hwHomeCSS=document.createElement('style');
-hwHomeCSS.textContent='.hw-home-head{padding:17px;display:flex;flex-wrap:wrap;gap:9px;align-items:center;border-bottom:1px solid var(--stroke)}.hw-home-head b{font-size:18px;width:100%}.hw-home-head small{color:var(--muted);flex:1}.hw-home-head button,.hw-home-buttons button{background:var(--surface);border:1px solid var(--stroke);border-radius:20px;color:var(--ink);padding:8px 10px;cursor:pointer;font-size:12px}.hw-home-label{padding:12px 16px;font-size:13px;font-weight:bold;color:var(--muted);border-bottom:1px solid var(--stroke)}.hw-home-empty{padding:16px}.hw-home-post,.hw-home-local{border-bottom:1px solid var(--stroke);padding:15px 14px;background:var(--surface)}.hw-home-post header small,.hw-home-count{font-size:12px;color:var(--muted)}.hw-home-post p{white-space:normal;overflow-wrap:anywhere;line-height:1.5}.hw-home-buttons{display:flex;gap:6px;flex-wrap:wrap;padding:9px 0}.hw-home-comments{border-top:1px solid var(--stroke);padding:10px 4px;max-height:360px;overflow:auto;font-size:13px}.hw-home-comments>div{padding:7px;border-bottom:1px solid var(--stroke)}.hw-home-local{padding:0}.hw-home-local>.u23-card{border:0}.hw-home-local>.hw-home-buttons,.hw-home-local>.hw-home-comments{margin:0 14px}';
+hwHomeCSS.textContent='.hw-home-filters{display:flex;gap:8px;flex-wrap:wrap;padding:10px 15px;border-bottom:1px solid var(--stroke)}.hw-home-filters button{background:var(--surface);border:1px solid var(--stroke);border-radius:999px;color:var(--ink);padding:8px 12px;cursor:pointer}.hw-home-filters button.active{background:var(--accent,#1d9bf0);color:#fff}.hw-home-post .hw-home-photo{max-width:100%;max-height:420px;object-fit:contain;border-radius:14px;margin:9px 0}.hw-home-head{padding:17px;display:flex;flex-wrap:wrap;gap:9px;align-items:center;border-bottom:1px solid var(--stroke)}.hw-home-head b{font-size:18px;width:100%}.hw-home-head small{color:var(--muted);flex:1}.hw-home-head button,.hw-home-buttons button{background:var(--surface);border:1px solid var(--stroke);border-radius:20px;color:var(--ink);padding:8px 10px;cursor:pointer;font-size:12px}.hw-home-label{padding:12px 16px;font-size:13px;font-weight:bold;color:var(--muted);border-bottom:1px solid var(--stroke)}.hw-home-empty{padding:16px}.hw-home-post,.hw-home-local{border-bottom:1px solid var(--stroke);padding:15px 14px;background:var(--surface)}.hw-home-post header small,.hw-home-count{font-size:12px;color:var(--muted)}.hw-home-post p{white-space:normal;overflow-wrap:anywhere;line-height:1.5}.hw-home-buttons{display:flex;gap:6px;flex-wrap:wrap;padding:9px 0}.hw-home-comments{border-top:1px solid var(--stroke);padding:10px 4px;max-height:360px;overflow:auto;font-size:13px}.hw-home-comments>div{padding:7px;border-bottom:1px solid var(--stroke)}.hw-home-local{padding:0}.hw-home-local>.u23-card{border:0}.hw-home-local>.hw-home-buttons,.hw-home-local>.hw-home-comments{margin:0 14px}';
 document.head.append(hwHomeCSS);
 
 </script>
