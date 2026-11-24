@@ -4043,27 +4043,55 @@ function hwDevFeedCard(ref){
 }
 
 // Cloud posts are displayed as ordinary timeline cards alongside the existing local cards.
-let hwDevPlayerProfileId='';
+let hwDevPlayerProfileId='',hwDevCloudReturn='home',hwDevCloudProfileTab='posts',hwDevCloudEditingReply='';
 const hwDevCloudData=()=>window.hwDevCloudFeed?.list()||[];
 
 const hwDevCloudReplyDrafts=new Map();
 const hwDevCloudReplySamples=['我真的笑出声了😭','等一下，这是什么展开💀','不是吧，你们连这个都知道？','有意思，继续说。👀','霍格沃茨今天也很热闹。','这条我先记下了。','不是，你认真的吗？','我觉得事情没那么简单。'];
 function hwDevCloudReplyComposer(post){
- const people=window.hwDevCloudFeed?.characters()||[];
- const saved=hwDevCloudReplyDrafts.get(post.id)||{};
- const selected=saved.characterId||people[0]?.id||'';
- return '<section class="hw-dev-cloud-composer" data-cloud-composer="'+esc(post.id)+'" style="padding:14px 16px;border-top:1px solid var(--border,#ddd)">'
-  +'<div style="font-weight:750;margin-bottom:9px">💬 以人物身份发表评论</div>'
-  +'<label style="display:block;margin-bottom:8px">选择评论人物 <select data-cloud-reply-field="character" style="width:100%;padding:9px;margin-top:5px;border:1px solid #bdc6cb;border-radius:9px;background:var(--surface);color:var(--ink)">'
-  +people.map(p=>'<option value="'+esc(p.id)+'"'+(p.id===selected?' selected':'')+'>'+esc(p.name)+' (@'+esc(p.handle||'')+')</option>').join('')
-  +'</select></label>'
-  +'<label style="display:block">评论正文 <textarea data-cloud-reply-field="body" rows="3" placeholder="输入评论，也可以先点随机生成后编辑……" style="width:100%;box-sizing:border-box;margin-top:5px;padding:10px;resize:vertical;border:1px solid #bdc6cb;border-radius:10px;background:var(--surface);color:var(--ink)">'+esc(saved.body||'')+'</textarea></label>'
-  +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" data-hw-dev-feed="cloud-generate" data-id="'+esc(post.id)+'">🎲 随机生成草稿</button>'
-  +'<button type="button" data-hw-dev-feed="cloud-publish" data-id="'+esc(post.id)+'" style="background:#1d9bf0;color:white;border-radius:16px;padding:7px 17px">发布评论</button></div>'
-  +'<small style="display:block;margin-top:8px;opacity:.7">随机生成只填入文字；检查人物与正文后再点击发布。</small></section>';
+ const people=window.hwDevCloudFeed?.characters()||[],saved=hwDevCloudReplyDrafts.get(post.id)||{},rows=window.hwDevCloudFeed?.replies(post.id)||[];
+ const chosen=saved.characterId||people[0]?.id||'',target=rows.find(x=>x.id===saved.parentId);
+ const opts=people.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===chosen?'selected':'')+'>'+esc(p.name)+' (@'+esc(p.handle||'')+')</option>').join('');
+ const targets='<option value="">回复主帖</option>'+rows.map(r=>'<option value="'+esc(r.id)+'" '+(r.id===saved.parentId?'selected':'')+'>@'+esc(r.authorHandle||r.authorName)+'：'+esc((r.body||'[图片]').slice(0,38))+'</option>').join('');
+ return '<section data-cloud-composer="'+esc(post.id)+'" style="padding:14px 16px;border-top:1px solid var(--border,#ddd)">'
+  +'<h3 style="margin:0 0 9px;font-size:16px">💬 以人物身份发表评论</h3>'
+  +'<label style="display:block;margin-bottom:8px">评论人物<select data-cloud-reply-field="character" style="display:block;width:100%;padding:10px;border:1px solid #bdc6cb;border-radius:9px;background:var(--surface);color:var(--ink)">'+opts+'</select></label>'
+  +'<label style="display:block;margin-bottom:8px">回复谁<select data-cloud-reply-field="parent" style="display:block;width:100%;padding:10px;border:1px solid #bdc6cb;border-radius:9px;background:var(--surface);color:var(--ink)">'+targets+'</select></label>'
+  +(target?'<small>正在回复 @'+esc(target.authorHandle||target.authorName)+'</small>':'')
+  +'<label style="display:block;margin-top:8px">评论 / @正文<textarea rows="4" data-cloud-reply-field="body" placeholder="输入内容，或者先随机生成……" style="display:block;width:100%;box-sizing:border-box;padding:10px;border:1px solid #bdc6cb;border-radius:9px;background:var(--surface);color:var(--ink)">'+esc(saved.body||'')+'</textarea></label>'
+  +'<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:9px"><button type="button" data-hw-dev-feed="cloud-generate" data-id="'+esc(post.id)+'">🎲 随机生成草稿</button><button type="button" data-hw-dev-feed="cloud-publish" data-id="'+esc(post.id)+'" style="background:#1d9bf0;color:white;border-radius:20px;padding:8px 16px">发布评论</button></div>'
+  +'<small style="display:block;margin-top:6px;opacity:.7">草稿可修改，点击发布才发送给玩家。</small></section>';
 }
-
-function hwDevCloudReplies(post){const rows=window.hwDevCloudFeed?.replies(post.id)||[];return '<div class="hw-dev-cloud-replies">'+(rows.map(r=>'<div><b>'+esc(r.authorName)+'</b> · '+esc(r.time)+'<div>'+esc(r.body||'[图片]').replace(/\n/g,'<br>')+'</div>'+(r.image_url?'<img src="'+esc(r.image_url)+'" loading="lazy" style="max-width:100%;max-height:190px;border-radius:10px" alt="评论图片">':'')+'</div>').join('')||'<div>暂无评论</div>')+'</div>';}
+function hwDevCloudReplies(post){
+ const rows=window.hwDevCloudFeed?.replies(post.id)||[];
+ if(!rows.length)return '<div style="padding:14px 16px">暂无评论</div>';
+ const byParent=new Map();
+ for(const r of rows){const parent=rows.some(x=>x.id===r.parent_id)?r.parent_id:post.id;const items=byParent.get(parent)||[];items.push(r);byParent.set(parent,items)}
+ const visited=new Set();
+ function renderChildren(parent,depth){
+  return (byParent.get(parent)||[]).map(r=>{
+   if(visited.has(r.id))return '';visited.add(r.id);
+   const pid=esc(r.id),editing=hwDevCloudEditingReply===r.id,replyTo=rows.find(x=>x.id===r.parent_id);
+   return '<div style="margin-left:'+Math.min(depth,3)*14+'px;padding:11px 0;border-bottom:1px solid var(--border,#ddd)">'
+    +'<strong>'+esc(r.authorName)+'</strong> <small>@'+esc(r.authorHandle||'')+' · '+esc(r.time)+'</small>'
+    +(replyTo?'<div style="font-size:12px;opacity:.7">回复 @'+esc(replyTo.authorHandle||replyTo.authorName)+'</div>':'')
+    +'<p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0">'+esc(r.body||'[图片]')+'</p>'
+    +(r.image_url?'<img src="'+esc(r.image_url)+'" loading="lazy" style="max-width:100%;max-height:190px;border-radius:10px" alt="评论图片">':'')
+    +(editing?'<div data-cloud-reply-editor="'+pid+'"><textarea rows="3" data-cloud-edit-body style="width:100%;padding:9px;border-radius:8px;background:var(--surface);color:var(--ink)">'+esc(r.body||'')+'</textarea><button type="button" data-hw-dev-feed="cloud-edit-save" data-id="'+pid+'">保存修改</button> <button type="button" data-hw-dev-feed="cloud-edit-cancel">取消</button></div>':'')
+    +'<div style="display:flex;gap:7px;flex-wrap:wrap"><button type="button" data-hw-dev-feed="cloud-reply-to" data-id="'+pid+'" data-post="'+esc(post.id)+'">↳ 回复</button>'
+    +(r.author_kind==='character'?'<button type="button" data-hw-dev-feed="cloud-edit-reply" data-id="'+pid+'">✎ 编辑</button>':'')
+    +'<button type="button" data-hw-dev-feed="cloud-delete-reply" data-id="'+pid+'" style="color:#b33">🗑 删除</button></div>'+renderChildren(r.id,depth+1)+'</div>';
+  }).join('');
+ }
+ return '<section style="padding:12px 16px"><strong>全部评论（'+rows.length+'）</strong>'+renderChildren(post.id,0)+'</section>';
+}
+function hwDevCloudMetrics(post){
+ const fields=[['replies','评论'],['reposts','转发'],['likes','喜欢'],['views','浏览'],['bookmarks','书签']];
+ return '<section class="hw-cloud-metric-editor" style="padding:14px 16px;border-top:1px solid var(--border,#ddd)"><strong>✎ 编辑玩家端互动数字</strong>'
+  +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:8px;padding:10px 0">'
+  +fields.map(([key,label])=>'<label>'+label+'<input data-cloud-metric="'+key+'" value="'+esc(String(post.metrics?.[key]??'0'))+'" style="display:block;width:100%;padding:7px;border:1px solid #bdc6cb;border-radius:8px;background:var(--surface);color:var(--ink)"></label>').join('')+'</div>'
+  +'<button type="button" data-hw-dev-feed="cloud-save-metrics" data-id="'+esc(post.id)+'">保存互动数字</button></section>';
+}
 function hwDevCloudCard(post,detail=false){
  const user=post.author_kind==='user',name=esc(post.authorName),handle=esc(post.authorHandle||''),pid=esc(post.user_id||''),id=esc(post.id);
  const avatarInner=post.authorAvatar?'<img src="'+esc(post.authorAvatar)+'" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:50%">':'<span style="width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--surface);font-size:23px">'+(user?'🎮':'🪄')+'</span>'; const avatar=user?'<button type="button" data-hw-dev-feed="cloud-profile" data-id="'+pid+'" aria-label="打开玩家主页" style="border:0;background:none;padding:0;cursor:pointer">'+avatarInner+'</button>':avatarInner;
@@ -4074,7 +4102,7 @@ function hwDevCloudCard(post,detail=false){
  +'<div style="display:flex;align-items:center;gap:10px">'+avatar+'<div><strong>'+author+'</strong> <span style="font-size:12px;opacity:.7">@'+handle+'</span><div style="font-size:12px;opacity:.7">'+esc(post.time)+'</div></div></div>'
  +'<div role="button" tabindex="0" data-hw-dev-feed="cloud-open" data-id="'+id+'" style="padding:9px 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;cursor:pointer">'+esc(post.body||'')+'</div>'+(picture?'<div role="button" tabindex="0" data-hw-dev-feed="cloud-open" data-id="'+id+'" style="cursor:pointer">'+picture+'</div>':'')
  +'<div style="font-size:12px;opacity:.7">💬 '+esc(String(post.metrics?.replies??post.replyCount))+'　⇄ '+esc(String(post.metrics?.reposts||'0'))+'　♥ '+esc(String(post.metrics?.likes||'0'))+'　◉ '+esc(String(post.metrics?.views||'0'))+'</div>'
- +actions+(detail||hwDevFeedExpanded==='cloud:'+post.id?hwDevCloudReplies(post):'')+(detail?hwDevCloudReplyComposer(post):'')+'</div>';
+ +actions+(detail||hwDevFeedExpanded==='cloud:'+post.id?hwDevCloudReplies(post):'')+(detail?hwDevCloudReplyComposer(post)+hwDevCloudMetrics(post):'')+'</div>';
 }
 function hwDevLocalEntry(ref){
  return '<div class="hw-dev-feed-entry">'+hwDevFeedCard(ref)
