@@ -3543,6 +3543,7 @@ function hwDevFeedRandom(ref,action){
         if(count<d().replies.length)d().post.replies=String(d().replies.length);
       }
     }else if(action==='metrics')Object.assign(d().post,randomMetricPack('post'));
+    else if(action==='time')d().post.time=randomRelativeTime();
   }finally{
     state.hwSelectedPost=previousSelected;
     state.viewMode=previousView;
@@ -3553,10 +3554,11 @@ function hwDevFeedRandom(ref,action){
     const panel=Array.from($('feedContent').querySelectorAll('[data-hw-dev-comments-for]'))
       .find(el=>el.dataset.hwDevCommentsFor===ref.key);
     if(panel)panel.scrollIntoView({block:'nearest',behavior:'smooth'});
-  }else toast('当前帖子的互动数字已更新');
+  }else toast(action==='time'?'当前帖子的发布时间已随机更新':'当前帖子的互动数字已更新');
 }
 function hwDevFeedTools(ref){
-  return '<button type="button" data-hw-dev-feed="metrics" data-key="'+esc(ref.key)+'">🎲 随机互动数字</button>'
+  return '<button type="button" data-hw-dev-feed="time" data-key="'+esc(ref.key)+'">🎲 随机时间</button>'
+    +'<button type="button" data-hw-dev-feed="metrics" data-key="'+esc(ref.key)+'">🎲 随机互动数字</button>'
     +'<button type="button" data-hw-dev-feed="comment-one" data-key="'+esc(ref.key)+'">＋1 随机评论</button>'
     +'<button type="button" data-hw-dev-feed="comment-five" data-key="'+esc(ref.key)+'">＋5 随机评论</button>';
 }
@@ -3738,25 +3740,47 @@ function hwDevCommentControl(action,key,id,button){
   }
 }
 
+// A compact set of actions in every developer post header, visible even above large photos.
+document.head.insertAdjacentHTML('beforeend', '<style>'
+  +'.hw-dev-card-quick{display:flex;align-items:center;gap:3px;margin-left:auto;flex:0 0 auto}'
+  +'.hw-dev-card-quick button{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:3px;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;font-size:17px}'
+  +'.hw-dev-card-quick button:hover{background:var(--hover);color:var(--accent)}'
+  +'.hw-dev-card-quick button.hw-dev-card-trash{color:#bf2b3b}'
+  +'</style>');
+function hwDevFeedCard(ref){
+  const holder=document.createElement('div');
+  holder.innerHTML=u23PostCard(ref);
+  const article=holder.querySelector('.u23-card');
+  const heading=article?.querySelector('.u23-name-row');
+  if(heading){
+    const buttons=document.createElement('div');
+    buttons.className='hw-dev-card-quick';
+    buttons.innerHTML='<button type="button" data-hw-dev-feed="time" data-key="'+esc(ref.key)+'" aria-label="随机发布时间" title="随机发布时间">🕒</button>'
+      +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'" aria-label="编辑帖子" title="编辑帖子">✎</button>'
+      +'<button type="button" class="hw-dev-card-trash" data-hw-dev-feed="delete" data-key="'+esc(ref.key)+'" aria-label="删除帖子" title="直接删除帖子">'+icon('trash','',17)+'</button>';
+    heading.appendChild(buttons);
+  }
+  return article?.outerHTML||u23PostCard(ref);
+}
 function hwDevFeedHTML(){
   const refs=u23Refs();
   if(hwDevFeedPage==='post'){
     const ref=u23Find(hwDevFeedFocus);
     if(!ref){hwDevFeedPage='home';return hwDevFeedHTML();}
     return '<div class="u23-page-head"><button type="button" data-hw-dev-feed="back" aria-label="返回首页" title="返回首页" style="flex:0 0 36px;width:36px;min-width:36px;height:36px;padding:0;white-space:nowrap;font-size:24px;line-height:1">←</button><strong>帖子与评论</strong></div>'
-      +hwDevFeedUndoNotice()+u23PostCard(ref)
+      +hwDevFeedUndoNotice()+hwDevFeedCard(ref)
       +'<div style="padding:8px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-bottom:1px solid var(--border,#ddd)">'
       +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button>'
-      +hwDevFeedTools(ref)+hwDevFeedDeleteButton(ref)+'</div>'
+      +hwDevFeedTools(ref)+'</div>'
       +hwDevFeedCommentPanel(ref,true);
   }
   return '<div class="u23-page-head"><strong>首页 · 所有人发布的帖子</strong><small>开发者浏览模式</small></div>'
     +hwDevFeedUndoNotice()
-    +(refs.map(ref=>'<div class="hw-dev-feed-entry">'+u23PostCard(ref)
+    +(refs.map(ref=>'<div class="hw-dev-feed-entry">'+hwDevFeedCard(ref)
       +'<div style="padding:8px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-bottom:1px solid var(--border,#ddd)">'
       +'<button type="button" data-hw-dev-feed="open" data-key="'+esc(ref.key)+'">查看评论</button>'
       +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button>'
-      +hwDevFeedTools(ref)+hwDevFeedDeleteButton(ref)+'</div>'
+      +hwDevFeedTools(ref)+'</div>'
       +(hwDevFeedExpanded===ref.key?hwDevFeedCommentPanel(ref,false):'')
       +'</div>').join('')||'<div class="u23-empty">暂无帖子</div>');
 }
@@ -3797,7 +3821,7 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='undo-delete'){hwDevFeedUndoDelete();return;}
   if(action==='delete'){hwDevFeedDelete(u23Find(key));return;}
   if(action==='edit'){hwDevFeedEdit(u23Find(key));return;}
-  if(action==='metrics'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
+  if(action==='metrics'||action==='time'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
   if(action==='open'||action==='reply'||action==='thread'){
     hwDevFeedFocus=key;hwDevFeedPage='post';render();return;
   }
