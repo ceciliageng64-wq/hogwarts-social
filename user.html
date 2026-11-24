@@ -329,7 +329,7 @@ const icons={
  view:'<path d="M4 20V12M9 20V7M14 20V14M19 20V3"/>'};
 const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[k]||''}</svg>`;
 const clientId=()=>typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,14);
-const cache={characters:[],posts:[],profiles:[],likes:[],follows:[],bookmarks:[],conversations:[],messages:[],dmImages:{}};
+const cache={characters:[],posts:[],profiles:[],likes:[],follows:[],bookmarks:[],conversations:[],messages:[],dmImages:{},characterLikes:{}};
 const safeStorage={getItem(key){try{return localStorage.getItem(key)}catch{return null}},setItem(key,val){try{localStorage.setItem(key,val)}catch{}}};
 const state={view:'feed',profileKind:'character',profileId:'',postId:'',replyTo:'',quoteId:'',profileTab:'posts',theme:safeStorage.getItem('hw27-theme')||'light',user:null,myProfile:null,loggedIn:false,authReady:false,composerImage:null,dmConversationId:'',dmFile:null,uploading:false,editingProfile:false,dmLoading:false,bannerVisible:false,error:'',busy:false};
 let publicChannel=null,personalChannel=null,refreshTimer=0,toasterTimer=null,profileFileMode=false;
@@ -506,6 +506,22 @@ function renderFeed(){const tops=cache.posts.filter(x=>!x.parent_id&&visibleLoca
 function tree(parent,depth=0,seen=new Set()){if(depth>16)return '';return repliesTo(parent).map(r=>{if(seen.has(r.id))return '';const ns=new Set(seen);ns.add(r.id);return `<div class="threadline" style="margin-left:${Math.min(depth,4)*8+8}px">${postCard(r,{depth})}${tree(r.id,depth+1,ns)}</div>`}).join('')}
 function renderDetail(){const p=postById(state.postId);if(!p)return `<div class="empty">这条帖子尚不存在或已被删除。</div>`;return `${postCard(p)}${state.user?feedComposer(state.replyTo||p.id):`<div class="composer"><span class="muted">登录后可以参与楼中楼回复。</span><button class="primary" data-action="login">登录</button></div>`}${tree(p.id)}`;}
 function renderExplore(){return `<div><div class="sidecard" style="margin:15px"><h2>🏰 霍格沃茨校园</h2><p>只显示开发者人物库里的正式角色。可按昵称或账号搜索。</p><input id="explore-cast-search" type="search" placeholder="搜索人物名字或 @账号" value="${E(state.castSearch||'')}" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:11px;margin-top:8px"></div><div class="explore-cast-results">${discoverableCharacters().filter(c=>castMatch(c,state.castSearch)).map(c=>`<div class="post" style="align-items:center">${authorLink({...c,kind:'character'})}<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="character" data-id="${E(c.id)}" style="cursor:pointer">${E(c.name)} ${authorBadge(c)}</strong><div class="muted">@${E(c.handle)} · ${E(c.bio?.slice(0,75)||'Hogwarts')}</div></div><button class="small-outline" data-action="profile" data-kind="character" data-id="${E(c.id)}">主页</button><button class="small-outline" data-action="start-dm" data-id="${E(c.id)}">✉ 私信</button></div>`).join('')}</div></div>`;}
+// Developer-curated likes represent the character's public liked-post showcase.
+// They do not have hw_posts IDs, so render them read-only instead of wiring
+// misleading like/reply/repost actions to nonexistent database rows.
+function characterLikeCard(item){
+ const text=String(item?.text||'');
+ const author=String(item?.author_name||'校园网友');
+ const handle=String(item?.author_handle||'anonymous');
+ const metrics=item?.metrics||{};
+ const picture=item?.image_url?'<img class="post-image" loading="lazy" crossorigin="anonymous" src="'+E(item.image_url)+'" alt="喜欢的帖子配图">':'';
+ const avatarHTML=avatar(item?.author_avatar||'',author);
+ return '<article class="post"><div class="avatar-click" style="align-self:start">'+avatarHTML+'</div><div class="post-body">'
+  +'<div class="author"><strong>'+E(author)+'</strong>'+(item?.author_verified?H.renderBadge('blue'):'')+'<span class="handle">@'+E(handle)+(item?.time_label?' · '+E(item.time_label):'')+'</span></div>'
+  +'<div class="bodytext">'+mentionLink(text)+'</div>'+picture
+  +'<div class="post-actions" aria-label="历史互动数字"><span><span class="ic">'+svg('reply')+'</span>'+E(metrics.replies||'0')+'</span><span><span class="ic">'+svg('repeat')+'</span>'+E(metrics.reposts||'0')+'</span><span><span class="ic">'+svg('heart')+'</span>'+E(metrics.likes||'0')+'</span><span><span class="ic">'+svg('view')+'</span>'+E(metrics.views||'0')+'</span></div>'
+  +'</div></article>';
+}
 function renderProfile(){
  const kind=state.profileKind,id=state.profileId;
  const isMe=kind==='user'&&state.user?.id===id;
@@ -516,9 +532,9 @@ function renderProfile(){
  const order=(rows)=>rows.sort(hwStorySort);
  const posts=order(ownPosts.filter(x=>!x.parent_id));
  const replies=order(ownPosts.filter(x=>!!x.parent_id));
- const media=order(ownPosts.filter(x=>!!x.image_url&&!x.parent_id));
- // hw_likes currently records user_id, not character_id. Do not fabricate character likes.
- const likes=kind==='user'?order(cache.posts.filter(x=>visibleLocalePost(x)&&cache.likes.some(l=>l.user_id===id&&l.post_id===x.id))):[];
+ const media=order(ownPosts.filter(x=>!x.parent_id&&(!!x.image_url||!!x.metrics?.quote_snapshot?.image_url)));
+ // Player likes are relational. Developer-authored character likes are a separate public snapshot.
+ const likes=kind==='user'?order(cache.posts.filter(x=>visibleLocalePost(x)&&cache.likes.some(l=>l.user_id===id&&l.post_id===x.id))):(Array.isArray(cache.characterLikes?.[id])?cache.characterLikes[id]:[]);
  const tab=state.profileTab||'posts';
  const contents={posts,replies,media,likes};
  const title={posts:'帖子',replies:'回复',media:'媒体',likes:'喜欢'};
@@ -527,7 +543,7 @@ function renderProfile(){
  const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'&&!isRandomCommenter(p)?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:'';
  const following=kind==='character'?p.meta?.following:'0';
  const followersLabel=kind==='character'?p.meta?.followers:formatNum(followers);
- const emptyText=tab==='likes'&&kind==='character'?'人物喜欢的内容尚未同步到云端。':tab==='replies'?'还没有公开回复。':tab==='media'?'还没有发布带图片的帖子。':tab==='likes'?'还没有喜欢的帖子。':'这里暂时没有动态。';
+ const emptyText=tab==='replies'?'还没有公开回复。':tab==='media'?'还没有发布带图片的帖子。':tab==='likes'?'还没有喜欢的帖子。':'这里暂时没有动态。';
  return `<div class="profile-card"><div class="banner profile-cover">${p.cover_url?`<img src="${E(p.cover_url)}" alt="${E(a.name)} 的封面图" crossorigin="anonymous">`:''}</div>
  <div class="profile-head"><div class="profile-avatar-row"><button class="profile-header-avatar" data-action="profile" data-kind="${E(kind)}" data-id="${E(p.id)}" aria-label="查看${E(a.name)}的主页">${avatar(p.avatar_url,a.name,'big')}</button>${otherActions}</div>
  <div class="profile-name">${E(a.name)} ${authorBadge(a)}</div><div class="profile-handle">@${E(p.handle)}</div>${p.bio?`<div class="profile-bio">${mentionLink(p.bio)}</div>`:''}
@@ -535,7 +551,7 @@ function renderProfile(){
  <div class="profile-follow-data"><span><strong>${E(following||'0')}</strong> 正在关注</span><span><strong>${E(followersLabel||'0')}</strong> 关注者</span></div></div>
  ${state.editingProfile&&isMe?renderProfileEdit():''}
  <div class="profile-tabs" role="tablist" aria-label="个人主页分类">${Object.entries(title).map(([key,text])=>`<button role="tab" aria-selected="${tab===key}" data-action="profile-tab" data-tab="${key}" class="${tab===key?'active':''}">${text}</button>`).join('')}</div>
- ${isMe&&tab==='posts'?feedComposer():''}${selected.length?selected.map(post=>postCard(post)).join(''):`<div class="profile-tabs-empty"><strong>${title[tab]||'帖子'}</strong>${emptyText}</div>`}</div>`;
+ ${isMe&&tab==='posts'?feedComposer():''}${selected.length?selected.map(post=>kind==='character'&&tab==='likes'?characterLikeCard(post):postCard(post)).join(''):`<div class="profile-tabs-empty"><strong>${title[tab]||'帖子'}</strong>${emptyText}</div>`}</div>`;
 }
 function renderProfileEdit(){
  const p=state.myProfile||{};
@@ -582,10 +598,10 @@ function renderPage(){document.body.classList.toggle('dark',state.theme==='dark'
 }
 function renderPublicTrends(){const box=$('public-trends');if(!box)return;const rows=cache.trends;if(!Array.isArray(rows))return;box.innerHTML='<h2>有什么新鲜事</h2>'+rows.map(t=>`<div class="trend"><small>${E(t.context||'热门')}</small><b>${E(t.title||'')}</b><span>${E(t.count||'0')} 条讨论</span></div>`).join('');}
 async function loadPublic(silent=false){if(!C){setNotice('Supabase 客户端未加载。请检查网络连接；站点需要加载 Supabase JavaScript SDK。');return;}
- try{const [chars,posts,profiles,likes,follows,trends,castDirectory]=await Promise.all([
- C.from('hw_characters').select('*').order('name').limit(1000),C.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),C.from('hw_profiles').select('*').limit(1000),C.from('hw_likes').select('post_id,user_id').limit(10000),C.from('hw_follows').select('character_id,user_id').limit(10000),C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle()]);
- for(const r of [chars,posts,profiles,likes,follows,trends,castDirectory])if(r.error)throw r.error;
- Object.assign(cache,{characters:chars.data||[],posts:posts.data||[],profiles:profiles.data||[],likes:likes.data||[],follows:follows.data||[],trends:Array.isArray(trends.data?.value)?trends.data.value:null,castIds:Array.isArray(castDirectory.data?.value)?castDirectory.data.value:null});setNotice('');renderPublicTrends();
+ try{const [chars,posts,profiles,likes,follows,trends,castDirectory,characterLikes]=await Promise.all([
+ C.from('hw_characters').select('*').order('name').limit(1000),C.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),C.from('hw_profiles').select('*').limit(1000),C.from('hw_likes').select('post_id,user_id').limit(10000),C.from('hw_follows').select('character_id,user_id').limit(10000),C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_character_profile_likes').maybeSingle()]);
+ for(const r of [chars,posts,profiles,likes,follows,trends,castDirectory,characterLikes])if(r.error)throw r.error;
+ Object.assign(cache,{characters:chars.data||[],posts:posts.data||[],profiles:profiles.data||[],likes:likes.data||[],follows:follows.data||[],trends:Array.isArray(trends.data?.value)?trends.data.value:null,castIds:Array.isArray(castDirectory.data?.value)?castDirectory.data.value:null,characterLikes:characterLikes.data?.value&&typeof characterLikes.data.value==='object'&&!Array.isArray(characterLikes.data.value)?characterLikes.data.value:{}});setNotice('');renderPublicTrends();
  if(state.user){state.myProfile=cache.profiles.find(x=>x.id===state.user.id)||state.myProfile;}
  if(!(state.editingProfile&&state.view==='profile'&&state.profileKind==='user'))renderPage();
  }catch(e){const msg=H.errMsg(e);console.warn(e);setNotice('尚未连接到云端数据：'+msg+'。请检查网络连接或联系网站维护人员。');renderPage()}
