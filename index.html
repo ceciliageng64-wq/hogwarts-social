@@ -4045,6 +4045,24 @@ function hwDevFeedCard(ref){
 // Cloud posts are displayed as ordinary timeline cards alongside the existing local cards.
 let hwDevPlayerProfileId='';
 const hwDevCloudData=()=>window.hwDevCloudFeed?.list()||[];
+
+const hwDevCloudReplyDrafts=new Map();
+const hwDevCloudReplySamples=['我真的笑出声了😭','等一下，这是什么展开💀','不是吧，你们连这个都知道？','有意思，继续说。👀','霍格沃茨今天也很热闹。','这条我先记下了。','不是，你认真的吗？','我觉得事情没那么简单。'];
+function hwDevCloudReplyComposer(post){
+ const people=window.hwDevCloudFeed?.characters()||[];
+ const saved=hwDevCloudReplyDrafts.get(post.id)||{};
+ const selected=saved.characterId||people[0]?.id||'';
+ return '<section class="hw-dev-cloud-composer" data-cloud-composer="'+esc(post.id)+'" style="padding:14px 16px;border-top:1px solid var(--border,#ddd)">'
+  +'<div style="font-weight:750;margin-bottom:9px">💬 以人物身份发表评论</div>'
+  +'<label style="display:block;margin-bottom:8px">选择评论人物 <select data-cloud-reply-field="character" style="width:100%;padding:9px;margin-top:5px;border:1px solid #bdc6cb;border-radius:9px;background:var(--surface);color:var(--ink)">'
+  +people.map(p=>'<option value="'+esc(p.id)+'"'+(p.id===selected?' selected':'')+'>'+esc(p.name)+' (@'+esc(p.handle||'')+')</option>').join('')
+  +'</select></label>'
+  +'<label style="display:block">评论正文 <textarea data-cloud-reply-field="body" rows="3" placeholder="输入评论，也可以先点随机生成后编辑……" style="width:100%;box-sizing:border-box;margin-top:5px;padding:10px;resize:vertical;border:1px solid #bdc6cb;border-radius:10px;background:var(--surface);color:var(--ink)">'+esc(saved.body||'')+'</textarea></label>'
+  +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" data-hw-dev-feed="cloud-generate" data-id="'+esc(post.id)+'">🎲 随机生成草稿</button>'
+  +'<button type="button" data-hw-dev-feed="cloud-publish" data-id="'+esc(post.id)+'" style="background:#1d9bf0;color:white;border-radius:16px;padding:7px 17px">发布评论</button></div>'
+  +'<small style="display:block;margin-top:8px;opacity:.7">随机生成只填入文字；检查人物与正文后再点击发布。</small></section>';
+}
+
 function hwDevCloudReplies(post){const rows=window.hwDevCloudFeed?.replies(post.id)||[];return '<div class="hw-dev-cloud-replies">'+(rows.map(r=>'<div><b>'+esc(r.authorName)+'</b> · '+esc(r.time)+'<div>'+esc(r.body||'[图片]').replace(/\n/g,'<br>')+'</div>'+(r.image_url?'<img src="'+esc(r.image_url)+'" loading="lazy" style="max-width:100%;max-height:190px;border-radius:10px" alt="评论图片">':'')+'</div>').join('')||'<div>暂无评论</div>')+'</div>';}
 function hwDevCloudCard(post,detail=false){
  const user=post.author_kind==='user',name=esc(post.authorName),handle=esc(post.authorHandle||''),pid=esc(post.user_id||''),id=esc(post.id);
@@ -4054,9 +4072,9 @@ function hwDevCloudCard(post,detail=false){
  const actions='<div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 0"><button type="button" data-hw-dev-feed="cloud-open" data-id="'+id+'">💬 查看评论 ('+post.replyCount+')</button><button type="button" data-hw-dev-feed="cloud-manage" data-id="'+id+'">✎ 编辑互动数字 / 写人物评论</button></div>';
  return '<div class="hw-dev-feed-entry" style="border-bottom:1px solid var(--border,#ddd);padding:12px 16px">'
  +'<div style="display:flex;align-items:center;gap:10px">'+avatar+'<div><strong>'+author+'</strong> <span style="font-size:12px;opacity:.7">@'+handle+'</span><div style="font-size:12px;opacity:.7">'+esc(post.time)+'</div></div></div>'
- +'<div style="padding:9px 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55">'+esc(post.body||'')+'</div>'+picture
+ +'<div role="button" tabindex="0" data-hw-dev-feed="cloud-open" data-id="'+id+'" style="padding:9px 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;cursor:pointer">'+esc(post.body||'')+'</div>'+(picture?'<div role="button" tabindex="0" data-hw-dev-feed="cloud-open" data-id="'+id+'" style="cursor:pointer">'+picture+'</div>':'')
  +'<div style="font-size:12px;opacity:.7">💬 '+esc(String(post.metrics?.replies??post.replyCount))+'　⇄ '+esc(String(post.metrics?.reposts||'0'))+'　♥ '+esc(String(post.metrics?.likes||'0'))+'　◉ '+esc(String(post.metrics?.views||'0'))+'</div>'
- +actions+(detail||hwDevFeedExpanded==='cloud:'+post.id?hwDevCloudReplies(post):'')+'</div>';
+ +actions+(detail||hwDevFeedExpanded==='cloud:'+post.id?hwDevCloudReplies(post):'')+(detail?hwDevCloudReplyComposer(post):'')+'</div>';
 }
 function hwDevLocalEntry(ref){
  return '<div class="hw-dev-feed-entry">'+hwDevFeedCard(ref)
@@ -4134,6 +4152,8 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='back'){hwDevFeedPage=hwDevFeedPage==='post'&&hwDevPlayerProfileId?'player-profile':'home';hwDevFeedFocus='';render();return;}
   if(action==='cloud-profile'){hwDevPlayerProfileId=target.dataset.id||'';hwDevFeedPage='player-profile';hwDevFeedFocus='';render();return;}
   if(action==='cloud-open'){hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
+  if(action==='cloud-generate'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]'),input=form?.querySelector('[data-cloud-reply-field="body"]');if(!input)return;input.value=hwDevCloudReplySamples[Math.floor(Math.random()*hwDevCloudReplySamples.length)];const item=hwDevCloudReplyDrafts.get(id)||{};item.body=input.value;hwDevCloudReplyDrafts.set(id,item);input.focus();return;}
+  if(action==='cloud-publish'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]');if(!form)return;const characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value,body=form.querySelector('[data-cloud-reply-field="body"]')?.value.trim();if(!characterId||!body){toast('请先选择评论人物并填写评论');return;}if(target.disabled)return;target.disabled=true;const oldText=target.textContent;target.textContent='发布中…';window.hwDevCloudFeed.sendReply(id,characterId,body).then(()=>{hwDevCloudReplyDrafts.delete(id);toast('人物评论已发布，玩家端可见');render();}).catch(err=>{toast('评论发布失败：'+(err?.message||err));target.disabled=false;target.textContent=oldText;});return;}
   if(action==='cloud-manage'){const id=target.dataset.id;window.hwDevCloudFeed?.select(id);$('workspace')?.classList.remove('editor-closed');$('hwTimelineDetail')?.scrollIntoView({behavior:'smooth',block:'center'});toast('已打开帖子编辑区：可选择人物、编辑评论草稿及互动数字');return;}
   if(action==='undo-delete'){hwDevFeedUndoDelete();return;}
   if(action==='undo-comment'){hwDevCommentUndoDelete();return;}
@@ -4148,6 +4168,7 @@ $('feedContent').addEventListener('click',e=>{
   }
   if(key){hwDevFeedFocus=key;hwDevFeedPage='post';render();}
 },true);
+$('feedContent').addEventListener('input',e=>{const form=e.target.closest('[data-cloud-composer]');if(!form)return;const id=form.dataset.cloudComposer,field=e.target.dataset.cloudReplyField;if(!['body','character'].includes(field))return;const draft=hwDevCloudReplyDrafts.get(id)||{};draft[field==='character'?'characterId':'body']=e.target.value;hwDevCloudReplyDrafts.set(id,draft);});
 $('feedContent').addEventListener('change',e=>{
   if(state.clientMode!=='developer'||!hwDevFeedPage)return;
   const input=e.target.closest('[data-hw-dev-comment-metric]');
@@ -4434,6 +4455,17 @@ window.hwDevCloudFeed={
  }).sort((a,b)=>b.sortTime-a.sortTime),
  replies:id=>v32.posts.filter(p=>p.parent_id===id).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b)).map(p=>({...p,authorName:v32PostAuthor(p),time:hwCloudStoryText(p)})),
  player:id=>v32.users.get(id),
+ characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
+ sendReply:async(id,characterId,body)=>{
+  if(!admin)throw Error('请先登录开发者账号');
+  const post=v32.posts.find(p=>p.id===id&&!p.parent_id),person=v32.people.get(characterId);
+  if(!post)throw Error('帖子不存在或已被删除');
+  if(!person)throw Error('请选择有效的人物');
+  const text=String(body||'').trim();if(!text)throw Error('评论不能为空');
+  const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:person.id,user_id:null,parent_id:id,quote_id:null,body:text,language:post.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
+  if(error)throw error;
+  await v32Reload();
+ },
  select:id=>{v32.selected=id;v32RenderPostList();v32RenderDetail();},
  refresh:()=>v32Reload()
 };
