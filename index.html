@@ -4267,7 +4267,7 @@ function hwCloudStoryMs(p){const time=Date.parse(p?.story_at||"");if(Number.isFi
  const legacy=Date.parse(p?.created_at||"");if(!Number.isFinite(legacy))return 0;
  const d=new Date(legacy);d.setFullYear(d.getFullYear()-33);return d.getTime();}
 function hwCloudWorldNow(){const d=new Date();d.setFullYear(d.getFullYear()-33);return d.getTime();}
-function hwCloudStoryText(p){const ms=hwCloudStoryMs(p);return ms?new Date(ms).toLocaleString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Shanghai"}):"未安排";}
+function hwCloudStoryText(p){const ms=hwCloudStoryMs(p);return ms?new Date(ms).toLocaleString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}):"未安排";}
 function hwCloudStoryBounds(p){
  let low=Date.parse("1993-11-01T08:00:00Z"),high=hwCloudWorldNow();
  for(const id of [p.parent_id,p.quote_id]){const target=v32.posts.find(x=>x.id===id);if(target)low=Math.max(low,hwCloudStoryMs(target)+1000);}
@@ -4302,7 +4302,7 @@ async function hwCloudAdjustTime(action,id){
   time=low+(high-low)*fraction;
  }else{
   const original=hwCloudStoryText(p);
-  const input=prompt("填写1993年的故事时间，例如 1993-11-15 19:42\n有效范围："+new Date(low).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"})+" 至 "+new Date(high).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}),original.replace(/[年月]/g,"-").replace("日","").replace(/\//g,"-"));
+  const input=prompt("填写1993年的故事时间，例如 1993-11-15 19:42\n有效范围："+new Date(low).toLocaleString("zh-CN")+" 至 "+new Date(high).toLocaleString("zh-CN"),original.replace(/[年月]/g,"-").replace("日","").replace(/\//g,"-"));
   if(input===null)return;
   const hit=/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(input.trim());
   if(!hit)throw Error("请输入 1993-11-15 19:42 这样的格式");
