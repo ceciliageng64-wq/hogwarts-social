@@ -4063,6 +4063,7 @@ let hwDevPlayerProfileId='',hwDevCloudReturn='home',hwDevCloudProfileTab='posts'
 const hwDevCloudData=()=>window.hwDevCloudFeed?.list()||[];
 
 const hwDevCloudReplyDrafts=new Map();
+const hwDevCloudReplyImages=new Map();
 const hwDevCloudReplySamples=['我真的笑出声了😭','等一下，这是什么展开💀','不是吧，你们连这个都知道？','有意思，继续说。👀','霍格沃茨今天也很热闹。','这条我先记下了。','不是，你认真的吗？','我觉得事情没那么简单。','我刚从魔药课出来就看见这个？？','这层比原帖还精彩','先别急，我还在等另一位当事人','谁来给我补一下前情提要','猫头鹰都没你们传消息快','有证据吗，还是又是礼堂传闻','你们说话能不能不要只说一半','先蹲一个后续，我不走了','梅林啊，这是什么展开','不是所有沉默都代表默认吧','这个评论我先收藏一下','我室友看完直接不说话了','讲真，这件事还有另一种解释','等等，楼上说的是真的吗','我觉得先听听本人怎么说','你这句话我得好好消化一下','这条回复有点东西','啊？这也能扯到学院杯','别拉踩学院了先说正事','热评里居然有熟人','谁懂，在公共休息室刷到这条','一整个震惊住了','你们都没睡吗','我先声明只是路过吃瓜','课可以明天上，后续不能明天看','这样公开说真的没关系吗','笑死，我想看楼主怎么回','魁地奇训练都没这层激烈','这一层建议单独开帖','我甚至能想象教授看到的表情','先别嗑，问问当事人愿不愿意','有点心疼当事人，希望别传谣',"你们怎么在这里吵成这样","先让我确认一下，我是不是错过了第一集","这句话至少有三种解读","好想知道楼主现在是什么表情","我同寝室的人已经开始复盘了","我不赞成这种说法，但我想听原因","这里有人在认真讨论吗","请不要把没证实的传言当事实","大家现在都这么会写评论了吗","这剧情怎么越聊越离谱","我已经分不清谁在开玩笑了","要不先问问当事人","没想到这条能引发学院讨论","草，差点在图书馆笑出声","等一下，这句信息量很大","没想到还能从这个角度解释","比起吵架我更关心后续","有点好笑但也有点道理","啊啊啊我现在才看到","我朋友看到这条沉默了三秒","这层的逻辑我居然听懂了","所以最后到底是谁赢了","这个细节我反复看了三遍","能不能把上一条补充完整","我正在礼堂吃饭，差点呛到","会不会其实就是一个误会","我觉得有必要澄清一下","楼主出来说两句啊","听起来像是魔法史考试题","不是，每次到关键地方就没了"];
 function hwDevCloudReplyComposer(post){
  const people=window.hwDevCloudFeed?.characters()||[],saved=hwDevCloudReplyDrafts.get(post.id)||{},rows=window.hwDevCloudFeed?.replies(post.id)||[];
@@ -4075,6 +4076,8 @@ function hwDevCloudReplyComposer(post){
   +'<label style="display:block;margin-bottom:8px">回复谁<select data-cloud-reply-field="parent" style="display:block;width:100%;padding:10px;border:1px solid #bdc6cb;border-radius:9px;background:var(--surface);color:var(--ink)">'+targets+'</select></label>'
   +(target?'<small>正在回复 @'+esc(target.authorHandle||target.authorName)+'</small>':'')
   +'<label style="display:block;margin-top:8px">评论 / @正文<textarea rows="4" data-cloud-reply-field="body" placeholder="输入内容，或者先随机生成……" style="display:block;width:100%;box-sizing:border-box;padding:10px;border:1px solid #bdc6cb;border-radius:9px;background:var(--surface);color:var(--ink)">'+esc(saved.body||'')+'</textarea></label>'
+  +'<div style="margin-top:10px"><label style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--stroke);border-radius:9px;padding:8px 11px">📷 评论图片<input type="file" data-cloud-reply-image accept="image/jpeg,image/png,image/webp,image/gif" style="max-width:185px;font-size:12px"></label>'
+  +(hwDevCloudReplyImages.has(post.id)?'<button type="button" data-hw-dev-feed="cloud-image-remove" data-id="'+esc(post.id)+'" style="margin-left:8px">移除图片</button><div style="margin-top:8px"><img src="'+esc(hwDevCloudReplyImages.get(post.id).preview)+'" alt="待发布图片" style="max-width:240px;max-height:220px;border-radius:10px;object-fit:contain"></div>':'')+'</div>'
   +'<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:9px"><button type="button" data-hw-dev-feed="cloud-generate" data-id="'+esc(post.id)+'">🎲 随机生成草稿</button><button type="button" data-hw-dev-feed="cloud-publish" data-id="'+esc(post.id)+'" style="background:#1d9bf0;color:white;border-radius:20px;padding:8px 16px">发布评论</button></div>'
   +'<small style="display:block;margin-top:6px;opacity:.7">草稿可修改，点击发布才发送给玩家。</small></section>';
 }
@@ -4216,8 +4219,23 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='cloud-profile-tab'){hwDevCloudProfileTab=target.dataset.tab||'posts';render();return;}
   if(action==='cloud-profile'){hwDevPlayerProfileId=target.dataset.id||'';hwDevCloudProfileTab='posts';hwDevFeedPage='player-profile';hwDevFeedFocus='';render();return;}
   if(action==='cloud-open'){hwDevCloudReturn=hwDevFeedPage==='player-profile'?'player-profile':'home';hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
+  if(action==='cloud-image-remove'){const item=hwDevCloudReplyImages.get(target.dataset.id);if(item?.preview)URL.revokeObjectURL(item.preview);hwDevCloudReplyImages.delete(target.dataset.id);render();return;}
+$('feedContent').addEventListener('change',e=>{
+ if(state.clientMode!=='developer'||!e.target.matches('[data-cloud-reply-image]'))return;
+ const input=e.target,file=input.files?.[0],form=input.closest('[data-cloud-composer]'),id=form?.dataset.cloudComposer;
+ if(!id||!file)return;
+ if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)||file.size>10*1024*1024){toast('仅支持 JPG / PNG / WEBP / GIF，最大 10 MB');input.value='';return;}
+ const saved=hwDevCloudReplyDrafts.get(id)||{};
+ saved.body=form.querySelector('[data-cloud-reply-field="body"]')?.value||'';
+ saved.characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value||'';
+ saved.parentId=form.querySelector('[data-cloud-reply-field="parent"]')?.value||'';
+ hwDevCloudReplyDrafts.set(id,saved);
+ const prev=hwDevCloudReplyImages.get(id);if(prev?.preview)URL.revokeObjectURL(prev.preview);
+ hwDevCloudReplyImages.set(id,{file,preview:URL.createObjectURL(file)});
+ render();
+});
   if(action==='cloud-generate'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]'),input=form?.querySelector('[data-cloud-reply-field="body"]');if(!input)return;const at=input.value.match(/^@[^\s]+\s+/)?.[0]||'';input.value=at+hwDevCloudReplySamples[Math.floor(Math.random()*hwDevCloudReplySamples.length)];const item=hwDevCloudReplyDrafts.get(id)||{};item.body=input.value;hwDevCloudReplyDrafts.set(id,item);input.focus();return;}
-  if(action==='cloud-publish'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]');if(!form)return;const characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value,body=form.querySelector('[data-cloud-reply-field="body"]')?.value.trim(),parentId=form.querySelector('[data-cloud-reply-field="parent"]')?.value||'';if(!characterId||!body){toast('请先选择评论人物并填写评论');return;}if(target.disabled)return;target.disabled=true;const oldText=target.textContent;target.textContent='发布中…';window.hwDevCloudFeed.sendReply(id,characterId,body,parentId).then(()=>{hwDevCloudReplyDrafts.delete(id);toast('人物评论已发布，玩家端可见');render();}).catch(err=>{toast('评论发布失败：'+(err?.message||err));target.disabled=false;target.textContent=oldText;});return;}
+  if(action==='cloud-publish'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]');if(!form)return;const characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value,body=form.querySelector('[data-cloud-reply-field="body"]')?.value.trim(),parentId=form.querySelector('[data-cloud-reply-field="parent"]')?.value||'';if(!characterId||(!body&&!hwDevCloudReplyImages.has(id))){toast('请选择评论人物并填写文字或添加图片');return;}if(target.disabled)return;target.disabled=true;const oldText=target.textContent;target.textContent='发布中…';window.hwDevCloudFeed.sendReply(id,characterId,body,parentId,hwDevCloudReplyImages.get(id)?.file||null).then(()=>{hwDevCloudReplyDrafts.delete(id);const item=hwDevCloudReplyImages.get(id);if(item?.preview)URL.revokeObjectURL(item.preview);hwDevCloudReplyImages.delete(id);toast('人物评论已发布，玩家端可见');render();}).catch(err=>{toast('评论发布失败：'+(err?.message||err));target.disabled=false;target.textContent=oldText;});return;}
   if(action==='cloud-manage'){hwDevCloudReturn=hwDevFeedPage==='player-profile'?'player-profile':'home';hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
   if(action==='cloud-reply-to'){
    const id=target.dataset.post,replyId=target.dataset.id,reply=window.hwDevCloudFeed?.reply(replyId),draft=hwDevCloudReplyDrafts.get(id)||{};
@@ -4568,18 +4586,19 @@ window.hwDevCloudFeed={
  playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>{let root=p,seen=new Set();while(root?.parent_id&&!seen.has(root.id)){seen.add(root.id);root=v32.posts.find(x=>x.id===root.parent_id)}return {...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),rootPostId:root?.id||p.parent_id,replyCount:0}}).sort((a,b)=>b.sortTime-a.sortTime),
  player:id=>v32.users.get(id),
  characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
- sendReply:async(id,characterId,body,parentId='')=>{
+ sendReply:async(id,characterId,body,parentId='',imageFile=null)=>{
   if(!admin)throw Error('请先登录开发者账号');
   const post=v32.posts.find(p=>p.id===id&&!p.parent_id),person=v32.people.get(characterId);
   if(!post)throw Error('帖子不存在或已被删除');
   if(!person)throw Error('请选择有效的人物');
-  const text=String(body||'').trim();if(!text)throw Error('评论不能为空');
+  const text=String(body||'').trim();if(!text&&!imageFile)throw Error('评论不能为空');
   if(parentId){
    let parent=v32.posts.find(p=>p.id===parentId);
    if(!parent){const {data,error}=await u().from('hw_posts').select('id,parent_id').eq('id',parentId).maybeSingle();if(error)throw error;parent=data;}
    if(!parent||await hwDevCloudRootId(parent)!==id)throw Error('回复对象不属于本帖');
   }
-  const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:person.id,user_id:null,parent_id:parentId||id,quote_id:null,body:text,language:post.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
+  const imageUrl=imageFile?await H.uploadPublic(imageFile,'admin'):null;
+  const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:person.id,user_id:null,parent_id:parentId||id,quote_id:null,body:text,image_url:imageUrl,language:post.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
   if(error)throw error;
   await v32Reload();
  },
