@@ -708,7 +708,8 @@ async function saveProfileImage(file,field,label){
 async function saveImageAvatar(file){return saveProfileImage(file,'avatar_url','头像')}
 async function saveImageCover(file){return saveProfileImage(file,'cover_url','封面')}
 
-// Modern CSS color functions are handled by html2canvas-pro (pinned version).\nasync function takeScreenshot(mode){
+// Modern CSS color functions are handled by html2canvas-pro (pinned version).
+async function takeScreenshot(mode){
  let holder=null;
  if(typeof window.html2canvas!=='function'){toast('截图组件没有加载，请检查网络后重试。');return}
  const full=mode==='full', chat=state.view==='messages', isolated=chat&&!full;
