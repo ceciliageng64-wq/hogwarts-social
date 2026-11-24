@@ -4177,12 +4177,39 @@ $('feedContent').addEventListener('click',e=>{
   e.preventDefault();e.stopImmediatePropagation();
   const action=target.dataset.hwDevFeed||target.dataset.u23;
   const key=target.dataset.key;
-  if(action==='back'){hwDevFeedPage=hwDevFeedPage==='post'&&hwDevPlayerProfileId?'player-profile':'home';hwDevFeedFocus='';render();return;}
-  if(action==='cloud-profile'){hwDevPlayerProfileId=target.dataset.id||'';hwDevFeedPage='player-profile';hwDevFeedFocus='';render();return;}
-  if(action==='cloud-open'){hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
-  if(action==='cloud-generate'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]'),input=form?.querySelector('[data-cloud-reply-field="body"]');if(!input)return;input.value=hwDevCloudReplySamples[Math.floor(Math.random()*hwDevCloudReplySamples.length)];const item=hwDevCloudReplyDrafts.get(id)||{};item.body=input.value;hwDevCloudReplyDrafts.set(id,item);input.focus();return;}
-  if(action==='cloud-publish'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]');if(!form)return;const characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value,body=form.querySelector('[data-cloud-reply-field="body"]')?.value.trim();if(!characterId||!body){toast('请先选择评论人物并填写评论');return;}if(target.disabled)return;target.disabled=true;const oldText=target.textContent;target.textContent='发布中…';window.hwDevCloudFeed.sendReply(id,characterId,body).then(()=>{hwDevCloudReplyDrafts.delete(id);toast('人物评论已发布，玩家端可见');render();}).catch(err=>{toast('评论发布失败：'+(err?.message||err));target.disabled=false;target.textContent=oldText;});return;}
-  if(action==='cloud-manage'){const id=target.dataset.id;window.hwDevCloudFeed?.select(id);$('workspace')?.classList.remove('editor-closed');$('hwTimelineDetail')?.scrollIntoView({behavior:'smooth',block:'center'});toast('已打开帖子编辑区：可选择人物、编辑评论草稿及互动数字');return;}
+  if(action==='back'){hwDevFeedPage=hwDevCloudReturn;hwDevFeedFocus='';render();return;}
+  if(action==='cloud-profile-back'){hwDevFeedPage='home';hwDevPlayerProfileId='';render();return;}
+  if(action==='cloud-profile-tab'){hwDevCloudProfileTab=target.dataset.tab||'posts';render();return;}
+  if(action==='cloud-profile'){hwDevPlayerProfileId=target.dataset.id||'';hwDevCloudProfileTab='posts';hwDevFeedPage='player-profile';hwDevFeedFocus='';render();return;}
+  if(action==='cloud-open'){hwDevCloudReturn=hwDevFeedPage==='player-profile'?'player-profile':'home';hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
+  if(action==='cloud-generate'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]'),input=form?.querySelector('[data-cloud-reply-field="body"]');if(!input)return;const at=input.value.match(/^@[^\s]+\s+/)?.[0]||'';input.value=at+hwDevCloudReplySamples[Math.floor(Math.random()*hwDevCloudReplySamples.length)];const item=hwDevCloudReplyDrafts.get(id)||{};item.body=input.value;hwDevCloudReplyDrafts.set(id,item);input.focus();return;}
+  if(action==='cloud-publish'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]');if(!form)return;const characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value,body=form.querySelector('[data-cloud-reply-field="body"]')?.value.trim(),parentId=form.querySelector('[data-cloud-reply-field="parent"]')?.value||'';if(!characterId||!body){toast('请先选择评论人物并填写评论');return;}if(target.disabled)return;target.disabled=true;const oldText=target.textContent;target.textContent='发布中…';window.hwDevCloudFeed.sendReply(id,characterId,body,parentId).then(()=>{hwDevCloudReplyDrafts.delete(id);toast('人物评论已发布，玩家端可见');render();}).catch(err=>{toast('评论发布失败：'+(err?.message||err));target.disabled=false;target.textContent=oldText;});return;}
+  if(action==='cloud-manage'){hwDevCloudReturn=hwDevFeedPage==='player-profile'?'player-profile':'home';hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
+  if(action==='cloud-reply-to'){
+   const id=target.dataset.post,replyId=target.dataset.id,reply=window.hwDevCloudFeed?.reply(replyId),draft=hwDevCloudReplyDrafts.get(id)||{};
+   draft.parentId=replyId;const at='@'+(reply?.authorHandle||reply?.authorName||'')+' ';
+   if(at.length>2&&!draft.body?.includes(at))draft.body=at+(draft.body||'');
+   hwDevCloudReplyDrafts.set(id,draft);render();
+   $('feedContent').querySelector('[data-cloud-composer] textarea')?.focus();return;
+  }
+  if(action==='cloud-edit-reply'){hwDevCloudEditingReply=target.dataset.id;render();return;}
+  if(action==='cloud-edit-cancel'){hwDevCloudEditingReply='';render();return;}
+  if(action==='cloud-edit-save'){
+   const id=target.dataset.id,body=target.closest('[data-cloud-reply-editor]')?.querySelector('[data-cloud-edit-body]')?.value.trim();
+   if(!body){toast('评论正文不能为空');return;}target.disabled=true;
+   window.hwDevCloudFeed.editReply(id,body).then(()=>{hwDevCloudEditingReply='';toast('评论修改成功');render()}).catch(err=>{toast('修改失败：'+err.message);target.disabled=false});return;
+  }
+  if(action==='cloud-delete-reply'){
+   const id=target.dataset.id;if(!confirm('确定删除这条评论吗？楼中楼回复也可能一起删除。'))return;
+   target.disabled=true;
+   window.hwDevCloudFeed.deleteReply(id).then(()=>{toast('评论已删除');render()}).catch(err=>{toast('删除失败：'+err.message);target.disabled=false});return;
+  }
+  if(action==='cloud-save-metrics'){
+   const id=target.dataset.id,metrics={};
+   for(const input of target.closest('.hw-cloud-metric-editor')?.querySelectorAll('[data-cloud-metric]')||[])metrics[input.dataset.cloudMetric]=input.value.trim()||'0';
+   target.disabled=true;
+   window.hwDevCloudFeed.saveMetrics(id,metrics).then(()=>{toast('互动数字已同步');render()}).catch(err=>{toast('保存失败：'+err.message);target.disabled=false});return;
+  }
   if(action==='undo-delete'){hwDevFeedUndoDelete();return;}
   if(action==='undo-comment'){hwDevCommentUndoDelete();return;}
   if(action==='delete'){hwDevFeedDelete(u23Find(key));return;}
@@ -4196,7 +4223,7 @@ $('feedContent').addEventListener('click',e=>{
   }
   if(key){hwDevFeedFocus=key;hwDevFeedPage='post';render();}
 },true);
-$('feedContent').addEventListener('input',e=>{const form=e.target.closest('[data-cloud-composer]');if(!form)return;const id=form.dataset.cloudComposer,field=e.target.dataset.cloudReplyField;if(!['body','character'].includes(field))return;const draft=hwDevCloudReplyDrafts.get(id)||{};draft[field==='character'?'characterId':'body']=e.target.value;hwDevCloudReplyDrafts.set(id,draft);});
+$('feedContent').addEventListener('input',e=>{const form=e.target.closest('[data-cloud-composer]');if(!form)return;const id=form.dataset.cloudComposer,field=e.target.dataset.cloudReplyField;if(!['body','character','parent'].includes(field))return;const draft=hwDevCloudReplyDrafts.get(id)||{};draft[field==='character'?'characterId':field==='parent'?'parentId':'body']=e.target.value;hwDevCloudReplyDrafts.set(id,draft);});
 $('feedContent').addEventListener('change',e=>{
   if(state.clientMode!=='developer'||!hwDevFeedPage)return;
   const input=e.target.closest('[data-hw-dev-comment-metric]');
