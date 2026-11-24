@@ -4537,7 +4537,7 @@ window.hwDevCloudFeed={
   if(!post)throw Error('帖子不存在或已被删除');
   if(!person)throw Error('请选择有效的人物');
   const text=String(body||'').trim();if(!text)throw Error('评论不能为空');
-  const parent=parentId?v32.posts.find(p=>p.id===parentId):null;if(parentId&&(!parent||parent.parent_id!==id))throw Error('回复对象不属于本帖');
+  const parent=parentId?v32.posts.find(p=>p.id===parentId):null;let ancestor=parent,visited=new Set();while(ancestor?.parent_id&&!visited.has(ancestor.id)){visited.add(ancestor.id);ancestor=v32.posts.find(p=>p.id===ancestor.parent_id)}if(parentId&&(!parent||ancestor?.id!==id))throw Error('回复对象不属于本帖');
   const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:person.id,user_id:null,parent_id:parentId||id,quote_id:null,body:text,language:post.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
   if(error)throw error;
   await v32Reload();
