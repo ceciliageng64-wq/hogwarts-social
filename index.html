@@ -4117,9 +4117,21 @@ function hwDevFeedHTML(){
   const refs=u23Refs();
   if(hwDevFeedPage==='player-profile'){
    const cloud=hwDevCloudData().filter(p=>p.author_kind==='user'&&p.user_id===hwDevPlayerProfileId);
-   const person=window.hwDevCloudFeed?.player(hwDevPlayerProfileId);
-   return '<div class="u23-page-head"><button type="button" data-hw-dev-feed="back" style="font-size:22px;background:none;border:0;cursor:pointer">←</button><strong>'+esc(person?.display_name||'玩家主页')+'</strong> <small>@'+esc(person?.handle||'')+'</small></div>'
-    +(cloud.map(p=>hwDevCloudCard(p)).join('')||'<div class="u23-empty">该玩家尚未发布主贴。</div>');
+   const person=window.hwDevCloudFeed?.player(hwDevPlayerProfileId)||{};
+   const name=esc(person.display_name||'玩家'),handle=esc(person.handle||''),bio=esc(person.bio||''),where=esc(person.location||''),joined=esc(person.joined_label||'1993年');
+   const avatar=person.avatar_url?'<img src="'+esc(person.avatar_url)+'" alt="玩家头像" style="width:100%;height:100%;object-fit:cover">':'🎮';
+   const cover=person.cover_url?'<img src="'+esc(person.cover_url)+'" alt="主页封面" style="width:100%;height:100%;object-fit:cover">':'';
+   const posts=hwDevCloudProfileTab==='media'?cloud.filter(p=>p.image_url):hwDevCloudProfileTab==='replies'?(window.hwDevCloudFeed?.playerReplies(hwDevPlayerProfileId)||[]):cloud;
+   const tabs=[['posts','帖子'],['replies','回复'],['media','媒体']];
+   return '<div class="u23-page-head"><button type="button" data-hw-dev-feed="cloud-profile-back" style="font-size:22px;background:none;border:0;cursor:pointer">←</button><div><strong>'+name+'</strong><small style="display:block">'+cloud.length+' 条帖子</small></div></div>'
+    +'<div class="u23-cover" style="overflow:hidden">'+cover+'</div>'
+    +'<div class="u23-profile-top"><div class="u23-avatar" style="display:flex;align-items:center;justify-content:center;width:96px;height:96px;overflow:hidden;border-radius:50%;border:4px solid var(--surface);background:#8b9fae;font-size:32px">'+avatar+'</div></div>'
+    +'<div class="u23-profile-info"><div class="u23-profile-name"><strong>'+name+'</strong></div><div class="u23-muted">@'+handle+'</div>'
+    +(bio?'<p style="white-space:pre-wrap">'+bio+'</p>':'')
+    +'<div class="u23-profile-meta">'+(where?'<span>⌖ '+where+'</span>':'')+'<span>📅 '+joined+'</span></div></div>'
+    +'<div class="u23-profile-tabs" style="display:flex;justify-content:space-around;border-bottom:1px solid var(--border,#ddd)">'
+    +tabs.map(([tab,label])=>'<button type="button" data-hw-dev-feed="cloud-profile-tab" data-tab="'+tab+'" style="padding:13px;border-bottom:'+(tab===hwDevCloudProfileTab?'3px solid #1d9bf0':'3px solid transparent')+'">'+label+'</button>').join('')+'</div>'
+    +(posts.map(p=>hwDevCloudCard(p)).join('')||'<div class="u23-empty">这里还没有内容</div>');
   }
   if(hwDevFeedPage==='post'&&hwDevFeedFocus.startsWith('cloud:')){
    const post=hwDevCloudData().find(p=>p.id===hwDevFeedFocus.slice(6));
