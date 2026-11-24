@@ -4536,17 +4536,6 @@ $("hwStoryTimeList").addEventListener("click",e=>{
 
 
 // A narrow bridge for the EXISTING developer timeline; no second homepage is created.
-window.hwDevCloudFeed={
- list:()=>v32.posts.filter(p=>!p.parent_id).map(p=>{
-  const person=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);
-  return {...p,authorName:person?.name||person?.display_name||'玩家',authorHandle:person?.handle||'',authorAvatar:person?.avatar_url||'',
-   time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),replyCount:v32.posts.filter(x=>x.parent_id===p.id).length};
- }).sort((a,b)=>b.sortTime-a.sortTime),
- replies:id=>{const result=[],seen=new Set();function walk(parent){for(const p of v32.posts.filter(x=>x.parent_id===parent).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b))){if(seen.has(p.id))continue;seen.add(p.id);const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);result.push({...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||'',time:hwCloudStoryText(p)});walk(p.id)}}walk(id);return result;},
- reply:id=>{const p=v32.posts.find(x=>x.id===id);if(!p)return null;const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);return {...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||''};},
- playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>{let root=p,seen=new Set();while(root?.parent_id&&!seen.has(root.id)){seen.add(root.id);root=v32.posts.find(x=>x.id===root.parent_id)}return {...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),rootPostId:root?.id||p.parent_id,replyCount:0}}).sort((a,b)=>b.sortTime-a.sortTime),
- player:id=>v32.users.get(id),
- characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
 // Follow the actual cloud parent chain, including rows outside the limited local cache.
 async function hwDevCloudRootId(row){
  const visited=new Set();
@@ -4567,6 +4556,18 @@ async function hwDevCloudRootId(row){
  throw Error('评论回复关系异常');
 }
 
+
+window.hwDevCloudFeed={
+ list:()=>v32.posts.filter(p=>!p.parent_id).map(p=>{
+  const person=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);
+  return {...p,authorName:person?.name||person?.display_name||'玩家',authorHandle:person?.handle||'',authorAvatar:person?.avatar_url||'',
+   time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),replyCount:v32.posts.filter(x=>x.parent_id===p.id).length};
+ }).sort((a,b)=>b.sortTime-a.sortTime),
+ replies:id=>{const result=[],seen=new Set();function walk(parent){for(const p of v32.posts.filter(x=>x.parent_id===parent).sort((a,b)=>hwCloudStoryMs(a)-hwCloudStoryMs(b))){if(seen.has(p.id))continue;seen.add(p.id);const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);result.push({...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||'',time:hwCloudStoryText(p)});walk(p.id)}}walk(id);return result;},
+ reply:id=>{const p=v32.posts.find(x=>x.id===id);if(!p)return null;const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);return {...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||''};},
+ playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>{let root=p,seen=new Set();while(root?.parent_id&&!seen.has(root.id)){seen.add(root.id);root=v32.posts.find(x=>x.id===root.parent_id)}return {...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),rootPostId:root?.id||p.parent_id,replyCount:0}}).sort((a,b)=>b.sortTime-a.sortTime),
+ player:id=>v32.users.get(id),
+ characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
  sendReply:async(id,characterId,body,parentId='')=>{
   if(!admin)throw Error('请先登录开发者账号');
   const post=v32.posts.find(p=>p.id===id&&!p.parent_id),person=v32.people.get(characterId);
