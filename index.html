@@ -4564,8 +4564,8 @@ window.hwDevCloudFeed={
  saveMetrics:async(id,metrics)=>{
   if(!admin)throw Error('需要开发者账号');
   const p=v32.posts.find(x=>x.id===id);if(!p)throw Error('找不到帖子');
-  const {data,error}=await u().from('hw_posts').update({metrics:{...(p.metrics||{}),...metrics}}).eq('id',id).select('id');
-  if(error)throw error;if(!data?.length)throw Error('互动数字没有保存');
+  const {data,error}=await u().rpc('hw_admin_set_post_metrics',{p_post_id:id,p_metrics:metrics});
+  if(error)throw error;if(!data)throw Error('互动数字没有保存');
   await v32Reload();
  },
  select:id=>{v32.selected=id;v32RenderPostList();v32RenderDetail();},
@@ -4578,7 +4578,7 @@ $('hwTimelineFilter').onchange=v32RenderPostList;
 $('hwTimelineItems').onclick=e=>{const b=e.target.closest('[data-v32-open]');if(!b)return;v32.selected=b.dataset.v32Open;v32RenderPostList();v32RenderDetail();};
 $('hwTimelineDetail').onclick=async e=>{const action=e.target.closest('button')?.id;if(!action)return;const p=v32.posts.find(x=>x.id===v32.selected);if(!p)return;const button=e.target.closest('button');button.disabled=true;try{
  if(action==='v32RandomReply'){$('v32ReplyText').value=['我真的笑出声了😭','不是吧，怎么连这里也开始吵起来了💀','等一下，这事我得问问凯蒂。','格兰芬多表示我们有话要说🦁','这个我支持，但训练还是不能迟到🙂','这条得留着，等比赛结束再看。'][Math.floor(Math.random()*6)];return;}
- if(action==='v32Save'){const metrics={...(p.metrics||{})};for(const input of $('hwTimelineDetail').querySelectorAll('[data-v32-metric]'))metrics[input.dataset.v32Metric]=input.value.trim()||'0';if(p.author_kind==='character'){const body=$('v32Body').value.trim();const{error}=await u().from('hw_posts').update({body,metrics}).eq('id',p.id).eq('author_kind','character');if(error)throw error;v32RememberOverride(p.id,body,metrics);status('人物帖子正文和互动数字已更新。');}else{const{error}=await u().from('hw_posts').update({metrics}).eq('id',p.id).eq('author_kind','user');if(error)throw error;status('玩家帖互动数字已更新；玩家正文保持不变。');}}
+ if(action==='v32Save'){const metrics={...(p.metrics||{})};for(const input of $('hwTimelineDetail').querySelectorAll('[data-v32-metric]'))metrics[input.dataset.v32Metric]=input.value.trim()||'0';if(p.author_kind==='character'){const body=$('v32Body').value.trim();const{error}=await u().from('hw_posts').update({body,metrics}).eq('id',p.id).eq('author_kind','character');if(error)throw error;v32RememberOverride(p.id,body,metrics);status('人物帖子正文和互动数字已更新。');}else{const{error}=await u().rpc('hw_admin_set_post_metrics',{p_post_id:p.id,p_metrics:metrics});if(error)throw error;status('玩家帖互动数字已更新；玩家正文保持不变。');}}
  if(action==='v32Delete'){if(p.author_kind!=='character'||!confirm('确定删除这条人物帖子及其评论吗？此操作无法撤销。'))return;const{error}=await u().from('hw_posts').delete().eq('id',p.id).eq('author_kind','character');if(error)throw error;delete v32Overrides[p.id];try{localStorage.setItem('hw-v32-cloud-overrides',JSON.stringify(v32Overrides))}catch{}v32.selected='';status('帖子已从云端删除。');}
  if(action==='v32SendReply'){const body=$('v32ReplyText').value.trim(),character_id=$('v32ReplyCharacter').value;if(!body||!character_id)throw Error('请选择角色并输入评论');const {error}=await u().from('hw_posts').insert({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id,user_id:null,parent_id:p.id,quote_id:null,body,language:p.language||'zh',metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});if(error)throw error;status('✅ 角色评论已发布，玩家刷新后即可看到。');}
  await v32Reload();
