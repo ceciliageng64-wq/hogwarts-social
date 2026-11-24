@@ -2984,7 +2984,7 @@ async function v25CaptureUser(full=false){
  const copy=root.cloneNode(true);
  if(isChat)copy.classList.add('v26-current-chat-capture');
  copy.style.cssText+=`;width:${width}px!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;min-height:0!important;`;
- copy.querySelectorAll('.pv-post-edittools,.u25-user-shotbar,[data-u23="edit-own"],.quote-edit-preview,.x-delete-preview').forEach(el=>el.remove());
+ copy.querySelectorAll('.pv-post-edittools,.u25-user-shotbar,[data-u23="edit-own"],.quote-edit-preview,.x-delete-preview,.hw-dev-card-quick,[data-hw-dev-feed],[data-hw-dev-comment],.hw-dev-comment-actions,.hw-dev-comment-editor,.hw-dev-feed-tools,[data-hw-dev-comment-metric],.v25-screenbar').forEach(el=>el.remove());
  // Keep the visible text of compositions, not form fields/controls.
  copy.querySelectorAll('textarea,select,input').forEach(el=>{
    if(el.tagName==='TEXTAREA'){
@@ -3021,6 +3021,13 @@ async function v25CaptureUser(full=false){
 }
 $('v25ScreenCurrent').onclick=()=>v25CaptureUser(false).catch(err=>toast((state.lang==='zh'?'截图失败：':'Capture failed: ')+err.message));
 $('v25ScreenFull').onclick=()=>v25CaptureUser(true).catch(err=>toast((state.lang==='zh'?'截图失败：':'Capture failed: ')+err.message));
+
+// V40.2: Export the currently rendered feed, thread or profile, not the
+// unrelated legacy Adrian draft. Both legacy toolbar buttons now use the
+// same DOM-based capture path as the dedicated current-page screenshot buttons.
+$('exportBtn').onclick=()=>v25CaptureUser(false).catch(err=>{console.error('Current page PNG export failed',err);toast((state.lang==='zh'?'截图失败：':'Capture failed: ')+(err.message||String(err)))});
+$('exportFullBtn').onclick=()=>v25CaptureUser(true).catch(err=>{console.error('Full page PNG export failed',err);toast((state.lang==='zh'?'截图失败：':'Capture failed: ')+(err.message||String(err)))});
+
 
 const v25MediaHost=$('feedContent');
 v25MediaHost.addEventListener('click',e=>{const b=e.target.closest('[data-u25],[data-v25]');if(!b)return;const action=b.dataset.u25||b.dataset.v25;if(action.startsWith('picker-'))return;e.stopImmediatePropagation();e.preventDefault();if(state.clientMode==='user'){
