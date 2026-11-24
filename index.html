@@ -4077,7 +4077,8 @@ $('xNavLinks').addEventListener('click',e=>{
   if(nav&&nav===$('xNavLinks').querySelector('.x-nav-link')){
     e.preventDefault();e.stopImmediatePropagation();
     hwDevFeedPage='home';hwDevFeedFocus='';
-    // A visit to Home returns the global editor to Adrian's original post.
+    // Navigate to the shared cloud home without leaving the UI module.
+    if(typeof window.hwDevHomeOpen==='function'){hwDevFeedPage='';window.hwDevHomeOpen();return;}
     state.hwSelectedPost=null;state.viewMode='thread';
     syncFields();persist();
   }else if(hwDevFeedPage&&nav){hwDevFeedPage='';hwDevFeedFocus='';}
@@ -4123,6 +4124,13 @@ $('feedContent').addEventListener('change',e=>{
 $('feedContent').addEventListener('keydown',e=>{
   if(e.target.matches('[data-hw-dev-comment-metric]')&&e.key==='Enter'){e.preventDefault();e.target.blur();}
 },true);
+// Connect the developer UI to the cloud module without leaking or duplicating state.
+window.hwDevHomeBridge={state,render:()=>render(),renderShell:()=>renderShell(),persist:()=>persist(),u23Refs,u23PostCard,u23Comments,u23Find,hw38Open,esc,toast};
+const hwHomePreviewBeforeBridge=renderPreviewOnly;
+renderPreviewOnly=function(){
+ if(state.clientMode==='developer'&&state.viewMode==='hw-home'&&typeof window.hwDevHomeRender==='function'&&window.hwDevHomeRender())return;
+ hwHomePreviewBeforeBridge();
+};
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -4756,11 +4764,10 @@ if(H.client)H.client.channel('hw-admin-conv-monitor').on('postgres_changes',{eve
 if(H.client)H.client.channel('hw-v32-post-monitor').on('postgres_changes',{event:'*',schema:'public',table:'hw_posts'},()=>{if(admin)v32Reload().catch(console.warn)}).on('postgres_changes',{event:'*',schema:'public',table:'hw_characters'},()=>{if(admin)v32Reload().catch(console.warn)}).subscribe();
 window.addEventListener('focus',()=>{if(admin){refreshIntegratedDM().catch(console.warn);v32Reload().catch(console.warn)}});
 setInterval(()=>{if(admin)refreshIntegratedDM().catch(console.warn)},20000);
-})();
-
+// Keep the cloud-backed developer home within this module (admin/v32 scope).
 
 /* V39.9 developer house feed */
-const hwHomeOldPreview=renderPreviewOnly;
+const {state,renderShell,u23Refs,u23PostCard,u23Comments,u23Find,hw38Open,esc,toast,persist,render}=window.hwDevHomeBridge;
 let hwHomeExpanded='',hwHomeBusy=false,hwHomeFetched=false,hwHomeFilter='all';
 function hwHomeMarkup(){
  const allCloud=admin?v32.posts.filter(p=>!p.parent_id&&!p.quote_id).sort((a,b)=>hwCloudStoryMs(b)-hwCloudStoryMs(a)):[];
@@ -4790,17 +4797,17 @@ function hwHomeMarkup(){
  }
  return out;
 }
-renderPreviewOnly=function(){
- if(state.clientMode==='developer'&&state.viewMode==='hw-home'){
-  renderShell();$('feedContent').innerHTML=hwHomeMarkup();$('postHeader').textContent='全站首页 · 开发者管理';$('backArrow').innerHTML='';
-  $('xNavLinks').querySelectorAll('.x-nav-link').forEach((node,i)=>node.classList.toggle('active',i===0));return;
- }
- hwHomeOldPreview();
-};
+function renderPreviewOnly(){
+ if(state.clientMode!=='developer'||state.viewMode!=='hw-home')return false;
+ renderShell();$('feedContent').innerHTML=hwHomeMarkup();$('postHeader').textContent='全站首页 · 开发者管理';$('backArrow').innerHTML='';
+ $('xNavLinks').querySelectorAll('.x-nav-link').forEach((node,i)=>node.classList.toggle('active',i===0));return true;
+}
+window.hwDevHomeRender=renderPreviewOnly;
 function hwHomeOpen(){
  state.viewMode='hw-home';hwHomeExpanded='';render();persist();
  if(admin&&!hwHomeBusy)hwHomeRefresh();
 }
+window.hwDevHomeOpen=hwHomeOpen;
 function hwHomeRefresh(){
  if(!admin){toast('请先登录开发者账号');return;}
  hwHomeBusy=true;renderPreviewOnly();
@@ -4838,6 +4845,7 @@ $('feedContent').addEventListener('click',e=>{
 const hwHomeCSS=document.createElement('style');
 hwHomeCSS.textContent='.hw-home-filters{display:flex;gap:8px;flex-wrap:wrap;padding:10px 15px;border-bottom:1px solid var(--stroke)}.hw-home-filters button{background:var(--surface);border:1px solid var(--stroke);border-radius:999px;color:var(--ink);padding:8px 12px;cursor:pointer}.hw-home-filters button.active{background:var(--accent,#1d9bf0);color:#fff}.hw-home-post .hw-home-photo{max-width:100%;max-height:420px;object-fit:contain;border-radius:14px;margin:9px 0}.hw-home-head{padding:17px;display:flex;flex-wrap:wrap;gap:9px;align-items:center;border-bottom:1px solid var(--stroke)}.hw-home-head b{font-size:18px;width:100%}.hw-home-head small{color:var(--muted);flex:1}.hw-home-head button,.hw-home-buttons button{background:var(--surface);border:1px solid var(--stroke);border-radius:20px;color:var(--ink);padding:8px 10px;cursor:pointer;font-size:12px}.hw-home-label{padding:12px 16px;font-size:13px;font-weight:bold;color:var(--muted);border-bottom:1px solid var(--stroke)}.hw-home-empty{padding:16px}.hw-home-post,.hw-home-local{border-bottom:1px solid var(--stroke);padding:15px 14px;background:var(--surface)}.hw-home-post header small,.hw-home-count{font-size:12px;color:var(--muted)}.hw-home-post p{white-space:normal;overflow-wrap:anywhere;line-height:1.5}.hw-home-buttons{display:flex;gap:6px;flex-wrap:wrap;padding:9px 0}.hw-home-comments{border-top:1px solid var(--stroke);padding:10px 4px;max-height:360px;overflow:auto;font-size:13px}.hw-home-comments>div{padding:7px;border-bottom:1px solid var(--stroke)}.hw-home-local{padding:0}.hw-home-local>.u23-card{border:0}.hw-home-local>.hw-home-buttons,.hw-home-local>.hw-home-comments{margin:0 14px}';
 document.head.append(hwHomeCSS);
+})();
 
 </script>
 
