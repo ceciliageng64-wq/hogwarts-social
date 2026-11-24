@@ -3565,7 +3565,7 @@ function hwDevLocalTime(ref,row=null,stack=new Set()){
  return Math.min(hwDevWorldMillis()-1000,base+(idx+1)*11*60000);
 }
 function hwDevLocalLabel(ms){const d=new Date(ms);return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
-function hwDevRandomStoryTime(ref,row=null){
+function hwDevStoryBounds(ref,row=null){
  const start=Date.parse('1993-11-01T08:00:00Z'),current=hwDevWorldMillis();
  let lower=start,upper=current;
  const comments=u23Comments(ref);
@@ -3573,11 +3573,29 @@ function hwDevRandomStoryTime(ref,row=null){
   const parent=row.parentId?comments.find(x=>String(x.id)===String(row.parentId)):null;
   lower=Math.max(lower,hwDevLocalTime(ref,parent||null)+1000);
   for(const child of comments)if(String(child.parentId||'')===String(row.id))upper=Math.min(upper,hwDevLocalTime(ref,child)-1000);
- }else{
-  for(const child of comments)if(!child.parentId)upper=Math.min(upper,hwDevLocalTime(ref,child)-1000);
- }
+ }else for(const child of comments)if(!child.parentId)upper=Math.min(upper,hwDevLocalTime(ref,child)-1000);
+ return {lower,upper};
+}
+function hwDevRandomStoryTime(ref,row=null){
+ const {lower,upper}=hwDevStoryBounds(ref,row);
  if(upper<lower)return null;
  return new Date(lower+(upper-lower)*(row?Math.pow(Math.random(),2.2):Math.random())).toISOString();
+}
+function hwDevManualStoryTime(ref,row=null){
+ const {lower,upper}=hwDevStoryBounds(ref,row);
+ if(upper<lower){toast('现有父级与下级时间冲突，请先修正相关内容');return null}
+ const old=hwDevLocalLabel(hwDevLocalTime(ref,row));
+ const input=prompt('设置历史发布时间（例如 1993-11-12 19:30）\n不能早于父帖或晚于已有回复。',old.replace(/[年月]/g,'-').replace('日',''));
+ if(input===null)return null;
+ const match=/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(input.trim());
+ if(!match){toast('请输入1993-11-12 19:30格式的日期时间');return null}
+ const [,y,m,d,h,mi,s]=match.map((v,i)=>i?Number(v):v);
+ const value=new Date(y,m-1,d,h,mi,s||0);
+ if(!Number.isFinite(value.getTime())||value.getFullYear()!==y||value.getMonth()!==m-1||value.getDate()!==d||value.getHours()!==h||value.getMinutes()!==mi){
+  toast('日期或时间无效');return null;
+ }
+ if(value.getTime()<lower||value.getTime()>upper){toast('时间超出合法范围，不能早于父评论或晚于已有下级回复');return null}
+ return value.toISOString();
 }
 const hwDevOriginalHumanPost=u23HumanPost;
 u23HumanPost=function(ref){const post=hwDevOriginalHumanPost(ref);
@@ -3604,9 +3622,9 @@ function hwDevFeedRandom(ref,action){
         if(count<d().replies.length)d().post.replies=String(d().replies.length);
       }
     }else if(action==='metrics')Object.assign(d().post,randomMetricPack('post'));
-    else if(action==='time'){
-      const stamp=hwDevRandomStoryTime(ref);
-      if(!stamp){toast('此帖子已有更早的下级评论，暂无可用时间；请先调整相关评论');return;}
+    else if(action==='time'||action==='manual-time'){
+      const stamp=action==='manual-time'?hwDevManualStoryTime(ref):hwDevRandomStoryTime(ref);
+      if(!stamp){if(action==='time')toast('此帖子已有更早的下级评论，暂无可用时间；请先调整相关评论');return;}
       d().post.hwStoryAt=stamp;
       d().post.time=hwDevLocalLabel(Date.parse(stamp));
     }
@@ -3624,6 +3642,7 @@ function hwDevFeedRandom(ref,action){
 }
 function hwDevFeedTools(ref){
   return '<button type="button" data-hw-dev-feed="time" data-key="'+esc(ref.key)+'">🎲 随机时间</button>'
+    +'<button type="button" data-hw-dev-feed="manual-time" data-key="'+esc(ref.key)+'">✎ 指定时间</button>'
     +'<button type="button" data-hw-dev-feed="metrics" data-key="'+esc(ref.key)+'">🎲 随机互动数字</button>'
     +'<button type="button" data-hw-dev-feed="comment-one" data-key="'+esc(ref.key)+'">＋1 随机评论</button>'
     +'<button type="button" data-hw-dev-feed="comment-five" data-key="'+esc(ref.key)+'">＋5 随机评论</button>';
@@ -3797,6 +3816,7 @@ u23CommentCard=function(r,ref){
     group.className='hw-dev-comment-stamp';
     group.innerHTML='<span class="hw-dev-comment-head-actions">'
       +'<button type="button" data-hw-dev-comment="random-time" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="随机这条评论的时间" aria-label="随机评论时间">🕒</button>'
+      +'<button type="button" data-hw-dev-comment="edit-time" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="设置这条评论的历史时间" aria-label="指定评论时间">✎</button>'
       +'<button type="button" class="hw-dev-comment-delete" data-hw-dev-comment="delete-reply" data-key="'+esc(key)+'" data-id="'+esc(id)+'" title="删除这条评论" aria-label="删除评论">'+icon('trash','',15)+'</button>'
       +'</span>';
     if(timeLabel){
@@ -3910,6 +3930,12 @@ function hwDevCommentControl(action,key,id,button){
     row.hwStoryAt=stamp;row.time=hwDevLocalLabel(Date.parse(stamp));
     persist();render();toast('评论时间已在合法范围内更新');return;
   }
+  if(action==='edit-time'){
+    const stamp=hwDevManualStoryTime(ref,row);
+    if(!stamp)return;
+    row.hwStoryAt=stamp;row.time=hwDevLocalLabel(Date.parse(stamp));
+    persist();render();toast('历史评论时间已设置');return;
+  }
   if(action==='delete-reply'){hwDevCommentDelete(ref,id);return;}
   if(action==='media'){hwDevCommentMediaTarget={key,id};hwDevCommentMediaFile.click();return;}
   if(action==='clear-media'){row.media='';render();persist();toast('已移除这条评论的配图');return;}
@@ -3948,6 +3974,7 @@ function hwDevFeedCard(ref){
     const buttons=document.createElement('div');
     buttons.className='hw-dev-card-quick';
     buttons.innerHTML='<button type="button" data-hw-dev-feed="time" data-key="'+esc(ref.key)+'" aria-label="随机发布时间" title="随机发布时间">🕒</button>'
+      +'<button type="button" data-hw-dev-feed="manual-time" data-key="'+esc(ref.key)+'" aria-label="指定历史发布时间" title="指定历史发布时间">📅</button>'
       +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'" aria-label="编辑帖子" title="编辑帖子">✎</button>'
       +'<button type="button" class="hw-dev-card-trash" data-hw-dev-feed="delete" data-key="'+esc(ref.key)+'" aria-label="删除帖子" title="直接删除帖子">'+icon('trash','',17)+'</button>';
     heading.appendChild(buttons);
@@ -4014,7 +4041,7 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='undo-comment'){hwDevCommentUndoDelete();return;}
   if(action==='delete'){hwDevFeedDelete(u23Find(key));return;}
   if(action==='edit'){hwDevFeedEdit(u23Find(key));return;}
-  if(action==='metrics'||action==='time'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
+  if(action==='metrics'||action==='time'||action==='manual-time'||action==='comment-one'||action==='comment-five'){hwDevFeedRandom(u23Find(key),action);return;}
   if(action==='open'||action==='reply'||action==='thread'){
     hwDevFeedFocus=key;hwDevFeedPage='post';render();return;
   }
@@ -4523,7 +4550,15 @@ async function publish(){
   for(const row of docPostRows){
     const parent=hwStoryById.get(row.parent_id)||hwStoryById.get(row.quote_id);
     let at=Date.parse(row.story_at||'');
-    if(!Number.isFinite(at))at=hwStoryNow()-(parent?60000:2*3600000);
+    if(!Number.isFinite(at)){
+      if(parent){
+        const seed=Math.random();
+        const delay=seed<0.70?(2+Math.random()*50)*60000:
+                    seed<0.95?(60+Math.random()*500)*60000:
+                    (600+Math.random()*1800)*60000;
+        at=Math.min(hwStoryNow(),parent+delay);
+      }else at=hwStoryNow()-2*3600000;
+    }
     if(parent&&at<=parent)at=parent+1000;
     if(at>hwStoryNow()){if(parent&&parent>=hwStoryNow())throw Error('父帖超出当前世界时间：'+row.id);at=hwStoryNow();}
     row.story_at=new Date(at).toISOString();hwStoryById.set(row.id,at);
