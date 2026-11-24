@@ -854,6 +854,39 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshPub
 setInterval(()=>{if(!document.hidden)refreshPublicTrends()},25000);
 
 function restoreHash(){const h=decodeURIComponent(location.hash.replace(/^#/,''));if(h.startsWith('post:')){state.postId=h.slice(5);state.view='post'}else if(h.startsWith('profile:')){const match=/^profile:(character|user):(.+)$/.exec(h);if(match){state.profileKind=match[1];state.profileId=match[2];state.view='profile';}}else if(['feed','explore','messages','bookmarks','unread'].includes(h))state.view=h;}
+// Standalone picture viewer. It never changes the image's original post-opening action.
+// Decorate only displayed content images, leaving avatars and other interactive items intact.
+(function hwLargeImageViewer(){
+ const style=document.createElement('style');
+ style.textContent='.hw-zoom-wrap{position:relative;min-width:0;max-width:100%;width:100%}.hw-zoom-wrap>img.post-image,.hw-zoom-wrap>img.quoted-image{width:100%}.hw-zoom-wrap.hw-zoom-dm{width:fit-content;margin-top:7px}.hw-zoom-wrap.hw-zoom-dm img{max-width:100%}.hw-zoom-btn{position:absolute;right:9px;top:18px;z-index:2;padding:7px 10px;border-radius:999px;background:rgba(15,20,25,.86);color:#fff;border:1px solid rgba(255,255,255,.25);font-weight:750;font-size:12px;cursor:pointer;touch-action:manipulation}.hw-zoom-btn:hover,.hw-zoom-btn:focus-visible{background:#1d9bf0;color:#fff}.hw-zoom-wrap.hw-zoom-dm .hw-zoom-btn{top:6px;right:6px}.hw-big-view[hidden]{display:none!important}.hw-big-view{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:62px 16px 24px;background:rgba(0,0,0,.95)}.hw-big-view img{display:block;max-width:100%;max-height:calc(100dvh - 100px);width:auto;height:auto;object-fit:contain}.hw-big-close{position:absolute;right:15px;top:15px;background:#222;color:#fff;border:1px solid #777;border-radius:999px;padding:10px 16px;font-size:14px;font-weight:750}body.hw-big-active{overflow:hidden}';
+ document.head.append(style);
+ const viewer=document.createElement('div');viewer.className='hw-big-view';viewer.hidden=true;viewer.dataset.noscreenshot='';
+ viewer.setAttribute('role','dialog');viewer.setAttribute('aria-modal','true');viewer.setAttribute('aria-label','查看大图');
+ const enlarged=document.createElement('img');enlarged.alt='图片原图';
+ const close=document.createElement('button');close.type='button';close.className='hw-big-close';close.textContent='✕ 关闭';close.setAttribute('aria-label','关闭大图');
+ viewer.append(close,enlarged);document.body.append(viewer);
+ let returnFocus=null;
+ function hide(){if(viewer.hidden)return;viewer.hidden=true;enlarged.removeAttribute('src');document.body.classList.remove('hw-big-active');if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});}
+ function show(img,button){if(!img.src)return;returnFocus=button;enlarged.src=img.currentSrc||img.src;enlarged.alt=img.alt||'图片原图';viewer.hidden=false;document.body.classList.add('hw-big-active');close.focus({preventScroll:true});}
+ close.addEventListener('click',hide);
+ viewer.addEventListener('click',e=>{if(e.target===viewer)hide()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!viewer.hidden){e.preventDefault();hide()}});
+ const content=document.getElementById('content');
+ function decorate(){
+  for(const img of content.querySelectorAll('img.post-image,img.quoted-image,.chat-scroll .bubble img')){
+   if(img.closest('.hw-zoom-wrap'))continue;
+   const wrapper=document.createElement('div');wrapper.className='hw-zoom-wrap'+(img.closest('.bubble')?' hw-zoom-dm':'');
+   img.parentNode.insertBefore(wrapper,img);wrapper.appendChild(img);
+   const btn=document.createElement('button');btn.type='button';btn.className='hw-zoom-btn';btn.textContent='⤢ 查看大图';btn.setAttribute('aria-label','查看图片原图');btn.dataset.noscreenshot='';
+   btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();show(img,btn)});
+   wrapper.appendChild(btn);
+  }
+ }
+ let scheduled=false;
+ const observer=new MutationObserver(()=>{if(scheduled)return;scheduled=true;queueMicrotask(()=>{scheduled=false;decorate()})});
+ observer.observe(content,{childList:true,subtree:true});
+ decorate();
+})();
 // GUI events
 $('nav-items').addEventListener('click',e=>{const v=e.target.closest('[data-view]')?.dataset.view;if(v)navigate(v)});
 $('content').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b){e.preventDefault();e.stopPropagation();await handleAction(b.dataset.action,b)}});
