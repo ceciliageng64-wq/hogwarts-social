@@ -3743,7 +3743,7 @@ function hwDevFeedHTML(){
   if(hwDevFeedPage==='post'){
     const ref=u23Find(hwDevFeedFocus);
     if(!ref){hwDevFeedPage='home';return hwDevFeedHTML();}
-    return '<div class="u23-page-head"><button type="button" data-hw-dev-feed="back">← 返回首页</button><strong>帖子与评论</strong></div>'
+    return '<div class="u23-page-head"><button type="button" data-hw-dev-feed="back" aria-label="返回首页" title="返回首页" style="flex:0 0 36px;width:36px;min-width:36px;height:36px;padding:0;white-space:nowrap;font-size:24px;line-height:1">←</button><strong>帖子与评论</strong></div>'
       +hwDevFeedUndoNotice()+u23PostCard(ref)
       +'<div style="padding:8px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-bottom:1px solid var(--border,#ddd)">'
       +'<button type="button" data-hw-dev-feed="edit" data-key="'+esc(ref.key)+'">✎ 编辑帖子</button>'
