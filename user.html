@@ -469,7 +469,10 @@ function renderCastSearch(){const box=$('cast-search-results'),input=$('cast-sea
 function authorOf(post){if(post.author_kind==='character'){const c=cache.characters.find(x=>x.id===post.character_id);return c?{...c,kind:'character'}:{id:post.character_id||'',name:'校园账号',handle:'anonymous',kind:'character'};}
  const p=cache.profiles.find(x=>x.id===post.user_id);return p?{...p,name:p.display_name,kind:'user',badge_type:p.badge_type}: {id:post.user_id||'',name:'用户',handle:'visitor',kind:'user'};}
 function authorBadge(a){return H.renderBadge(a.badge_type||'none')}
-function authorLink(a){return `<button class="avatar-click" data-action="profile" data-kind="${a.kind}" data-id="${E(a.id)}" title="查看 ${E(a.name)} 的主页" style="border:0;background:none;padding:0;align-self:start">${avatar(a.avatar_url,a.name)}</button>`}
+function authorLink(a){
+ if(a.kind==='character'&&isRandomCommenter(a))return '<span class="avatar-click" title="临时随机评论身份 · 无个人主页" style="display:inline-flex;align-self:start">'+avatar(a.avatar_url,a.name)+'</span>';
+ return `<button class="avatar-click" data-action="profile" data-kind="${a.kind}" data-id="${E(a.id)}" title="查看 ${E(a.name)} 的主页" style="border:0;background:none;padding:0;align-self:start">${avatar(a.avatar_url,a.name)}</button>`;
+}
 function visibleLocalePost(post){return !post.language||String(post.language).toLowerCase().startsWith('zh');}
 function profileAuthorMatches(post,kind,id){return kind==='character'?post.author_kind==='character'&&post.character_id===id:post.author_kind==='user'&&post.user_id===id;}
 const pinSvg='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V10m0 0 4 4m-4-4-4 4M5 3h14v5H5z"/></svg>';
@@ -524,6 +527,7 @@ function characterLikeCard(item){
 }
 function renderProfile(){
  const kind=state.profileKind,id=state.profileId;
+ if(kind==='character'&&/^legacy_commenter_/i.test(String(id)))return '<div class="empty">这是临时随机评论身份，没有独立个人主页。</div>';
  const isMe=kind==='user'&&state.user?.id===id;
  const p=kind==='character'?cache.characters.find(x=>x.id===id):(cache.profiles.find(x=>x.id===id)||(isMe?state.myProfile:null));
  if(!p)return '<div class="empty"><strong>没有找到这个账号</strong>请从首页或探索页面选择人物。</div>';
@@ -823,7 +827,7 @@ async function deleteMyAccount(){
  }catch(e){toast('注销失败：'+H.errMsg(e));}finally{state.busy=false;}
 }
 async function handleAction(action,el){const id=el.dataset.id;
- switch(action){case 'unread-open':hwOpenUnread(id);break;case 'login':showAuth();break;case 'sign-out':await H.signOut();toast('已退出');break;case 'delete-account':await deleteMyAccount();break;case 'post':navigate('post',{id});break;case 'profile':navigate('profile',{id,kind:el.dataset.kind});break;case 'like':await toggleLike(id);break;case 'bookmark':await toggleBookmark(id);break;case 'follow':await toggleFollow(id);break;case 'reply':if(!needAuth())return;navigate('post',{id,replyTo:id});break;case 'repost':await repost(id);break;case 'delete':await deletePost(id);break;case 'submit-post':await submitPost(el.dataset.parent||'');break;
+ switch(action){case 'unread-open':hwOpenUnread(id);break;case 'login':showAuth();break;case 'sign-out':await H.signOut();toast('已退出');break;case 'delete-account':await deleteMyAccount();break;case 'post':navigate('post',{id});break;case 'profile':if(el.dataset.kind==='character'&&/^legacy_commenter_/i.test(String(id)))break;navigate('profile',{id,kind:el.dataset.kind});break;case 'like':await toggleLike(id);break;case 'bookmark':await toggleBookmark(id);break;case 'follow':await toggleFollow(id);break;case 'reply':if(!needAuth())return;navigate('post',{id,replyTo:id});break;case 'repost':await repost(id);break;case 'delete':await deletePost(id);break;case 'submit-post':await submitPost(el.dataset.parent||'');break;
  case 'toggle-dm-contacts':state.showAllDMContacts=!state.showAllDMContacts;renderPage();break;case 'toggle-contacts':state.showAllContacts=!state.showAllContacts;renderContactsPanel();break;case 'profile-tab':state.profileTab=el.dataset.tab||'posts';renderPage();break;case 'edit-me':if(!needAuth())return;navigate('me');state.editingProfile=true;renderPage();break;case 'edit-profile':if(!needAuth())return;state.editingProfile=true;renderPage();break;case 'cancel-profile':state.editingProfile=false;renderPage();break;case 'upload-avatar':$('user-avatar-file').click();break;case 'upload-cover':$('user-cover-file').click();break;
  case 'start-dm':await startConversation(id);break;case 'dm-delete-conversation':await deleteConversation(id);break;case 'dm-select':state.dmConversationId=id;renderPage();break;case 'dm-send':await sendMessage();break;case 'dm-recall':await recallMessage(id);break;
  default:break;
