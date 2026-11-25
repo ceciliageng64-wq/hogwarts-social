@@ -2969,10 +2969,13 @@ function hwCloudDraw(){
   return `<button type="button" class="dm-conversation hw-cloud-chat ${hwCloudView.selected===c.id?'active':''}" data-cloud-chat="open" data-id="${esc(c.id)}"><span class="dm-conv-avatar" aria-hidden="true">${c.avatar_url?`<img class="x-avatar sm" src="${esc(c.avatar_url)}" alt="">`:`<span class="x-avatar sm" style="background:#d5e3e9;color:#526674;display:grid;place-items:center">${esc((c.playerName||'玩家').slice(0,1))}</span>`}</span><span class="dm-conv-lines"><span class="dm-conv-top"><b>${esc(c.playerName||'玩家')}</b><small>${esc(last?.time||'')}</small></span><span class="dm-conv-snippet">${esc(last?.body||'图片消息')}</span></span>${c.unreadCount?`<span class="hw-dm-conversation-unread" style="align-self:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:#e0245e;color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">${c.unreadCount>99?'99+':c.unreadCount}</span>`:''}</button>`;
  }).join('');
  const currentList=list.querySelector(':scope > .hw-cloud-chat-list');
- // Reuse existing avatar <img> nodes when nothing about the conversation list changed.
- if(!currentList||currentList.innerHTML!==listHtml){
+ // Compare stable source values, not browser-normalized HTML, to avoid needless
+ // avatar reloads and flicker while polling an unchanged inbox.
+ const listSignature=JSON.stringify(chats.map(c=>[c.id,c.playerName,c.avatar_url,c.messages?.at(-1)?.body,c.messages?.at(-1)?.time,c.unreadCount,hwCloudView.selected]));
+ if(!currentList||list.dataset.cloudListSignature!==listSignature){
   if(currentList&&list.children.length===1)currentList.innerHTML=listHtml;
   else{const container=document.createElement('section');container.className='hw-cloud-chat-list';container.innerHTML=listHtml;list.replaceChildren(container);}
+  list.dataset.cloudListSignature=listSignature;
   list.scrollTop=savedListScroll;
  }
  if(hwCloudView.selected){
