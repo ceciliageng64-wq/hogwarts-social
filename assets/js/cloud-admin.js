@@ -570,7 +570,10 @@ async function publish(){
   // Reconcile deleted cast members with public cloud. Never auto-delete players.
   const {data:cloudCast,error:castErr}=await u().from('hw_characters').select('id,name').limit(2000);
   if(castErr)throw castErr;
-  const removed=migrationFirstPublish?[]:(cloudCast||[]).filter(x=>!ids.has(x.id));
+  // Temporary commenters never belong to the editable permanent cast.
+  // Never delete an active random commenter: hw_posts references its character ID.
+  const staleRandom=(cloudCast||[]).filter(x=>/^legacy_commenter_/i.test(String(x.id))&&!ids.has(x.id));
+  const removed=migrationFirstPublish?[]:(cloudCast||[]).filter(x=>!/^legacy_commenter_/i.test(String(x.id))&&!ids.has(x.id));
   if(removed.length){
    const message='人物库中有 '+removed.length+' 位已被删除的人物（'+removed.slice(0,8).map(p=>p.name).join('、')+'）。\n同步删除会同时移除其云端帖子、评论以及与玩家的私信会话（不可恢复）。\n确定删除吗？';
    if(confirm(message)){
@@ -578,6 +581,20 @@ async function publish(){
     status('✅ 已同步人物库；删除 '+removed.length+' 位人物及关联内容。');
    }else status('人物发布成功，但已删除人物仍保留在游客端。要同步删除，请下次发布时确认。');
   }else status(`✅ 增量发布完成：更新 ${chars.length} 位人物、${docPostRows.length} 条帖子或评论；跳过未修改的 ${reusedCharacters} 位人物和 ${reusedPosts} 条内容。`);
+  // Cleanup only truly unused temporary identity rows; never cascade-delete history.
+  // Run a bounded, best-effort check after successful publication.
+  for(const character of staleRandom.slice(0,20)){
+   try{
+    const checks=await Promise.all([
+      u().from('hw_posts').select('id').eq('character_id',character.id).limit(1),
+      u().from('hw_conversations').select('id').eq('character_id',character.id).limit(1),
+      u().from('hw_follows').select('character_id').eq('character_id',character.id).limit(1)
+    ]);
+    if(checks.some(c=>c.error||c.data?.length))continue;
+    const {error}=await u().from('hw_characters').delete().eq('id',character.id);
+    if(error)console.warn('临时身份未能自动清理',character.id,error.message);
+   }catch(e){console.warn('跳过临时身份清理',character.id,e)}
+  }
   if(migrationFirstPublish)localStorage.removeItem('hw-gh-migration-first-publish');
   // Advance the baseline only when all required writes succeeded.
   hwSavePublishCache(HW_PUBLISH_HASH_KEY,{posts:nextPostHashes,characters:nextCharacterHashes,likes:nextLikesFingerprint});
