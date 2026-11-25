@@ -483,7 +483,7 @@ async function publish(){
       chars.push({id:fallback.id,handle:fallback.handle,name:fallback.name,avatar_url:await cloudImage(fallback.avatar),cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:cloudBadgeType(fallback.badgeType,fallback.verified),meta:{}});
     }
   }
-  const docPostRows=[];const existingResp=await u().from('hw_posts').select('id,source_key,created_at,story_at,published_at').like('source_key','v26:%').limit(5000);
+  const docPostRows=[];const existingResp=await u().from('hw_posts').select('id,source_key,created_at,story_at,published_at,metrics').like('source_key','v26:%').limit(5000);
   if(existingResp.error)throw existingResp.error;const existing=new Map((existingResp.data||[]).map(row=>[row.id,row]));
   async function createPost(src,lang,key,authorId,parentId=null,quoteId=null){if(!authorId)return;
    const id='v26:'+key,old=existing.get(id);
@@ -498,7 +498,7 @@ async function publish(){
     const q=src.quote;
     metrics.quote_snapshot={author_id:String(q.authorId||''),author_name:String(q.authorName||''),author_handle:String(q.authorHandle||''),author_verified:!!q.authorVerified,text:String(q.text||'').slice(0,12000),image_url:await cloudImage(q.media),time_label:String(q.time||'')};
    }
-   docPostRows.push({id,source_key:id,author_kind:'character',character_id:authorId,user_id:null,parent_id:parentId,quote_id:quoteId,body:String(src.text||'').slice(0,12000),image_url:await cloudImage(src.media),language:lang,metrics,created_at:legacyCreatedAt(src.time,old?.created_at),story_at:src.hwStoryAt||old?.story_at||null,published_at:old?.published_at||new Date().toISOString()});
+   docPostRows.push({id,source_key:id,author_kind:'character',character_id:authorId,user_id:null,parent_id:parentId,quote_id:quoteId,body:String(src.text||'').slice(0,12000),image_url:await cloudImage(src.media),language:lang,metrics,created_at:legacyCreatedAt(src.time,old?.created_at),story_at:src.hwStoryAt||old?.story_at||null,hwTimeEdited:!!old&&String(src.time||'').trim()!==String(old.metrics?.time_label||'').trim(),published_at:old?.published_at||new Date().toISOString()});
   }
   // main posts first: comment foreign keys rely on them
   for(const lang of ['zh','en']){const doc=snapshot.drafts?.[lang];if(!doc?.post)continue;const charId=personIdByPost(doc.post,people);await createPost(doc.post,lang,lang+':main',charId,null)}
@@ -623,7 +623,10 @@ async function publish(){
   const hwStoryById=new Map();
   for(const row of docPostRows){
     const parent=hwStoryById.get(row.parent_id)||hwStoryById.get(row.quote_id);
-    let at=Date.parse(row.story_at||'');
+    // Explicitly edited relative time wins over the old cloud story timestamp.
+    // Keep the old story time for ordinary content/metric edits and for unchanged labels.
+    const editedRelative=row.hwTimeEdited&&/^(?:刚刚|刚才|现在|now|just now|just posted|moments ago|\d+(?:\.\d+)?\s*(?:秒前|分钟前|小时前|天前|seconds? ago|minutes? ago|hours? ago|days? ago|sec(?:onds?)?|mins?|hrs?|[smhd]))$/i.test(String(row.metrics?.time_label||'').trim());
+    let at=editedRelative?hwInitialPostStoryTime(row.metrics.time_label):Date.parse(row.story_at||'');
     if(!Number.isFinite(at)){
       if(parent){
         const seed=Math.random();
@@ -636,6 +639,7 @@ async function publish(){
     if(parent&&at<=parent)at=parent+1000;
     if(at>hwStoryNow())at=hwStoryNow();
     row.story_at=new Date(at).toISOString();hwStoryById.set(row.id,at);
+    delete row.hwTimeEdited; // local publish bookkeeping, not a database column
   }
   // Batch writes within each ancestor depth; all parents are committed before their children.
   // This preserves FK ordering while avoiding one network request per comment.
