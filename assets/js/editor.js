@@ -1753,7 +1753,7 @@ async function dmExport(mode='post'){
  }catch(e){console.error(e);toast((state.lang==='zh'?'导出失败：':'Export failed: ')+(e.message||e))}finally{btn.disabled=false;btn.textContent=old}
 }
 const dmPrevSwitch=pvSwitch;
-pvSwitch=function(mode){if(mode==='dm'){dmEnsure();dmSample();state.viewMode='dm';render();persist();}else dmPrevSwitch(mode)};
+pvSwitch=function(mode){if(mode==='dm'){dmEnsure();dmSample();state.viewMode='dm';hwCloudMarkAllRead();render();persist();}else dmPrevSwitch(mode)};
 const dmPrevShell=renderShell;
 renderShell=function(){dmPrevShell();const links=$('xNavLinks').querySelectorAll('.x-nav-link');links.forEach((link,i)=>{link.classList.toggle('active',state.viewMode==='dm'?i===3:state.viewMode==='profile'?i===5:i===0);if(i===3){link.dataset.pvNav='dm';link.setAttribute('role','button');link.tabIndex=0;link.style.cursor='pointer'}})};
 const dmPrevPreview=renderPreviewOnly;
@@ -2775,9 +2775,10 @@ const hwCloudInlineDrafts=new Map();
 const hwCloudInlineFocus=new Map();
 const hwCloudInlineCursor=new Map();
 const hwCloudReadKey=id=>'hw-dev-dm-read:'+String(id);
-function hwCloudMarkRead(id){const c=hwCloudView.rows.find(x=>x.id===id);if(!c)return;const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(id),latest.created_at)}catch(e){}}c.unreadCount=0;}
+function hwCloudMarkRead(id){const c=hwCloudView.rows.find(x=>x.id===id);if(!c)return;const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(id),new Date(Math.max(Date.now(),new Date(latest.created_at).getTime())).toISOString())}catch(e){}}c.unreadCount=0;}
+function hwCloudMarkAllRead(){for(const c of hwCloudView.rows.filter(x=>String(x.character_id)===String(state.viewerId))){const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(c.id),new Date(Math.max(Date.now(),new Date(latest.created_at).getTime())).toISOString())}catch(e){}}c.unreadCount=0;}hwCloudDrawUnread();}
 function hwCloudUnreadTotal(){return hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId)).reduce((n,c)=>n+(Number(c.unreadCount)||0),0)}
-function hwCloudDrawUnread(){const links=$('xNavLinks')?.querySelectorAll('.x-nav-link');const link=links?.[3];if(!link)return;let badge=link.querySelector('.hw-dm-unread-badge');const n=hwCloudUnreadTotal();if(n&&!badge){badge=document.createElement('span');badge.className='hw-dm-unread-badge';badge.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:99px;background:#e0245e;color:#fff;font-size:10px;font-weight:800;line-height:17px';link.append(badge)}if(badge){badge.textContent=n>99?'99+':String(n);badge.hidden=!n;}if(n)link.setAttribute('aria-label','私信，'+n+'条未读');else link.setAttribute('aria-label','私信');}
+function hwCloudDrawUnread(){const links=$('xNavLinks')?.querySelectorAll('.x-nav-link');const link=links?.[3];if(!link)return;let badge=link.querySelector('.hw-dm-unread-badge');const n=hwCloudUnreadTotal();if(n&&!badge){badge=document.createElement('span');badge.className='hw-dm-unread-badge';badge.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:99px;background:#e0245e;color:#fff;font-size:10px;font-weight:800;line-height:17px';link.append(badge)}if(badge){badge.textContent=n>99?'99+':String(n);badge.hidden=!n;badge.style.display=n?'inline-flex':'none';}if(n)link.setAttribute('aria-label','私信，'+n+'条未读');else link.setAttribute('aria-label','私信');}
 function hwCloudClearInlineImage(){hwCloudInlineImage=null;hwCloudInlineImageConversation='';if(hwCloudInlineImagePreview){URL.revokeObjectURL(hwCloudInlineImagePreview);hwCloudInlineImagePreview='';}}
 function hwCloudInlinePreviewFor(id){
  if(!hwCloudInlineImage||hwCloudInlineImageConversation!==id)return '';
