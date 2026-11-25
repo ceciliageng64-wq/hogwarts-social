@@ -395,8 +395,12 @@ function hwAmbientStats(post){
  if(!post)return zero;
  const isPlayer=post.author_kind==='user';
  const isRandomReply=!!post.parent_id&&post.author_kind==='character'&&/^legacy_commenter_/i.test(String(post.character_id||''));
- // Do not modify developer-managed official character posts and replies.
- if(!isPlayer&&!isRandomReply)return zero;
+ const isOfficialPost=!post.parent_id&&post.author_kind==='character'
+  &&!!post.character_id&&!/^legacy_commenter_/i.test(String(post.character_id))
+  &&discoverableCharacters().some(p=>String(p.id)===String(post.character_id));
+ // Official cast main posts get faster, higher engagement. Their authored replies
+ // and all manually entered metrics remain unchanged as the baseline.
+ if(!isPlayer&&!isRandomReply&&!isOfficialPost)return zero;
  const ms=Date.parse(post.published_at||post.created_at||'');
  if(!Number.isFinite(ms))return zero;
  const minutes=Math.max(0,(Date.now()-ms)/60000);
@@ -404,6 +408,18 @@ function hwAmbientStats(post){
  // Stable per-comment caps; fast initial growth, hard stop after 35 minutes.
  // Only displayed counters change: no fake comments or reaction rows are inserted.
  const rise=(initial,limit,pace,stop=35)=>minutes>=stop?limit:Math.min(limit,initial+Math.floor((limit-initial)*(1-Math.exp(-minutes/pace))));
+ if(isOfficialPost){
+  // 75% popular, 20% trending and 5% viral; all tiers have a hard cap.
+  const tier=(seed>>>9)%100;
+  const trending=tier>=75&&tier<95,viral=tier>=95;
+  return {
+   likes:rise(30+seed%41,viral?3500+seed%6501:trending?1100+seed%2901:250+seed%751,3+seed%5,35),
+   replies:rise(0,viral?40+seed%81:trending?15+seed%36:4+seed%17,8+seed%5,35),
+   reposts:rise(3+seed%5,viral?500+seed%1001:trending?100+seed%301:20+seed%101,5+seed%5,35),
+   bookmarks:rise(5+seed%11,viral?900+seed%1601:trending?230+seed%571:40+seed%171,5+seed%5,35),
+   views:rise(200+seed%301,viral?80000+seed%120001:trending?20000+seed%60001:5000+seed%15001,3+seed%5,35)
+  };
+ }
  if(post.parent_id){
   // Most comments are modest; some become hot, and a small fraction go viral.
   // Each comment gets a reproducible popularity tier, not a fresh random draw.
@@ -467,7 +483,10 @@ function hwAmbientRefresh(){
  for(const article of document.querySelectorAll('#content article.post[data-post-id]')){
   const post=postById(article.dataset.postId);
   if(!post)continue;
-  if(post.author_kind!=='user'&&!(post.parent_id&&post.author_kind==='character'&&/^legacy_commenter_/i.test(String(post.character_id||''))))continue;
+  // A zero ambient result is harmless; update all visible posts without rerender.
+  if(post.author_kind!=='user'&&!(post.author_kind==='character'&&
+   (post.parent_id? /^legacy_commenter_/i.test(String(post.character_id||'')):
+    discoverableCharacters().some(p=>String(p.id)===String(post.character_id)))))continue;
   const metrics=hwAmbientStats(post),items={
    reply:formatNum(repliesTo(post.id).length+metricNumber(post.metrics?.replies)+metrics.replies),
    repost:formatNum(metricNumber(post.metrics?.reposts)+metrics.reposts),
