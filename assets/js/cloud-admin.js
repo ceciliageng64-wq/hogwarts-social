@@ -304,7 +304,7 @@ async function refreshIntegratedDM(){
   const rows=[];
   for(const c of convos.data||[]){const messages=(grouped.get(c.id)||[]).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));if(!messages.length)continue;
    const user=byUser.get(String(c.user_id)),char=byPerson.get(String(c.character_id));
-   rows.push({id:c.id,character_id:String(c.character_id),playerName:user?.display_name||user?.handle||'玩家',avatar_url:user?.avatar_url||'',characterName:char?.name||'人物',messages:messages.map(m=>({sender_kind:m.sender_kind,body:m.body||'',time:new Date(m.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),image_url:m.image_url||'',image_resolved:m.image_url&&!String(m.image_url).startsWith('private:')?m.image_url:'',recalled:!!m.recalled}))});
+   rows.push({id:c.id,character_id:String(c.character_id),playerName:user?.display_name||user?.handle||'玩家',avatar_url:user?.avatar_url||'',characterName:char?.name||'人物',messages:messages.map(m=>({sender_kind:m.sender_kind,body:m.body||'',created_at:m.created_at,time:new Date(m.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),image_url:m.image_url||'',image_resolved:m.image_url&&!String(m.image_url).startsWith('private:')?m.image_url:'',recalled:!!m.recalled})),unreadCount:messages.filter(m=>m.sender_kind==='user'&&new Date(m.created_at).getTime()>(()=>{try{return new Date(localStorage.getItem('hw-dev-dm-read:'+c.id)||0).getTime()}catch(e){return 0}})()).length});
   }
   await Promise.all(rows.flatMap(c=>c.messages.filter(m=>m.image_url?.startsWith('private:')).map(async m=>{
     try{m.image_resolved=await H.signedPrivate(m.image_url);}catch(e){console.warn('私信附件暂无法预览',e);}
