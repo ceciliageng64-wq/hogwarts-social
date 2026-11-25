@@ -399,7 +399,7 @@ function hwAmbientStats(post){
  // Simulated counts do not write likes, bookmarks or comments to the cloud.
  const minutes=Math.max(0,(Date.now()-ms)/60000);
  const seed=hwAmbientSeed(post.id);
- const rise=(initial,limit,pace)=>Math.min(limit,initial+Math.floor((limit-initial)*(1-Math.exp(-minutes/pace))));
+ const rise=(initial,limit,pace)=>minutes>=50?limit:Math.min(limit,initial+Math.floor((limit-initial)*(1-Math.exp(-minutes/pace))));
  return {
   likes:rise(2+seed%3,16+seed%39,7+(seed%5)),
   replies:rise(0,1+(seed%4),14),
