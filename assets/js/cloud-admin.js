@@ -185,7 +185,7 @@ window.hwDevCloudFeed={
  reply:id=>{const p=v32.posts.find(x=>x.id===id);if(!p)return null;const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);return {...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||''};},
  playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>{let root=p,seen=new Set();while(root?.parent_id&&!seen.has(root.id)){seen.add(root.id);root=v32.posts.find(x=>x.id===root.parent_id)}return {...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),rootPostId:root?.id||p.parent_id,replyCount:0}}).sort((a,b)=>b.sortTime-a.sortTime),
  player:id=>v32.users.get(id),
- characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
+ characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name&&!/^legacy_commenter_/i.test(String(p.id))).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
  sendReply:async(id,characterId,body,parentId='',imageFile=null)=>{
   if(!admin)throw Error('请先登录开发者账号');
   const post=v32.posts.find(p=>p.id===id&&!p.parent_id),person=v32.people.get(characterId);
