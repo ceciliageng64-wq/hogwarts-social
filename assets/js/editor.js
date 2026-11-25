@@ -2791,7 +2791,7 @@ window.hwCloudDMUpdate=(rows)=>{
  if(state.viewMode==='dm'){
   const input=$('hwCloudInlineInput');
   // Do not replace a textarea while the developer is actively typing.
-  if(input&&document.activeElement===input){hwCloudMarkRead(hwCloudView.selected);return;}
+  if(input&&document.activeElement===input){hwCloudMarkRead(hwCloudView.selected);hwCloudDrawUnread();return;}
   renderPreviewOnly();
  }
 };
@@ -2820,7 +2820,7 @@ function hwCloudDraw(){
   const keepStart=oldInput&&document.activeElement===oldInput?oldInput.selectionStart:cursor.start??null;
   const keepEnd=oldInput&&document.activeElement===oldInput?oldInput.selectionEnd:cursor.end??null;
   if(oldInput)hwCloudInlineDrafts.set(c.id,oldInput.value);
-  if(state.viewMode==='dm'&&hwCloudView.selected===c.id)hwCloudMarkRead(c.id);
+  if(state.viewMode==='dm'&&hwCloudView.selected===c.id){hwCloudMarkRead(c.id);hwCloudDrawUnread();}
   right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px" src="${esc(m.image_resolved)}" alt="私信图片">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div>${hwCloudInlinePreviewFor(c.id)}<div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…">${esc(hwCloudInlineDrafts.get(c.id)||(()=>{try{return sessionStorage.getItem('hw-dev-dm-draft:'+c.id)||''}catch(e){return ''}})())}</textarea><label for="hwCloudInlineImageInput" title="添加图片" aria-label="添加图片" style="cursor:pointer;font-size:22px;padding:7px">🖼️</label><input id="hwCloudInlineImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
   requestAnimationFrame(()=>{const pane=right.querySelector('.dm-messages');if(pane)pane.scrollTop=pane.scrollHeight;const input=right.querySelector('#hwCloudInlineInput');if(input&&keepFocus){input.focus({preventScroll:true});try{if(keepStart!=null)input.setSelectionRange(keepStart,keepEnd??keepStart)}catch(e){}}});
  }
