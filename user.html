@@ -384,9 +384,82 @@ function hwUnreadIsNew(p){return !!(state.user&&hwUnread.ready&&p?.id&&p.publish
  &&hwStoryStamp(p)<=hwWorldNow()+1000
  &&!(p.author_kind==="user"&&p.user_id===state.user.id)
  &&visibleLocalePost(p)&&!hwUnread.seen.has(p.id));}
+// Deterministic ambient engagement for player-authored top-level posts.
+// Calculated from real publication time: no background writer, no fake replies or likes rows.
+function hwAmbientSeed(value){
+ let hash=2166136261;for(const ch of String(value||''))hash=Math.imul(hash^ch.charCodeAt(0),16777619);
+ return hash>>>0;
+}
+function hwAmbientStats(post){
+ const zero={likes:0,replies:0,reposts:0,bookmarks:0,views:0};
+ if(post?.author_kind!=='user'||post.parent_id)return zero;
+ const ms=Date.parse(post.published_at||post.created_at||'');
+ if(!Number.isFinite(ms))return zero;
+ const minutes=Math.max(0,Math.min(2880,(Date.now()-ms)/60000));
+ if(minutes<1)return zero;
+ const seed=hwAmbientSeed(post.id);
+ const wave=Math.log1p(minutes),slow=Math.sqrt(minutes);
+ return {
+  likes:Math.floor((0.8+(seed%7)/8)*wave+(seed%4)*slow/18),
+  replies:Math.floor(Math.max(0,minutes-7)/95*(0.35+(seed%6)/12)),
+  reposts:Math.floor(Math.max(0,minutes-12)/135*(0.2+(seed%9)/15)),
+  bookmarks:Math.floor(Math.max(0,minutes-4)/55*(0.3+(seed%8)/10)),
+  views:Math.floor(minutes*(1.4+(seed%11)/7)+wave*8)
+ };
+}
+const hwAmbientReadKey=()=> 'hw-ambient-read-v1:'+String(state.user?.id||'guest');
+function hwAmbientSeen(){try{return new Set(JSON.parse(localStorage.getItem(hwAmbientReadKey())||'[]'))}catch{return new Set()}}
+function hwAmbientMarkRead(key){
+ const seen=hwAmbientSeen();seen.add(key);
+ try{localStorage.setItem(hwAmbientReadKey(),JSON.stringify([...seen].slice(-500)))}catch(e){}
+}
+function hwAmbientEvents(){
+ if(!state.user||!hwUnread.ready)return [];
+ const cast=discoverableCharacters();
+ if(!cast.length)return [];
+ const seen=hwAmbientSeen(),result=[];
+ for(const post of cache.posts){
+  if(post.author_kind!=='user'||post.user_id!==state.user.id||post.parent_id||!visibleLocalePost(post))continue;
+  const created=Date.parse(post.published_at||post.created_at||'');
+  if(!Number.isFinite(created)||created<=Date.parse(hwUnread.baselineAt||'')||created>Date.now())continue;
+  const seed=hwAmbientSeed(post.id);
+  for(let i=0;i<3;i++){
+   const delay=[2+(seed%5),12+((seed>>>4)%17),40+((seed>>>8)%45)][i]*60000;
+   if(Date.now()<created+delay)continue;
+   const kind=i===1?'bookmark':'like';
+   const actor=cast[(seed+i*17)%cast.length];
+   const key=post.id+':'+i;
+   if(seen.has(key))continue;
+   result.push({key,post,actor,kind,at:created+delay});
+  }
+ }
+ return result.sort((a,b)=>b.at-a.at).slice(0,100);
+}
+function hwAmbientRefresh(){
+ if(document.hidden)return;
+ // Update only rendered counters to avoid destroying drafts, scroll positions and inputs.
+ for(const article of document.querySelectorAll('#content article.post[data-post-id]')){
+  const post=postById(article.dataset.postId);
+  if(!post||post.author_kind!=='user'||post.parent_id)continue;
+  const metrics=hwAmbientStats(post),items={
+   reply:formatNum(repliesTo(post.id).length+metricNumber(post.metrics?.replies)+metrics.replies),
+   repost:formatNum(metricNumber(post.metrics?.reposts)+metrics.reposts),
+   like:likeCount(post),
+   bookmark:formatNum(metricNumber(post.metrics?.bookmarks)+metrics.bookmarks),
+   post:formatNum(metricNumber(post.metrics?.views)+metrics.views)
+  };
+  for(const [action,count] of Object.entries(items)){
+   const btn=article.querySelector('.post-actions button[data-action="'+action+'"]');
+   if(btn&&btn.lastChild?.nodeType===Node.TEXT_NODE)btn.lastChild.textContent=count;
+  }
+ }
+ hwUnreadBadge();
+}
+setInterval(hwAmbientRefresh,45000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)hwAmbientRefresh()});
 function hwUnreadItems(){return cache.posts.filter(hwUnreadIsNew)}
 function hwUnreadBadge(){const nav=document.querySelector('[data-view="unread"]'),badge=$("hw-unread-nav-count");
- if(nav)nav.hidden=!state.user;if(!badge)return;const count=hwUnreadItems().length;
+ if(nav)nav.hidden=!state.user;if(!badge)return;const count=hwUnreadItems().length+hwAmbientEvents().length;
  badge.hidden=!count;badge.textContent=count>99?"99+":String(count);
  if(nav)nav.title=count?"你有 "+count+" 条消息没有浏览过":"暂无未浏览动态";}
 async function hwUnreadInitialize(){const person=state.user?.id;if(!C||!person)return;
@@ -423,8 +496,15 @@ function hwUnreadPage(){
    +'<small>'+(g.post?g.post+" 条未浏览帖子":"")+(g.post&&g.comments?" · ":"")+(g.comments?g.comments+" 条未浏览评论":"")
    +' · '+E(hwStoryLabel(g.root))+'</small></button>';
  }).join("");
- return '<div class="hw-unread-info"><strong>你有 '+items.length+' 条消息没有浏览过</strong><small>按帖子归类；点击后查看完整评论，实际阅读后自动减少。</small></div>'
-  +(cards||'<div class="empty">已经看完啦！霍格沃茨目前没有新的未浏览动态。</div>');
+ const ambient=hwAmbientEvents();
+ const notices=ambient.map(event=>'<button type="button" class="hw-unread-group" data-action="ambient-open" data-id="'+E(event.post.id)+'" data-ambient-key="'+E(event.key)+'">'
+  +'<div class="hw-unread-group-head"><strong>'+E(event.actor.name)+'</strong><span class="hw-unread-count">'+(event.kind==='like'?'♡ 点赞':'♧ 收藏')+'</span></div>'
+  +'<p>'+E(event.actor.name)+' '+(event.kind==='like'?'赞了':'收藏了')+'你的帖子：「'+E((event.post.body||'[图片]').slice(0,90))+'」</p>'
+  +'<small>来自霍格沃茨人物库 · 点击查看帖子</small></button>').join('');
+ const total=items.length+ambient.length;
+ return '<div class="hw-unread-info"><strong>你有 '+total+' 条消息没有浏览过</strong><small>包含新帖子、真实评论和人物互动提示。点击互动提示后标记已读。</small></div>'
+  +notices+cards
+  +(!total?'<div class="empty">已经看完啦！霍格沃茨目前没有新的未浏览动态。</div>':'');
 }
 async function hwUnreadSeen(id){if(!state.user||!hwUnread.ready||hwUnread.pending.has(id))return;
  const p=postById(id);if(!p||!hwUnreadIsNew(p))return;
@@ -489,7 +569,7 @@ const postById=id=>cache.posts.find(x=>x.id===id);
 const repliesTo=id=>cache.posts.filter(x=>x.parent_id===id).sort((a,b)=>hwStoryStamp(a)-hwStoryStamp(b));
 function metricNumber(v){if(typeof v==='number')return v;const s=String(v||'0').replace(/,/g,'').toUpperCase();let n=parseFloat(s);if(!Number.isFinite(n))return 0;if(s.includes('万'))n*=10000;else if(s.includes('K'))n*=1000;else if(s.includes('M'))n*=1000000;return n;}
 function formatNum(n){if(n>=1000000)return (n/1000000).toFixed(1).replace('.0','')+'M';if(n>=10000)return (n/1000).toFixed(1).replace('.0','')+'K';if(n>=1000)return Math.round(n).toLocaleString('en-US');return String(n)}
-function likeCount(post){const base=metricNumber(post.metrics?.likes),cloudLikes=cache.likes.filter(x=>x.post_id===post.id).length;return formatNum(base+cloudLikes)}
+function likeCount(post){const base=metricNumber(post.metrics?.likes),cloudLikes=cache.likes.filter(x=>x.post_id===post.id).length;return formatNum(base+cloudLikes+hwAmbientStats(post).likes)}
 function ownLike(id){return !!state.user&&cache.likes.some(x=>x.user_id===state.user.id&&x.post_id===id)}
 function ownBookmark(id){return !!state.user&&cache.bookmarks.some(x=>x.user_id===state.user.id&&x.post_id===id)}
 function ownFollow(id){return !!state.user&&cache.follows.some(x=>x.user_id===state.user.id&&x.character_id===id)}
@@ -512,12 +592,12 @@ function mentionLink(text){
  }
  return output+E(raw.slice(last));
 }
-function postActions(post){const liked=ownLike(post.id),saved=ownBookmark(post.id);const replyCount=repliesTo(post.id).length+metricNumber(post.metrics?.replies);
+function postActions(post){const liked=ownLike(post.id),saved=ownBookmark(post.id);const ambient=hwAmbientStats(post),replyCount=repliesTo(post.id).length+metricNumber(post.metrics?.replies)+ambient.replies;
  return `<div class="post-actions"><button data-action="reply" data-id="${E(post.id)}" title="回复"><span class="ic">${svg('reply')}</span>${formatNum(replyCount)}</button>
- <button data-action="repost" data-id="${E(post.id)}" title="转发或引用"><span class="ic">${svg('repeat')}</span>${E(post.metrics?.reposts||'0')}</button>
+ <button data-action="repost" data-id="${E(post.id)}" title="转发或引用"><span class="ic">${svg('repeat')}</span>${formatNum(metricNumber(post.metrics?.reposts)+ambient.reposts)}</button>
  <button data-action="like" data-id="${E(post.id)}" class="${liked?'liked':''}" title="${liked?'取消喜欢':'喜欢'}"><span class="ic">${svg('heart')}</span>${likeCount(post)}</button>
- <button data-action="bookmark" data-id="${E(post.id)}" class="${saved?'saved':''}" title="${saved?'取消书签':'加入书签'}"><span class="ic">${svg('bookmark')}</span>${E(post.metrics?.bookmarks||'0')}</button>
- <button data-action="post" data-id="${E(post.id)}" title="查看帖子"><span class="ic">${svg('view')}</span>${E(post.metrics?.views||'0')}</button></div>`;
+ <button data-action="bookmark" data-id="${E(post.id)}" class="${saved?'saved':''}" title="${saved?'取消书签':'加入书签'}"><span class="ic">${svg('bookmark')}</span>${formatNum(metricNumber(post.metrics?.bookmarks)+ambient.bookmarks)}</button>
+ <button data-action="post" data-id="${E(post.id)}" title="查看帖子"><span class="ic">${svg('view')}</span>${formatNum(metricNumber(post.metrics?.views)+ambient.views)}</button></div>`;
 }
 function postCard(post,opts={}){const a=authorOf(post),self=state.user&&post.author_kind==='user'&&post.user_id===state.user.id;const quote=post.quote_id&&postById(post.quote_id);const hwUnreadMarker=hwUnreadIsNew(post)?'<span class="hw-unread-dot" aria-label="未浏览"></span>':"";return `<article class="post" data-post-id="${E(post.id)}" data-hw-unread-id="${hwUnreadIsNew(post)?E(post.id):""}" style="${opts.depth?'padding-left:'+(10+Math.min(opts.depth,4)*11)+'px':''}">
  ${authorLink(a)}<div class="post-body"><div class="author"><strong data-action="profile" data-kind="${a.kind}" data-id="${E(a.id)}">${E(a.name)}</strong>${authorBadge(a)}<span class="handle">@${E(a.handle)} · ${E(hwStoryLabel(post))}</span>${hwUnreadMarker}${a.kind==='character'&&!isRandomCommenter(a)?`<button class="post-dm-shortcut" data-action="start-dm" data-id="${E(a.id)}" title="给 ${E(a.name)} 发私信">✉ 私信</button>`:''}</div>
@@ -876,7 +956,7 @@ async function deleteMyAccount(){
  }catch(e){toast('注销失败：'+H.errMsg(e));}finally{state.busy=false;}
 }
 async function handleAction(action,el){const id=el.dataset.id;
- switch(action){case 'unread-open':hwOpenUnread(id);break;case 'login':showAuth();break;case 'sign-out':await H.signOut();toast('已退出');break;case 'delete-account':await deleteMyAccount();break;case 'post':navigate('post',{id});break;case 'profile':if(el.dataset.kind==='character'&&/^legacy_commenter_/i.test(String(id)))break;navigate('profile',{id,kind:el.dataset.kind});break;case 'like':await toggleLike(id);break;case 'bookmark':await toggleBookmark(id);break;case 'follow':await toggleFollow(id);break;case 'reply':if(!needAuth())return;navigate('post',{id,replyTo:id});break;case 'repost':await repost(id);break;case 'delete':await deletePost(id);break;case 'submit-post':await submitPost(el.dataset.parent||'');break;
+ switch(action){case 'unread-open':hwOpenUnread(id);break;case 'ambient-open':hwAmbientMarkRead(el.dataset.ambientKey);hwUnreadReturn=true;navigate('post',{id});break;case 'login':showAuth();break;case 'sign-out':await H.signOut();toast('已退出');break;case 'delete-account':await deleteMyAccount();break;case 'post':navigate('post',{id});break;case 'profile':if(el.dataset.kind==='character'&&/^legacy_commenter_/i.test(String(id)))break;navigate('profile',{id,kind:el.dataset.kind});break;case 'like':await toggleLike(id);break;case 'bookmark':await toggleBookmark(id);break;case 'follow':await toggleFollow(id);break;case 'reply':if(!needAuth())return;navigate('post',{id,replyTo:id});break;case 'repost':await repost(id);break;case 'delete':await deletePost(id);break;case 'submit-post':await submitPost(el.dataset.parent||'');break;
  case 'toggle-dm-contacts':state.showAllDMContacts=!state.showAllDMContacts;renderPage();break;case 'toggle-contacts':state.showAllContacts=!state.showAllContacts;renderContactsPanel();break;case 'profile-tab':state.profileTab=el.dataset.tab||'posts';renderPage();break;case 'edit-me':if(!needAuth())return;navigate('me');state.editingProfile=true;renderPage();break;case 'edit-profile':if(!needAuth())return;state.editingProfile=true;renderPage();break;case 'cancel-profile':state.editingProfile=false;renderPage();break;case 'upload-avatar':$('user-avatar-file').click();break;case 'upload-cover':$('user-cover-file').click();break;
  case 'start-dm':await startConversation(id);break;case 'dm-delete-conversation':await deleteConversation(id);break;case 'dm-select':state.dmConversationId=id;hwClientDmMarkRead(id);renderPage();break;case 'dm-send':await sendMessage();break;case 'dm-recall':await recallMessage(id);break;
  default:break;
