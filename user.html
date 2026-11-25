@@ -405,12 +405,21 @@ function hwAmbientStats(post){
  // Only displayed counters change: no fake comments or reaction rows are inserted.
  const rise=(initial,limit,pace,stop=35)=>minutes>=stop?limit:Math.min(limit,initial+Math.floor((limit-initial)*(1-Math.exp(-minutes/pace))));
  if(post.parent_id){
+  // Most comments are modest; some become hot, and a small fraction go viral.
+  // Each comment gets a reproducible popularity tier, not a fresh random draw.
+  const tier=(seed>>>8)%100;
+  const hot=tier>=65&&tier<93,viral=tier>=93;
+  const likesCap=viral?1000+(seed%1501):hot?200+(seed%601):25+(seed%156);
+  const viewsCap=viral?12000+(seed%18001):hot?2500+(seed%7501):300+(seed%2201);
+  const bookmarksCap=viral?95+(seed%206):hot?25+(seed%76):4+(seed%27);
+  const repostsCap=viral?65+(seed%136):hot?12+(seed%44):2+(seed%13);
+  const repliesCap=viral?7+(seed%10):hot?3+(seed%6):seed%4;
   return {
-   likes:rise(1+seed%3,6+seed%32,3+seed%7),
-   replies:rise(0,seed%3,9+seed%5),
-   reposts:rise(0,seed%5,10+seed%6),
-   bookmarks:rise(0,2+seed%12,7+seed%5),
-   views:rise(5+seed%16,45+seed%260,4+seed%8)
+   likes:rise(2+seed%5,likesCap,5+seed%8,50),
+   replies:rise(0,repliesCap,12+seed%7,50),
+   reposts:rise(0,repostsCap,9+seed%7,50),
+   bookmarks:rise(1+seed%3,bookmarksCap,7+seed%7,50),
+   views:rise(15+seed%26,viewsCap,5+seed%9,50)
   };
  }
  return {
