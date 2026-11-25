@@ -2775,7 +2775,7 @@ const hwCloudInlineDrafts=new Map();
 const hwCloudInlineFocus=new Map();
 const hwCloudInlineCursor=new Map();
 const hwCloudReadKey=id=>'hw-dev-dm-read:'+String(id);
-function hwCloudMarkRead(id){const c=hwCloudView.rows.find(x=>x.id===id);if(!c)return;const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(id),latest.created_at)}catch(e){}}}
+function hwCloudMarkRead(id){const c=hwCloudView.rows.find(x=>x.id===id);if(!c)return;const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(id),latest.created_at)}catch(e){}}c.unreadCount=0;}
 function hwCloudUnreadTotal(){return hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId)).reduce((n,c)=>n+(Number(c.unreadCount)||0),0)}
 function hwCloudDrawUnread(){const links=$('xNavLinks')?.querySelectorAll('.x-nav-link');const link=links?.[3];if(!link)return;let badge=link.querySelector('.hw-dm-unread-badge');const n=hwCloudUnreadTotal();if(n&&!badge){badge=document.createElement('span');badge.className='hw-dm-unread-badge';badge.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:99px;background:#e0245e;color:#fff;font-size:10px;font-weight:800;line-height:17px';link.append(badge)}if(badge){badge.textContent=n>99?'99+':String(n);badge.hidden=!n;}if(n)link.setAttribute('aria-label','私信，'+n+'条未读');else link.setAttribute('aria-label','私信');}
 function hwCloudClearInlineImage(){hwCloudInlineImage=null;hwCloudInlineImageConversation='';if(hwCloudInlineImagePreview){URL.revokeObjectURL(hwCloudInlineImagePreview);hwCloudInlineImagePreview='';}}
@@ -2805,9 +2805,9 @@ function hwCloudDraw(){
  if(!chats.some(c=>c.id===hwCloudView.selected)){hwCloudView.selected=chats[0].id;hwCloudClearInlineImage();}
  list.innerHTML='';
  const container=document.createElement('section');container.className='hw-cloud-chat-list';
- container.innerHTML='<div class="hw-cloud-chat-title">☁ 玩家来信 · '+chats.length+'</div>'+chats.map(c=>{
+ container.innerHTML='<div class="hw-cloud-chat-title">☁ 玩家来信 · '+chats.length+(hwCloudUnreadTotal()?' · '+hwCloudUnreadTotal()+' 条未读':'')+'</div>'+chats.map(c=>{
   const last=c.messages?.at(-1);
-  return `<button type="button" class="dm-conversation hw-cloud-chat ${hwCloudView.selected===c.id?'active':''}" data-cloud-chat="open" data-id="${esc(c.id)}"><span class="dm-conv-avatar" aria-hidden="true">${c.avatar_url?`<img class="x-avatar sm" src="${esc(c.avatar_url)}" alt="">`:`<span class="x-avatar sm" style="background:#d5e3e9;color:#526674;display:grid;place-items:center">${esc((c.playerName||'玩家').slice(0,1))}</span>`}</span><span class="dm-conv-lines"><span class="dm-conv-top"><b>${esc(c.playerName||'玩家')}</b><small>${esc(last?.time||'')}</small></span><span class="dm-conv-snippet">${esc(last?.body||'图片消息')}</span></span></button>`;
+  return `<button type="button" class="dm-conversation hw-cloud-chat ${hwCloudView.selected===c.id?'active':''}" data-cloud-chat="open" data-id="${esc(c.id)}"><span class="dm-conv-avatar" aria-hidden="true">${c.avatar_url?`<img class="x-avatar sm" src="${esc(c.avatar_url)}" alt="">`:`<span class="x-avatar sm" style="background:#d5e3e9;color:#526674;display:grid;place-items:center">${esc((c.playerName||'玩家').slice(0,1))}</span>`}</span><span class="dm-conv-lines"><span class="dm-conv-top"><b>${esc(c.playerName||'玩家')}</b><small>${esc(last?.time||'')}</small></span><span class="dm-conv-snippet">${esc(last?.body||'图片消息')}</span></span>${c.unreadCount?`<span class="hw-dm-conversation-unread" style="align-self:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:#e0245e;color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">${c.unreadCount>99?'99+':c.unreadCount}</span>`:''}</button>`;
  }).join('');
  list.append(container);
  if(hwCloudView.selected){
