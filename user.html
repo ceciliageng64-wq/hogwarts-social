@@ -646,8 +646,8 @@ function navigate(view,opts={}){
   const saved=feedReturnPosition;feedReturnPosition=null;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
    const anchor=saved.postId?document.querySelector('#content .post[data-post-id="'+CSS.escape(saved.postId)+'"]'):null;
-   if(anchor){const delta=anchor.getBoundingClientRect().top-saved.offset;window.scrollTo({top:Math.max(0,window.scrollY+delta),behavior:'instant'});}
-   else window.scrollTo({top:saved.scrollY||0,behavior:'instant'});
+   if(anchor){const delta=anchor.getBoundingClientRect().top-saved.offset;window.scrollTo({top:Math.max(0,window.scrollY+delta),behavior:'auto'});}
+   else window.scrollTo({top:saved.scrollY||0,behavior:'auto'});
   }));
  }else if(!(view==='post'&&feedReturnPosition)){
   window.scrollTo({top:0,behavior:'auto'});
