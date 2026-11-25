@@ -607,13 +607,13 @@ async function publish(){
     const value=String(label||'').trim().toLowerCase();
     const now=hwStoryNow();
     if(/^(?:刚刚|刚才|现在|now|just now|just posted|moments ago)$/.test(value))return now-1000;
-    const m=/^(\d+(?:\.\d+)?)\s*(秒前|分钟前|小时前|天前|seconds? ago|minutes? ago|hours? ago|days? ago|sec(?:onds?)?|mins?|hrs?|[smhd])$/i.exec(value);
+    const m=/^(\d+(?:\.\d+)?)\s*(秒前|秒|分钟前|分钟|小时前|小时|天前|天|seconds? ago|minutes? ago|hours? ago|days? ago|sec(?:onds?)?|mins?|hrs?|[smhd])$/i.exec(value);
     if(m){
       const unit=m[2],num=Number(m[1]);
-      const scale=/^(秒前|seconds? ago|sec(?:onds?)?|s)$/i.test(unit)?1000:
-       /^(分钟前|minutes? ago|mins?|m)$/i.test(unit)?60000:
-       /^(小时前|hours? ago|hrs?|h)$/i.test(unit)?3600000:
-       /^(天前|days? ago|d)$/i.test(unit)?86400000:0;
+      const scale=/^(秒前|秒|seconds? ago|sec(?:onds?)?|s)$/i.test(unit)?1000:
+       /^(分钟前|分钟|minutes? ago|mins?|m)$/i.test(unit)?60000:
+       /^(小时前|小时|hours? ago|hrs?|h)$/i.test(unit)?3600000:
+       /^(天前|天|days? ago|d)$/i.test(unit)?86400000:0;
       if(scale)return now-Math.max(1000,Math.round(num*scale));
     }
     // Keep the legacy fallback for non-relative labels, which may be manually
@@ -625,7 +625,7 @@ async function publish(){
     const parent=hwStoryById.get(row.parent_id)||hwStoryById.get(row.quote_id);
     // Explicitly edited relative time wins over the old cloud story timestamp.
     // Keep the old story time for ordinary content/metric edits and for unchanged labels.
-    const editedRelative=row.hwTimeEdited&&/^(?:刚刚|刚才|现在|now|just now|just posted|moments ago|\d+(?:\.\d+)?\s*(?:秒前|分钟前|小时前|天前|seconds? ago|minutes? ago|hours? ago|days? ago|sec(?:onds?)?|mins?|hrs?|[smhd]))$/i.test(String(row.metrics?.time_label||'').trim());
+    const editedRelative=row.hwTimeEdited&&/^(?:刚刚|刚才|现在|now|just now|just posted|moments ago|\d+(?:\.\d+)?\s*(?:秒前|秒|分钟前|分钟|小时前|小时|天前|天|seconds? ago|minutes? ago|hours? ago|days? ago|sec(?:onds?)?|mins?|hrs?|[smhd]))$/i.test(String(row.metrics?.time_label||'').trim());
     let at=editedRelative?hwInitialPostStoryTime(row.metrics.time_label):Date.parse(row.story_at||'');
     if(!Number.isFinite(at)){
       if(parent){
