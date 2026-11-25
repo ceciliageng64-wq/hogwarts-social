@@ -581,19 +581,24 @@ async function publish(){
     status('✅ 已同步人物库；删除 '+removed.length+' 位人物及关联内容。');
    }else status('人物发布成功，但已删除人物仍保留在游客端。要同步删除，请下次发布时确认。');
   }else status(`✅ 增量发布完成：更新 ${chars.length} 位人物、${docPostRows.length} 条帖子或评论；跳过未修改的 ${reusedCharacters} 位人物和 ${reusedPosts} 条内容。`);
-  // Cleanup only truly unused temporary identity rows; never cascade-delete history.
-  // Run a bounded, best-effort check after successful publication.
-  for(const character of staleRandom.slice(0,20)){
+  // Check a small batch with just three queries, then remove only unreferenced IDs.
+  // Never delete an identity with posts, conversations, or follows attached.
+  const candidateIds=staleRandom.slice(0,20).map(x=>x.id);
+  if(candidateIds.length){
    try{
     const checks=await Promise.all([
-      u().from('hw_posts').select('id').eq('character_id',character.id).limit(1),
-      u().from('hw_conversations').select('id').eq('character_id',character.id).limit(1),
-      u().from('hw_follows').select('character_id').eq('character_id',character.id).limit(1)
+     u().from('hw_posts').select('character_id').in('character_id',candidateIds).limit(5000),
+     u().from('hw_conversations').select('character_id').in('character_id',candidateIds).limit(5000),
+     u().from('hw_follows').select('character_id').in('character_id',candidateIds).limit(5000)
     ]);
-    if(checks.some(c=>c.error||c.data?.length))continue;
-    const {error}=await u().from('hw_characters').delete().eq('id',character.id);
-    if(error)console.warn('临时身份未能自动清理',character.id,error.message);
-   }catch(e){console.warn('跳过临时身份清理',character.id,e)}
+    if(checks.every(x=>!x.error)){
+     const referenced=new Set(checks.flatMap(x=>(x.data||[]).map(y=>String(y.character_id))));
+     for(const id of candidateIds)if(!referenced.has(String(id))){
+      const {error}=await u().from('hw_characters').delete().eq('id',id);
+      if(error)console.warn('未清理临时身份',id,error.message);
+     }
+    }
+   }catch(e){console.warn('本次略过临时身份清理',e)}
   }
   if(migrationFirstPublish)localStorage.removeItem('hw-gh-migration-first-publish');
   // Advance the baseline only when all required writes succeeded.
