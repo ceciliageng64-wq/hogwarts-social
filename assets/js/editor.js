@@ -3502,7 +3502,9 @@ const hwDevCloudReplySamples=['我真的笑出声了😭','等一下，这是什
 function hwDevCloudReplyComposer(post){
  const people=window.hwDevCloudFeed?.characters()||[],saved=hwDevCloudReplyDrafts.get(post.id)||{},rows=window.hwDevCloudFeed?.replies(post.id)||[];
  const chosen=saved.characterId||people[0]?.id||'',target=rows.find(x=>x.id===saved.parentId);
- const opts=people.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===chosen?'selected':'')+'>'+esc(p.name)+' (@'+esc(p.handle||'')+')</option>').join('');
+ const opt=p=>'<option value="'+esc(p.id)+'" '+(p.id===chosen?'selected':'')+'>'+esc(p.name)+' (@'+esc(p.handle||'')+')</option>';
+ const formal=people.filter(p=>!p.hwRandom),random=people.filter(p=>p.hwRandom);
+ const opts=(formal.length?'<optgroup label="正式人物库">'+formal.map(opt).join('')+'</optgroup>':'')+(random.length?'<optgroup label="固定随机人物">'+random.map(opt).join('')+'</optgroup>':'');
  const targets='<option value="">回复主帖</option>'+rows.map(r=>'<option value="'+esc(r.id)+'" '+(r.id===saved.parentId?'selected':'')+'>@'+esc(r.authorHandle||r.authorName)+'：'+esc((r.body||'[图片]').slice(0,38))+'</option>').join('');
  return '<section data-cloud-composer="'+esc(post.id)+'" style="padding:14px 16px;border-top:1px solid var(--border,#ddd)">'
   +'<h3 style="margin:0 0 9px;font-size:16px">💬 以人物身份发表评论</h3>'
