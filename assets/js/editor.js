@@ -712,7 +712,7 @@ function renderPeopleList(){
  const temporary=$('temporaryPeopleList');
  if(temporary){
   const pool=hwFixedRandomPool();
-  temporary.innerHTML=pool.length?pool.slice(0,200).map(p=>'<div style="display:flex;align-items:center;gap:7px;padding:8px 0;border-bottom:1px solid var(--stroke)">'+av(p,'sm')+'<span style="flex:1;min-width:0;overflow-wrap:anywhere"><input type="text" maxlength="80" data-random-name="'+esc(p.handle)+'" value="'+esc(p.name)+'" aria-label="修改 '+esc(p.handle)+' 的昵称" style="width:100%;min-width:0;padding:6px;border:1px solid var(--stroke);border-radius:7px"><small style="display:block">@'+esc(p.handle)+'</small></span><button type="button" class="smallbutton primary" data-random-save="'+esc(p.handle)+'">保存名字</button><button type="button" class="smallbutton danger" data-random-remove="'+esc(p.handle)+'" title="移出账号池，不删除旧评论">移出</button></div>').join(''):'<p class="muted-hint">账号池为空，可在上方手动新增或随机生成。</p>';
+  temporary.innerHTML=pool.length?pool.slice(0,200).map(p=>'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:9px 0;border-bottom:1px solid var(--stroke)">'+av(p,'sm')+'<span style="flex:1;min-width:130px;overflow-wrap:anywhere"><input type="text" maxlength="80" data-random-name="'+esc(p.handle)+'" value="'+esc(p.name)+'" aria-label="修改昵称" placeholder="显示昵称" style="width:100%;min-width:0;padding:6px;border:1px solid var(--stroke);border-radius:7px"><input type="text" maxlength="50" data-random-handle="'+esc(p.handle)+'" value="'+esc(p.handle)+'" aria-label="修改@用户名" placeholder="@用户名" style="width:100%;min-width:0;margin-top:4px;padding:6px;border:1px solid var(--stroke);border-radius:7px"></span><label class="smallbutton" style="cursor:pointer">换头像<input type="file" accept="image/*" data-random-avatar="'+esc(p.handle)+'" style="display:none"></label><button type="button" class="smallbutton primary" data-random-save="'+esc(p.handle)+'">保存修改</button><button type="button" class="smallbutton danger" data-random-remove="'+esc(p.handle)+'" title="移出账号池，不删除旧评论">移出</button></div>').join(''):'<p class="muted-hint">账号池为空，可在上方手动新增或随机生成。</p>';
   if(pool.length>200)temporary.innerHTML+='<small>共 '+pool.length+' 位，当前显示前 200 位。</small>';
  }
  $('personFormTitle').textContent=T('newPerson');$('personSave').textContent=T('savePerson');
@@ -864,7 +864,7 @@ $('randomPoolAdd').onclick=async()=>{
  let avatar='';
  try{if(file)avatar=await imageFile(file,320)}catch(err){toast(err.message||'头像读取失败');return}
  if(!avatar)avatar=randomAvatarInitials(name,handle);
- state.randomCommenterPool.push({name,handle,avatar,verified:false});
+ state.randomCommenterPool.push({id:'legacy_commenter_'+handle,name,handle,avatar,verified:false});
  state.randomCommenterExcluded=(state.randomCommenterExcluded||[]).filter(h=>h!==handle);
  $('randomPoolName').value='';$('randomPoolHandle').value='';$('randomPoolAvatar').value='';
  changed();toast('已加入随机人物池；云端发布后同步客户端');
@@ -873,23 +873,52 @@ $('randomPoolGenerate').onclick=()=>{
  let candidate=null;for(let j=0;j<30;j++){const p=randomWesternPerson();if(!hwFixedRandomPool().some(q=>canonicalHandle(q.handle)===canonicalHandle(p.handle))&&!(state.people||[]).some(q=>canonicalHandle(q.handle)===canonicalHandle(p.handle))){candidate=p;break}}
  if(!candidate){toast('暂时无法生成不重复的用户名');return}
  state.randomCommenterPool=state.randomCommenterPool||[];
- state.randomCommenterPool.push({name:candidate.name,handle:candidate.handle,avatar:candidate.avatar||'',verified:!!candidate.verified});
+ state.randomCommenterPool.push({id:'legacy_commenter_'+canonicalHandle(candidate.handle),name:candidate.name,handle:candidate.handle,avatar:candidate.avatar||'',verified:!!candidate.verified});
  state.randomCommenterExcluded=(state.randomCommenterExcluded||[]).filter(h=>h!==canonicalHandle(candidate.handle));
  changed();toast('已新增随机人物');
+};
+// Fixed random commenters have editable nicknames, @handles and avatars, but retain
+// their original cloud ID so all historical replies continue pointing to them.
+$('temporaryPeopleList').onchange=async event=>{
+ const input=event.target.closest('[data-random-avatar]');if(!input)return;
+ const handle=canonicalHandle(input.dataset.randomAvatar);
+ const person=(state.randomCommenterPool||[]).find(p=>canonicalHandle(p.handle)===handle);
+ const file=input.files?.[0];if(!person||!file)return;
+ try{
+  const avatar=await imageFile(file,320);
+  if(updateTemporaryAccountAvatar(handle,avatar)){changed();toast('头像已保存；下次云端发布只同步修改的账号')}
+ }catch(err){toast(err.message||'头像读取失败')}
 };
 $('temporaryPeopleList').onclick=event=>{
  const save=event.target.closest('[data-random-save]');
  if(save){
-  const handle=canonicalHandle(save.dataset.randomSave),input=$('temporaryPeopleList').querySelector('[data-random-name="'+CSS.escape(handle)+'"]');
-  const name=String(input?.value||'').trim().slice(0,80);if(!name){toast('昵称不能为空');return}
-  const person=(state.randomCommenterPool||[]).find(p=>canonicalHandle(p.handle)===handle);if(!person){toast('随机人物不存在');return}
-  const oldName=person.name;person.name=name;
-  const update=row=>{if(row&&canonicalHandle(row.handle)===handle)row.name=name};
+  const oldHandle=canonicalHandle(save.dataset.randomSave);
+  const root=$('temporaryPeopleList');
+  const name=String(root.querySelector('[data-random-name="'+CSS.escape(oldHandle)+'"]')?.value||'').trim().slice(0,80);
+  const handle=canonicalHandle(root.querySelector('[data-random-handle="'+CSS.escape(oldHandle)+'"]')?.value||'');
+  if(!name||!/^[a-z0-9_]{3,50}$/.test(handle)){toast('请输入昵称及3–50位英文、数字或下划线用户名');return}
+  const person=(state.randomCommenterPool||[]).find(p=>canonicalHandle(p.handle)===oldHandle);
+  if(!person){toast('随机人物不存在');return}
+  if(handle!==oldHandle&&(hwFixedRandomPool().some(p=>canonicalHandle(p.handle)===handle)||(state.people||[]).some(p=>canonicalHandle(p.handle)===handle))){toast('该@用户名已存在');return}
+  const oldName=person.name;
+  // Keep the existing cloud identity stable when the @handle changes.
+  if(!person.id)person.id='legacy_commenter_'+oldHandle.replace(/[^a-z0-9_]/g,'').slice(0,52);
+  person.name=name;person.handle=handle;
+  const update=row=>{
+   if(!row)return;
+   if(canonicalHandle(row.handle)===oldHandle){row.name=name;row.handle=handle}
+   if(handle!==oldHandle&&canonicalHandle(row.replyTo)===oldHandle)row.replyTo=handle;
+  };
   for(const lang of ['zh','en']){
    const doc=state.drafts?.[lang];if(doc){update(doc.post);for(const row of [...(doc.replies||[]),...(doc.quotes||[])])update(row)}
    for(const bank of [state.profilePosts?.[lang]||{},state.profileReposts?.[lang]||{}])for(const rows of Object.values(bank))for(const post of rows||[]){update(post);for(const row of [...(post.hwThread?.replies||[]),...(post.hwThread?.quotes||[])])update(row)}
   }
-  changed();toast('已修改 '+oldName+' 的昵称；点击云端发布同步客户端');return;
+  if(handle!==oldHandle){
+   state.randomCommenterExcluded=Array.isArray(state.randomCommenterExcluded)?state.randomCommenterExcluded:[];
+   if(!state.randomCommenterExcluded.includes(oldHandle))state.randomCommenterExcluded.push(oldHandle);
+   for(const asset of state.avatarLibrary||[])if(canonicalHandle(state.avatarClaims?.[asset.id])===oldHandle)state.avatarClaims[asset.id]=handle;
+  }
+  changed();toast('已保存 '+oldName+' 的资料；云端发布时仅同步更改的人物');return;
  }
  const btn=event.target.closest('[data-random-remove]');if(!btn)return;
  const handle=canonicalHandle(btn.dataset.randomRemove);
@@ -2947,8 +2976,8 @@ window.hwFixedRandomPoolImport=rows=>{
  for(const row of rows){
   if(!/^legacy_commenter_/i.test(String(row?.id||'')))continue;
   const key=String(row.handle||'').toLowerCase();
-  if(!key||old.has(key)||formal.has(key))continue;
-  pool.push({name:row.name||row.handle,handle:row.handle,avatar:row.avatar_url||'',verified:row.verified===true||!!(row.badge_type&&row.badge_type!=='none')});
+  if(!key||(state.randomCommenterExcluded||[]).includes(key)||old.has(key)||formal.has(key))continue;
+  pool.push({id:row.id,name:row.name||row.handle,handle:row.handle,avatar:row.avatar_url||'',verified:row.verified===true||!!(row.badge_type&&row.badge_type!=='none')});
   old.add(key);added++;
  }
  if(added){persist();if(document.getElementById('temporaryPeopleList'))renderPeopleList();}
