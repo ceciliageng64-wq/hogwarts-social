@@ -2874,23 +2874,53 @@ const hwCloudInlineDrafts=new Map();
 // The live inbox rerenders frequently. Keep the user's place in each conversation.
 const hwCloudMessageScroll=new Map();
 let hwCloudConversationListScroll=0;
-function hwCloudSaveScroll(){
- if(state.viewMode!=='dm'||state.clientMode==='user')return;
- const pane=$('feedContent')?.querySelector('.dm-thread .dm-messages');
- if(pane){
-  const shownId=pane.closest('.dm-thread')?.dataset.cloudConversationId;
-  if(shownId)hwCloudMessageScroll.set(shownId,{
-   top:pane.scrollTop,
-   bottom:pane.scrollHeight-pane.clientHeight-pane.scrollTop<=28
-  });
- }
- const list=$('feedContent')?.querySelector('.dm-app .dm-scroll');
- if(list)hwCloudConversationListScroll=list.scrollTop;
+let hwCloudRestoringScroll=false;
+const hwCloudScrollKey=id=>'hw-dev-dm-position-v2:'+String(id);
+const hwCloudSelectedKey=()=> 'hw-dev-dm-selected-v2:'+String(state.viewerId);
+function hwCloudPosition(id){
+ if(!id)return null;
+ if(hwCloudMessageScroll.has(id))return hwCloudMessageScroll.get(id);
+ try{
+  const value=JSON.parse(localStorage.getItem(hwCloudScrollKey(id))||'null');
+  if(value&&Number.isFinite(value.top)){
+   hwCloudMessageScroll.set(id,value);return value;
+  }
+ }catch(e){}
+ return null;
 }
+function hwCloudRememberPosition(id,pane){
+ if(!id||!pane||hwCloudRestoringScroll)return;
+ const rows=[...pane.querySelectorAll('.dm-bubble-row')];
+ const topRow=rows.findIndex(el=>el.offsetTop+el.offsetHeight>pane.scrollTop);
+ const row=topRow<0?null:rows[topRow];
+ const value={
+  top:pane.scrollTop,
+  bottom:pane.scrollHeight-pane.clientHeight-pane.scrollTop<=28,
+  index:topRow,
+  offset:row?pane.scrollTop-row.offsetTop:0
+ };
+ hwCloudMessageScroll.set(id,value);
+ try{localStorage.setItem(hwCloudScrollKey(id),JSON.stringify(value))}catch(e){}
+}
+function hwCloudSaveScroll(){
+ if(state.viewMode!=='dm'||state.clientMode==='user'||hwCloudRestoringScroll)return;
+ const pane=$('feedContent')?.querySelector('.dm-thread .dm-messages');
+ const shownId=pane?.closest('.dm-thread')?.dataset.cloudConversationId;
+ if(shownId)hwCloudRememberPosition(shownId,pane);
+ const list=$('feedContent')?.querySelector('.dm-app .dm-scroll');
+ if(list){
+  hwCloudConversationListScroll=list.scrollTop;
+  try{localStorage.setItem('hw-dev-dm-list-scroll-v2',String(list.scrollTop))}catch(e){}
+ }
+}
+try{hwCloudConversationListScroll=Number(localStorage.getItem('hw-dev-dm-list-scroll-v2'))||0}catch(e){}
 document.addEventListener('scroll',event=>{
- if(state.viewMode!=='dm'||state.clientMode==='user')return;
+ if(state.viewMode!=='dm'||state.clientMode==='user'||hwCloudRestoringScroll||document.hidden)return;
  if(event.target?.matches?.('.dm-thread .dm-messages,.dm-app .dm-scroll'))hwCloudSaveScroll();
 },true);
+// Save before the browser hides/unloads the tab, without relying on a cloud poll.
+document.addEventListener('visibilitychange',()=>{if(document.hidden)hwCloudSaveScroll()});
+window.addEventListener('pagehide',hwCloudSaveScroll);
 const hwCloudInlineFocus=new Map();
 const hwCloudInlineCursor=new Map();
 const hwCloudReadKey=id=>'hw-dev-dm-read:'+String(id);
@@ -2924,7 +2954,12 @@ function hwCloudDraw(){
  const chats=hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId));
  if(!chats.length){hwCloudView.selected='';hwCloudClearInlineImage();if(window.hwCloudIsAdmin?.()){list.innerHTML='<div class="dm-empty">当前人物暂无真实玩家私信。这里不会混入本地模拟聊天。</div>';const right=app.querySelector('.dm-thread');if(right)right.innerHTML='<div class="dm-empty">请切换人物查看对应的真实玩家会话。</div>';}return;}
  // Live inbox is authoritative if present. Do not mix old local mock chats.
- if(!chats.some(c=>c.id===hwCloudView.selected)){hwCloudView.selected=chats[0].id;hwCloudClearInlineImage();}
+ if(!chats.some(c=>c.id===hwCloudView.selected)){
+  let remembered='';try{remembered=localStorage.getItem(hwCloudSelectedKey())||''}catch(e){}
+  hwCloudView.selected=chats.find(c=>c.id===remembered)?.id||chats[0].id;
+  hwCloudClearInlineImage();
+ }
+ try{localStorage.setItem(hwCloudSelectedKey(),hwCloudView.selected)}catch(e){}
  const savedListScroll=list.scrollTop||hwCloudConversationListScroll;
  list.innerHTML='';
  const container=document.createElement('section');container.className='hw-cloud-chat-list';
@@ -2939,13 +2974,10 @@ function hwCloudDraw(){
   if(!c){hwCloudView.selected='';return}
   const right=app.querySelector('.dm-thread');if(!right)return;
   const previousPane=right.querySelector('.dm-messages');
-  if(previousPane&&right.dataset.cloudConversationId===c.id){
-   hwCloudMessageScroll.set(c.id,{
-    top:previousPane.scrollTop,
-    bottom:previousPane.scrollHeight-previousPane.clientHeight-previousPane.scrollTop<=28
-   });
+  if(previousPane&&right.dataset.cloudConversationId===c.id&&!hwCloudRestoringScroll){
+   hwCloudRememberPosition(c.id,previousPane);
   }
-  const savedMessagePos=hwCloudMessageScroll.get(c.id);
+  const savedMessagePos=hwCloudPosition(c.id);
   const oldInput=right.querySelector('#hwCloudInlineInput');
   const keepFocus=!!oldInput&&document.activeElement===oldInput || !!hwCloudInlineFocus.get(c.id);
   const cursor=hwCloudInlineCursor.get(c.id)||{};
@@ -2955,10 +2987,25 @@ function hwCloudDraw(){
   if(state.viewMode==='dm'&&hwCloudView.selected===c.id){hwCloudMarkRead(c.id);hwCloudDrawUnread();}
   right.dataset.cloudConversationId=c.id;
   right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px" src="${esc(m.image_resolved)}" alt="私信图片">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div>${hwCloudInlinePreviewFor(c.id)}<div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…">${esc(hwCloudInlineDrafts.get(c.id)||(()=>{try{return sessionStorage.getItem('hw-dev-dm-draft:'+c.id)||''}catch(e){return ''}})())}</textarea><label for="hwCloudInlineImageInput" title="添加图片" aria-label="添加图片" style="cursor:pointer;font-size:22px;padding:7px">🖼️</label><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
-  requestAnimationFrame(()=>{const pane=right.querySelector('.dm-messages');
+  requestAnimationFrame(()=>{
+   const pane=right.querySelector('.dm-messages');
    if(pane){
-    // Only a never-opened conversation starts at the latest message.
-    pane.scrollTop=!savedMessagePos||savedMessagePos.bottom?pane.scrollHeight:Math.min(savedMessagePos.top,Math.max(0,pane.scrollHeight-pane.clientHeight));
+    hwCloudRestoringScroll=true;
+    const restore=()=>{
+     if(!pane.isConnected||right.dataset.cloudConversationId!==c.id)return;
+     const row=savedMessagePos?.index>=0?pane.querySelectorAll('.dm-bubble-row')[savedMessagePos.index]:null;
+     const target=!savedMessagePos||savedMessagePos.bottom?pane.scrollHeight:
+      row?row.offsetTop+(savedMessagePos.offset||0):savedMessagePos.top;
+     pane.scrollTop=Math.max(0,Math.min(target,pane.scrollHeight-pane.clientHeight));
+    };
+    restore();
+    // Images can change message heights after first paint. Reapply the same anchor
+    // once they load, rather than snapping back to the newest message.
+    for(const img of pane.querySelectorAll('img:not([complete])')){
+     img.addEventListener('load',restore,{once:true});
+     img.addEventListener('error',restore,{once:true});
+    }
+    requestAnimationFrame(()=>{restore();hwCloudRestoringScroll=false});
    }
    const input=right.querySelector('#hwCloudInlineInput');if(input&&keepFocus){input.focus({preventScroll:true});try{if(keepStart!=null)input.setSelectionRange(keepStart,keepEnd??keepStart)}catch(e){}}});
  }
@@ -2972,7 +3019,7 @@ $('feedContent').addEventListener('click',async e=>{
  if(state.viewMode!=='dm'||state.clientMode==='user')return;
  const cloud=e.target.closest('[data-cloud-chat]');
  if(cloud){e.preventDefault();e.stopImmediatePropagation();
-  if(cloud.dataset.cloudChat==='open'){if(hwCloudView.selected!==cloud.dataset.id)hwCloudClearInlineImage();hwCloudView.selected=cloud.dataset.id;hwCloudMarkRead(hwCloudView.selected);hwCloudDrawUnread();renderPreviewOnly()}
+  if(cloud.dataset.cloudChat==='open'){hwCloudSaveScroll();if(hwCloudView.selected!==cloud.dataset.id)hwCloudClearInlineImage();hwCloudView.selected=cloud.dataset.id;try{localStorage.setItem(hwCloudSelectedKey(),hwCloudView.selected)}catch(e){}hwCloudMarkRead(hwCloudView.selected);hwCloudDrawUnread();renderPreviewOnly()}
   if(cloud.dataset.cloudChat==='delete'){
    const current=hwCloudView.rows.find(c=>c.id===hwCloudView.selected);
    if(!current){toast('请先选择要删除的真实会话');return;}
