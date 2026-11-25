@@ -395,16 +395,17 @@ function hwAmbientStats(post){
  if(post?.author_kind!=='user'||post.parent_id)return zero;
  const ms=Date.parse(post.published_at||post.created_at||'');
  if(!Number.isFinite(ms))return zero;
- const minutes=Math.max(0,Math.min(2880,(Date.now()-ms)/60000));
- if(minutes<1)return zero;
+ // Immediate activity, then a fixed, per-post lifetime cap.
+ // Simulated counts do not write likes, bookmarks or comments to the cloud.
+ const minutes=Math.max(0,(Date.now()-ms)/60000);
  const seed=hwAmbientSeed(post.id);
- const wave=Math.log1p(minutes),slow=Math.sqrt(minutes);
+ const rise=(initial,limit,pace)=>Math.min(limit,initial+Math.floor((limit-initial)*(1-Math.exp(-minutes/pace))));
  return {
-  likes:Math.floor((0.8+(seed%7)/8)*wave+(seed%4)*slow/18),
-  replies:Math.floor(Math.max(0,minutes-7)/95*(0.35+(seed%6)/12)),
-  reposts:Math.floor(Math.max(0,minutes-12)/135*(0.2+(seed%9)/15)),
-  bookmarks:Math.floor(Math.max(0,minutes-4)/55*(0.3+(seed%8)/10)),
-  views:Math.floor(minutes*(1.4+(seed%11)/7)+wave*8)
+  likes:rise(2+seed%3,16+seed%39,7+(seed%5)),
+  replies:rise(0,1+(seed%4),14),
+  reposts:rise(0,2+(seed%8),13),
+  bookmarks:rise(1+(seed%2),5+(seed%16),9),
+  views:rise(12+seed%18,85+(seed%440),6+(seed%7))
  };
 }
 const hwAmbientReadKey=()=> 'hw-ambient-read-v1:'+String(state.user?.id||'guest');
@@ -415,20 +416,23 @@ function hwAmbientMarkRead(key){
 }
 function hwAmbientEvents(){
  if(!state.user||!hwUnread.ready)return [];
- const cast=discoverableCharacters();
- if(!cast.length)return [];
+ const formal=discoverableCharacters();
+ const random=cache.characters.filter(p=>isRandomCommenter(p)&&p.name&&p.handle);
+ if(!formal.length&&!random.length)return [];
  const seen=hwAmbientSeen(),result=[];
  for(const post of cache.posts){
   if(post.author_kind!=='user'||post.user_id!==state.user.id||post.parent_id||!visibleLocalePost(post))continue;
   const created=Date.parse(post.published_at||post.created_at||'');
   if(!Number.isFinite(created)||created<=Date.parse(hwUnread.baselineAt||'')||created>Date.now())continue;
   const seed=hwAmbientSeed(post.id);
+  // Just three notices for the entire lifetime of each post. Never repeat read notices.
   for(let i=0;i<3;i++){
-   const delay=[2+(seed%5),12+((seed>>>4)%17),40+((seed>>>8)%45)][i]*60000;
+   const delay=[0,60000,180000][i];
    if(Date.now()<created+delay)continue;
-   const kind=i===1?'bookmark':'like';
-   const actor=cast[(seed+i*17)%cast.length];
-   const key=post.id+':'+i;
+   const kind=['like','bookmark','view'][i];
+   const preferred=i===1?random:i===0?formal:(seed%2?random:formal);
+   const actors=preferred.length?preferred:(formal.length?formal:random);
+   const actor=actors[(seed+i*17)%actors.length],key=post.id+':'+i;
    if(seen.has(key))continue;
    result.push({key,post,actor,kind,at:created+delay});
   }
@@ -454,8 +458,13 @@ function hwAmbientRefresh(){
   }
  }
  hwUnreadBadge();
+ // Do not re-render the whole page or interrupt a writing draft.
+ if(state.view==='unread'){
+  const content=$('content');
+  if(content){const next=hwUnreadPage();if(content.innerHTML!==next)content.innerHTML=next;}
+ }
 }
-setInterval(hwAmbientRefresh,45000);
+setInterval(hwAmbientRefresh,10000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)hwAmbientRefresh()});
 function hwUnreadItems(){return cache.posts.filter(hwUnreadIsNew)}
 function hwUnreadBadge(){const nav=document.querySelector('[data-view="unread"]'),badge=$("hw-unread-nav-count");
@@ -498,9 +507,9 @@ function hwUnreadPage(){
  }).join("");
  const ambient=hwAmbientEvents();
  const notices=ambient.map(event=>'<button type="button" class="hw-unread-group" data-action="ambient-open" data-id="'+E(event.post.id)+'" data-ambient-key="'+E(event.key)+'">'
-  +'<div class="hw-unread-group-head"><strong>'+E(event.actor.name)+'</strong><span class="hw-unread-count">'+(event.kind==='like'?'♡ 点赞':'♧ 收藏')+'</span></div>'
-  +'<p>'+E(event.actor.name)+' '+(event.kind==='like'?'赞了':'收藏了')+'你的帖子：「'+E((event.post.body||'[图片]').slice(0,90))+'」</p>'
-  +'<small>来自霍格沃茨人物库 · 点击查看帖子</small></button>').join('');
+  +'<div class="hw-unread-group-head"><strong>'+E(event.actor.name)+'</strong><span class="hw-unread-count">'+({like:'♡ 点赞',bookmark:'♧ 收藏',view:'◉ 浏览'}[event.kind])+'</span></div>'
+  +'<p>'+E(event.actor.name)+' '+({like:'赞了',bookmark:'收藏了',view:'浏览了'}[event.kind])+'你的帖子：「'+E((event.post.body||'[图片]').slice(0,90))+'」</p>'
+  +'<small>'+(isRandomCommenter(event.actor)?'随机网友':'霍格沃茨人物库')+' · 点击查看帖子</small></button>').join('');
  const total=items.length+ambient.length;
  return '<div class="hw-unread-info"><strong>你有 '+total+' 条消息没有浏览过</strong><small>包含新帖子、真实评论和人物互动提示。点击互动提示后标记已读。</small></div>'
   +notices+cards
