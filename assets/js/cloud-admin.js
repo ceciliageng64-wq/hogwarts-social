@@ -443,17 +443,21 @@ async function publish(){
   const publishedCastIds=[...ids];
   // Fixed anonymous identity pool: reuse stable names/avatars; no new random cast.
   const randomPoolByHandle=new Map((snapshot.randomCommenterPool||[]).filter(p=>p?.handle).map(p=>[String(p.handle).toLowerCase(),p]));
-  // Publish every active fixed random identity independently of whether it appears
-  // in the current draft. This prevents an older/missing avatar row from being skipped
-  // merely because another comment with the same handle was encountered first.
+  // Random IDs remain stable after @handle edits. Only changed/new profiles are uploaded.
+  const cloudRandomRows=await u().from('hw_characters').select('id,name,handle,avatar_url').like('id','legacy_commenter_%').limit(2000);
+  if(cloudRandomRows.error)throw cloudRandomRows.error;
+  const cloudRandomById=new Map((cloudRandomRows.data||[]).map(row=>[row.id,row]));
   for(const randomPerson of snapshot.randomCommenterPool||[]){
    const handle=String(randomPerson?.handle||'').replace(/^@/,'').trim().toLowerCase();
-   if(!handle||!randomPerson?.name)continue;
-   const id='legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52);
-   if(!id||ids.has(id))continue;
+   if(!handle||!randomPerson?.name||(snapshot.randomCommenterExcluded||[]).includes(handle))continue;
+   const id=String(randomPerson.id||('legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52)));
+   if(!/^legacy_commenter_[a-z0-9_]+$/i.test(id)||ids.has(id))continue;
    const person={id,handle,name:randomPerson.name,avatar:randomPerson.avatar||'',verified:!!randomPerson.verified,badgeType:'blue'};
    people.push(person);ids.add(id);handles.add(handle);
    const fingerprint=hwPublishFingerprint(person);nextCharacterHashes[id]=fingerprint;
+   const cloud=cloudRandomById.get(id);
+   const needsUpload=forceFull||!cloud||previousChars[id]!==fingerprint||(!!person.avatar&&!cloud.avatar_url)||cloud.name!==person.name||cloud.handle!==person.handle;
+   if(!needsUpload){reusedCharacters++;continue;}
    chars.push({id,handle,name:person.name,avatar_url:await cloudImage(person.avatar),cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:cloudBadgeType('blue',person.verified),meta:{}});
   }
   // Comments by random visitors may not live in the saved character directory.
@@ -472,7 +476,9 @@ async function publish(){
       people.push(fallback);ids.add(fallback.id);handles.add(handle);
       const extraFingerprint=hwPublishFingerprint(fallback);
       nextCharacterHashes[fallback.id]=extraFingerprint;
-      // Random account avatars are refreshed on publish, including older cloud rows with missing images.
+      const existingRandom=cloudRandomById.get(fallback.id);
+      if(!forceFull&&previousChars[fallback.id]===extraFingerprint&&existingRandom?.avatar_url===null&&!fallback.avatar){reusedCharacters++;continue;}
+      if(!forceFull&&previousChars[fallback.id]===extraFingerprint&&existingRandom&&(!fallback.avatar||existingRandom.avatar_url)&&existingRandom.name===fallback.name&&existingRandom.handle===fallback.handle){reusedCharacters++;continue;}
       chars.push({id:fallback.id,handle:fallback.handle,name:fallback.name,avatar_url:await cloudImage(fallback.avatar),cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:cloudBadgeType(fallback.badgeType,fallback.verified),meta:{}});
     }
   }
