@@ -2859,7 +2859,7 @@ window.hwFixedRandomPoolImport=rows=>{
   if(!/^legacy_commenter_/i.test(String(row?.id||'')))continue;
   const key=String(row.handle||'').toLowerCase();
   if(!key||old.has(key)||formal.has(key))continue;
-  pool.push({name:row.name||row.handle,handle:row.handle,avatar:row.avatar_url||'',verified:!!row.verified});
+  pool.push({name:row.name||row.handle,handle:row.handle,avatar:row.avatar_url||'',verified:row.verified===true||!!(row.badge_type&&row.badge_type!=='none')});
   old.add(key);added++;
  }
  if(added){persist();if(document.getElementById('temporaryPeopleList'))renderPeopleList();}
