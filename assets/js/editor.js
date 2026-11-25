@@ -2944,7 +2944,10 @@ window.hwCloudDMUpdate=(rows)=>{
   const input=$('hwCloudInlineInput');
   // Do not replace a textarea while the developer is actively typing.
   if(input&&document.activeElement===input){hwCloudMarkRead(hwCloudView.selected);hwCloudDrawUnread();return;}
-  renderPreviewOnly();
+  // Cloud polls should update the existing inbox in place, not tear down its
+  // photos and image elements. Full layout renders are reserved for navigation.
+  if($('feedContent')?.querySelector('.dm-app .dm-thread')){hwCloudDraw();hwCloudDrawUnread();}
+  else renderPreviewOnly();
  }
 };
 function hwCloudDraw(){
@@ -2961,19 +2964,29 @@ function hwCloudDraw(){
  }
  try{localStorage.setItem(hwCloudSelectedKey(),hwCloudView.selected)}catch(e){}
  const savedListScroll=list.scrollTop||hwCloudConversationListScroll;
- list.innerHTML='';
- const container=document.createElement('section');container.className='hw-cloud-chat-list';
- container.innerHTML='<div class="hw-cloud-chat-title">☁ 玩家来信 · '+chats.length+(hwCloudUnreadTotal()?' · '+hwCloudUnreadTotal()+' 条未读':'')+'</div>'+chats.map(c=>{
+ const listHtml='<div class="hw-cloud-chat-title">☁ 玩家来信 · '+chats.length+(hwCloudUnreadTotal()?' · '+hwCloudUnreadTotal()+' 条未读':'')+'</div>'+chats.map(c=>{
   const last=c.messages?.at(-1);
   return `<button type="button" class="dm-conversation hw-cloud-chat ${hwCloudView.selected===c.id?'active':''}" data-cloud-chat="open" data-id="${esc(c.id)}"><span class="dm-conv-avatar" aria-hidden="true">${c.avatar_url?`<img class="x-avatar sm" src="${esc(c.avatar_url)}" alt="">`:`<span class="x-avatar sm" style="background:#d5e3e9;color:#526674;display:grid;place-items:center">${esc((c.playerName||'玩家').slice(0,1))}</span>`}</span><span class="dm-conv-lines"><span class="dm-conv-top"><b>${esc(c.playerName||'玩家')}</b><small>${esc(last?.time||'')}</small></span><span class="dm-conv-snippet">${esc(last?.body||'图片消息')}</span></span>${c.unreadCount?`<span class="hw-dm-conversation-unread" style="align-self:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:#e0245e;color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">${c.unreadCount>99?'99+':c.unreadCount}</span>`:''}</button>`;
  }).join('');
- list.append(container);
- list.scrollTop=savedListScroll;
+ const currentList=list.querySelector(':scope > .hw-cloud-chat-list');
+ // Reuse existing avatar <img> nodes when nothing about the conversation list changed.
+ if(!currentList||currentList.innerHTML!==listHtml){
+  if(currentList&&list.children.length===1)currentList.innerHTML=listHtml;
+  else{const container=document.createElement('section');container.className='hw-cloud-chat-list';container.innerHTML=listHtml;list.replaceChildren(container);}
+  list.scrollTop=savedListScroll;
+ }
  if(hwCloudView.selected){
   const c=chats.find(row=>row.id===hwCloudView.selected);
   if(!c){hwCloudView.selected='';return}
   const right=app.querySelector('.dm-thread');if(!right)return;
+  // A stable message signature makes unchanged cloud polls genuinely no-op.
+  // Do not recreate images, textarea or the scroll container every few seconds.
+  const messageSignature=JSON.stringify([c.id,c.playerName,c.characterName,(c.messages||[]).map(m=>[m.id,m.sender_kind,m.body,m.recalled,m.image_resolved,m.time])]);
   const previousPane=right.querySelector('.dm-messages');
+  if(previousPane&&right.dataset.cloudConversationId===c.id&&right.dataset.cloudMessageSignature===messageSignature){
+   hwCloudMarkRead(c.id);hwCloudDrawUnread();
+   return;
+  }
   if(previousPane&&right.dataset.cloudConversationId===c.id&&!hwCloudRestoringScroll){
    hwCloudRememberPosition(c.id,previousPane);
   }
@@ -2986,6 +2999,7 @@ function hwCloudDraw(){
   if(oldInput)hwCloudInlineDrafts.set(c.id,oldInput.value);
   if(state.viewMode==='dm'&&hwCloudView.selected===c.id){hwCloudMarkRead(c.id);hwCloudDrawUnread();}
   right.dataset.cloudConversationId=c.id;
+  right.dataset.cloudMessageSignature=messageSignature;
   right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px" src="${esc(m.image_resolved)}" alt="私信图片">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div>${hwCloudInlinePreviewFor(c.id)}<div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…">${esc(hwCloudInlineDrafts.get(c.id)||(()=>{try{return sessionStorage.getItem('hw-dev-dm-draft:'+c.id)||''}catch(e){return ''}})())}</textarea><label for="hwCloudInlineImageInput" title="添加图片" aria-label="添加图片" style="cursor:pointer;font-size:22px;padding:7px">🖼️</label><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
   requestAnimationFrame(()=>{
    const pane=right.querySelector('.dm-messages');
