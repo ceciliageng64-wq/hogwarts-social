@@ -303,6 +303,16 @@ function v33RenderAllPosts(){return false;}
 function v33RefreshView(){}
 
 let hwCloudLoading=false;
+// Private image links have a limited lifetime. Reuse them between polls instead
+// of asking Storage for a fresh signed URL every few seconds.
+const hwDmSignedImageCache=new Map();
+async function hwDmStableImageUrl(path){
+ const now=Date.now(),saved=hwDmSignedImageCache.get(path);
+ if(saved&&now-saved.at<10*60*1000)return saved.url;
+ const url=await H.signedPrivate(path);
+ if(url)hwDmSignedImageCache.set(path,{url,at:now});
+ return url;
+}
 async function refreshIntegratedDM(){
  if(!admin||!u()||!window.hwCloudDMUpdate||hwCloudLoading)return;
  hwCloudLoading=true;
@@ -322,7 +332,7 @@ async function refreshIntegratedDM(){
    rows.push({id:c.id,character_id:String(c.character_id),playerName:user?.display_name||user?.handle||'玩家',avatar_url:user?.avatar_url||'',characterName:char?.name||'人物',messages:messages.map(m=>({sender_kind:m.sender_kind,body:m.body||'',created_at:m.created_at,time:new Date(m.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),image_url:m.image_url||'',image_resolved:m.image_url&&!String(m.image_url).startsWith('private:')?m.image_url:'',recalled:!!m.recalled})),unreadCount:messages.filter(m=>m.sender_kind==='user'&&new Date(m.created_at).getTime()>(()=>{try{return new Date(localStorage.getItem('hw-dev-dm-read:'+c.id)||0).getTime()}catch(e){return 0}})()).length});
   }
   await Promise.all(rows.flatMap(c=>c.messages.filter(m=>m.image_url?.startsWith('private:')).map(async m=>{
-    try{m.image_resolved=await H.signedPrivate(m.image_url);}catch(e){console.warn('私信附件暂无法预览',e);}
+    try{m.image_resolved=await hwDmStableImageUrl(m.image_url);}catch(e){console.warn('私信附件暂无法预览',e);}
   })));
   window.hwCloudDMUpdate(rows.sort((a,b)=>new Date(grouped.get(b.id)?.at(-1)?.created_at||0)-new Date(grouped.get(a.id)?.at(-1)?.created_at||0)));
  }catch(e){status('私信同步失败：'+H.errMsg(e));console.warn(e)}finally{hwCloudLoading=false}
