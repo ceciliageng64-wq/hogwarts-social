@@ -2772,6 +2772,12 @@ QUOTE_BANK.zh.daily.push('管理员已回归霍格沃茨时间线，围观请先
 const hwCloudView={rows:[],selected:''};
 let hwCloudInlineImage=null,hwCloudInlineImageConversation='',hwCloudInlineImagePreview='';
 const hwCloudInlineDrafts=new Map();
+const hwCloudInlineFocus=new Map();
+const hwCloudInlineCursor=new Map();
+const hwCloudReadKey=id=>'hw-dev-dm-read:'+String(id);
+function hwCloudMarkRead(id){const c=hwCloudView.rows.find(x=>x.id===id);if(!c)return;const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(id),latest.created_at)}catch(e){}}}
+function hwCloudUnreadTotal(){return hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId)).reduce((n,c)=>n+(Number(c.unreadCount)||0),0)}
+function hwCloudDrawUnread(){const links=$('xNavLinks')?.querySelectorAll('.x-nav-link');const link=links?.[3];if(!link)return;let badge=link.querySelector('.hw-dm-unread-badge');const n=hwCloudUnreadTotal();if(n&&!badge){badge=document.createElement('span');badge.className='hw-dm-unread-badge';badge.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:99px;background:#e0245e;color:#fff;font-size:10px;font-weight:800;line-height:17px';link.append(badge)}if(badge){badge.textContent=n>99?'99+':String(n);badge.hidden=!n;}if(n)link.setAttribute('aria-label','私信，'+n+'条未读');else link.setAttribute('aria-label','私信');}
 function hwCloudClearInlineImage(){hwCloudInlineImage=null;hwCloudInlineImageConversation='';if(hwCloudInlineImagePreview){URL.revokeObjectURL(hwCloudInlineImagePreview);hwCloudInlineImagePreview='';}}
 function hwCloudInlinePreviewFor(id){
  if(!hwCloudInlineImage||hwCloudInlineImageConversation!==id)return '';
@@ -2781,7 +2787,13 @@ window.hwCloudDmViewer=()=>state.viewerId;
 window.hwCloudDMUpdate=(rows)=>{
  hwCloudView.rows=Array.isArray(rows)?rows:[];
  if(hwCloudView.selected&&!hwCloudView.rows.some(c=>c.id===hwCloudView.selected)){hwCloudView.selected='';hwCloudClearInlineImage();}
- if(state.viewMode==='dm')renderPreviewOnly();
+ hwCloudDrawUnread();
+ if(state.viewMode==='dm'){
+  const input=$('hwCloudInlineInput');
+  // Do not replace a textarea while the developer is actively typing.
+  if(input&&document.activeElement===input){hwCloudMarkRead(hwCloudView.selected);return;}
+  renderPreviewOnly();
+ }
 };
 function hwCloudDraw(){
  if(state.viewMode!=='dm'||state.clientMode==='user')return;
@@ -2803,11 +2815,14 @@ function hwCloudDraw(){
   if(!c){hwCloudView.selected='';return}
   const right=app.querySelector('.dm-thread');if(!right)return;
   const oldInput=right.querySelector('#hwCloudInlineInput');
-  const keepFocus=!!oldInput&&document.activeElement===oldInput;
-  const keepStart=keepFocus?oldInput.selectionStart:null,keepEnd=keepFocus?oldInput.selectionEnd:null;
+  const keepFocus=!!oldInput&&document.activeElement===oldInput || !!hwCloudInlineFocus.get(c.id);
+  const cursor=hwCloudInlineCursor.get(c.id)||{};
+  const keepStart=oldInput&&document.activeElement===oldInput?oldInput.selectionStart:cursor.start??null;
+  const keepEnd=oldInput&&document.activeElement===oldInput?oldInput.selectionEnd:cursor.end??null;
   if(oldInput)hwCloudInlineDrafts.set(c.id,oldInput.value);
-  right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px" src="${esc(m.image_resolved)}" alt="私信图片">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div>${hwCloudInlinePreviewFor(c.id)}<div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…">${esc(hwCloudInlineDrafts.get(c.id)||'')}</textarea><label for="hwCloudInlineImageInput" title="添加图片" aria-label="添加图片" style="cursor:pointer;font-size:22px;padding:7px">🖼️</label><input id="hwCloudInlineImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
-  requestAnimationFrame(()=>{const pane=right.querySelector('.dm-messages');if(pane)pane.scrollTop=pane.scrollHeight;const input=right.querySelector('#hwCloudInlineInput');if(input&&keepFocus){input.focus({preventScroll:true});try{input.setSelectionRange(keepStart,keepEnd)}catch(e){}}});
+  if(state.viewMode==='dm'&&hwCloudView.selected===c.id)hwCloudMarkRead(c.id);
+  right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px" src="${esc(m.image_resolved)}" alt="私信图片">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div>${hwCloudInlinePreviewFor(c.id)}<div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…">${esc(hwCloudInlineDrafts.get(c.id)||(()=>{try{return sessionStorage.getItem('hw-dev-dm-draft:'+c.id)||''}catch(e){return ''}})())}</textarea><label for="hwCloudInlineImageInput" title="添加图片" aria-label="添加图片" style="cursor:pointer;font-size:22px;padding:7px">🖼️</label><input id="hwCloudInlineImageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
+  requestAnimationFrame(()=>{const pane=right.querySelector('.dm-messages');if(pane)pane.scrollTop=pane.scrollHeight;const input=right.querySelector('#hwCloudInlineInput');if(input&&keepFocus){input.focus({preventScroll:true});try{if(keepStart!=null)input.setSelectionRange(keepStart,keepEnd??keepStart)}catch(e){}}});
  }
 }
 const hwOldRenderDM=renderPreviewOnly;
@@ -2816,7 +2831,7 @@ $('feedContent').addEventListener('click',async e=>{
  if(state.viewMode!=='dm'||state.clientMode==='user')return;
  const cloud=e.target.closest('[data-cloud-chat]');
  if(cloud){e.preventDefault();e.stopImmediatePropagation();
-  if(cloud.dataset.cloudChat==='open'){if(hwCloudView.selected!==cloud.dataset.id)hwCloudClearInlineImage();hwCloudView.selected=cloud.dataset.id;renderPreviewOnly()}
+  if(cloud.dataset.cloudChat==='open'){if(hwCloudView.selected!==cloud.dataset.id)hwCloudClearInlineImage();hwCloudView.selected=cloud.dataset.id;hwCloudMarkRead(hwCloudView.selected);hwCloudDrawUnread();renderPreviewOnly()}
   if(cloud.dataset.cloudChat==='delete'){
    const current=hwCloudView.rows.find(c=>c.id===hwCloudView.selected);
    if(!current){toast('请先选择要删除的真实会话');return;}
@@ -2835,7 +2850,7 @@ $('feedContent').addEventListener('click',async e=>{
    const file=hwCloudInlineImageConversation===hwCloudView.selected?hwCloudInlineImage:null;
    if(!content&&!file){toast('请输入文字或选择图片');return;}
    cloud.disabled=true;
-   try{if(!window.hwCloudDMSend)throw Error('云端暂未连接');await window.hwCloudDMSend(hwCloudView.selected,content,file);hwCloudInlineDrafts.delete(hwCloudView.selected);hwCloudClearInlineImage();const input=$('hwCloudInlineInput');if(input)input.value='';}
+   try{if(!window.hwCloudDMSend)throw Error('云端暂未连接');await window.hwCloudDMSend(hwCloudView.selected,content,file);hwCloudInlineDrafts.delete(hwCloudView.selected);hwCloudInlineFocus.set(hwCloudView.selected,false);hwCloudInlineCursor.delete(hwCloudView.selected);try{sessionStorage.removeItem('hw-dev-dm-draft:'+hwCloudView.selected)}catch(e){}hwCloudClearInlineImage();const input=$('hwCloudInlineInput');if(input)input.value='';}
    catch(err){toast('发送失败：'+(err.message||err))}
    finally{cloud.disabled=false}
   }
@@ -2843,9 +2858,22 @@ $('feedContent').addEventListener('click',async e=>{
  }
  if(e.target.closest('[data-dm="select"]')){hwCloudView.selected='';hwCloudClearInlineImage();}
 },true);
-$('feedContent').addEventListener('input',e=>{
- if(e.target.id!=='hwCloudInlineInput'||state.viewMode!=='dm'||state.clientMode==='user')return;
- hwCloudInlineDrafts.set(hwCloudView.selected,e.target.value);
+document.addEventListener('focusin',e=>{
+ if(e.target?.id==='hwCloudInlineInput'&&state.clientMode!=='user')hwCloudInlineFocus.set(hwCloudView.selected,true);
+},true);
+document.addEventListener('focusout',e=>{
+ if(e.target?.id==='hwCloudInlineInput')hwCloudInlineFocus.set(hwCloudView.selected,false);
+},true);
+document.addEventListener('input',e=>{
+ const input=e.target;if(input?.id!=='hwCloudInlineInput'||state.clientMode==='user')return;
+ const id=hwCloudView.selected;if(!id)return;
+ const value=input.value;hwCloudInlineDrafts.set(id,value);hwCloudInlineFocus.set(id,true);
+ hwCloudInlineCursor.set(id,{start:input.selectionStart,end:input.selectionEnd});
+ try{sessionStorage.setItem('hw-dev-dm-draft:'+id,value)}catch(err){}
+},true);
+document.addEventListener('keyup',e=>{
+ const input=e.target;if(input?.id!=='hwCloudInlineInput'||state.clientMode==='user')return;
+ hwCloudInlineCursor.set(hwCloudView.selected,{start:input.selectionStart,end:input.selectionEnd});
 },true);
 $('feedContent').addEventListener('change',e=>{
  if(e.target.id!=='hwCloudInlineImageInput'||state.viewMode!=='dm'||state.clientMode==='user')return;
