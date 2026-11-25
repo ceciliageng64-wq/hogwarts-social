@@ -566,6 +566,26 @@ async function publish(){
   docPostRows.sort((a,b)=>depth(a)-depth(b));
   // Re-publications preserve old stories and publication identity. Only new rows need time.
   const hwStoryNow=()=>{const d=new Date();d.setFullYear(d.getFullYear()-33);return d.getTime()};
+  // A NEW developer post uses the same 1993-adjusted real clock as a player post.
+  // Only interpret relative labels on initial publication; never rewrite an
+  // existing story_at or the developer's explicit historical hwStoryAt override.
+  function hwInitialPostStoryTime(label){
+    const value=String(label||'').trim().toLowerCase();
+    const now=hwStoryNow();
+    if(/^(?:刚刚|刚才|现在|now|just now|just posted|moments ago)$/.test(value))return now-1000;
+    const m=/^(\d+(?:\.\d+)?)\s*(秒前|分钟前|小时前|天前|seconds? ago|minutes? ago|hours? ago|days? ago|sec(?:onds?)?|mins?|hrs?|[smhd])$/i.exec(value);
+    if(m){
+      const unit=m[2],num=Number(m[1]);
+      const scale=/^(秒前|seconds? ago|sec(?:onds?)?|s)$/i.test(unit)?1000:
+       /^(分钟前|minutes? ago|mins?|m)$/i.test(unit)?60000:
+       /^(小时前|hours? ago|hrs?|h)$/i.test(unit)?3600000:
+       /^(天前|days? ago|d)$/i.test(unit)?86400000:0;
+      if(scale)return now-Math.max(1000,Math.round(num*scale));
+    }
+    // Keep the legacy fallback for non-relative labels, which may be manually
+    // entered historical display text rather than a newly published "now".
+    return now-2*3600000;
+  }
   const hwStoryById=new Map();
   for(const row of docPostRows){
     const parent=hwStoryById.get(row.parent_id)||hwStoryById.get(row.quote_id);
@@ -577,10 +597,10 @@ async function publish(){
                     seed<0.95?(60+Math.random()*500)*60000:
                     (600+Math.random()*1800)*60000;
         at=Math.min(hwStoryNow(),parent+delay);
-      }else at=hwStoryNow()-2*3600000;
+      }else at=hwInitialPostStoryTime(row.metrics?.time_label);
     }
     if(parent&&at<=parent)at=parent+1000;
-    if(at>hwStoryNow()){if(parent&&parent>=hwStoryNow())throw Error('父帖超出当前世界时间：'+row.id);at=hwStoryNow();}
+    if(at>hwStoryNow())at=hwStoryNow();
     row.story_at=new Date(at).toISOString();hwStoryById.set(row.id,at);
   }
   // Batch writes within each ancestor depth; all parents are committed before their children.
