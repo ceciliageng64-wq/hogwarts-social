@@ -563,10 +563,10 @@ async function publish(){
   for(let i=0;i<chars.length;i+=60){const{error}=await u().from('hw_characters').upsert(chars.slice(i,i+60),{onConflict:'id'});if(error)throw error;}
   // Persist the official directory only after all referenced character rows exist.
   const nextCastFingerprint=hwPublishFingerprint(publishedCastIds);
-  if(forceFull||previous.cast!==nextCastFingerprint){
-   const {error:castError}=await u().from('hw_site_settings').upsert({key:'public_cast_ids',value:publishedCastIds,updated_at:new Date().toISOString()},{onConflict:'key'});
-   if(castError)throw Error('同步人物搜索名单失败：'+castError.message);
-  }
+  // Always sync the small public directory. A cached fingerprint must never leave
+  // removed people visible as client contacts if an earlier publish was interrupted.
+  const {error:castError}=await u().from('hw_site_settings').upsert({key:'public_cast_ids',value:publishedCastIds,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(castError)throw Error('同步人物搜索名单失败：'+castError.message);
   // Character profile likes live in a separate public snapshot. They are not
   // authored timeline posts and must never be inserted into hw_posts.
   const nextLikesFingerprint=hwPublishFingerprint({likes:snapshot.profileLikes,cast:publishedCastIds});
@@ -654,19 +654,10 @@ async function publish(){
   const stale=migrationFirstPublish?[]:(existingResp.data||[]).filter(p=>!desiredPostIds.has(p.id)).map(p=>p.id);
   // Delete deepest children first to avoid dangling refs from existing content.
   for(const id of stale){const{error}=await u().from('hw_posts').delete().eq('id',id);if(error)console.warn('Failed to prune stale V26 content',id,error.message);else delete v32Overrides[id];}try{localStorage.setItem('hw-v32-cloud-overrides',JSON.stringify(v32Overrides))}catch{}
-  // Reconcile deleted cast members with public cloud. Never auto-delete players.
-  const {data:cloudCast,error:castErr}=await u().from('hw_characters').select('id,name').limit(2000);
-  if(castErr)throw castErr;
-  // Temporary commenters never belong to the editable permanent cast.
-  // Never delete an active random commenter: hw_posts references its character ID.
-  const removed=migrationFirstPublish?[]:(cloudCast||[]).filter(x=>!/^legacy_commenter_/i.test(String(x.id))&&!ids.has(x.id));
-  if(removed.length){
-   const message='人物库中有 '+removed.length+' 位已被删除的人物（'+removed.slice(0,8).map(p=>p.name).join('、')+'）。\n同步删除会同时移除其云端帖子、评论以及与玩家的私信会话（不可恢复）。\n确定删除吗？';
-   if(confirm(message)){
-    for(const p of removed){const {error}=await u().from('hw_characters').delete().eq('id',p.id);if(error)throw Error('删除人物 '+p.name+' 失败：'+error.message);}
-    status('✅ 已同步人物库；删除 '+removed.length+' 位人物及关联内容。');
-   }else status('人物发布成功，但已删除人物仍保留在游客端。要同步删除，请下次发布时确认。');
-  }else status(`✅ 增量发布完成：更新 ${chars.length} 位人物、${docPostRows.length} 条帖子或评论；跳过未修改的 ${reusedCharacters} 位人物和 ${reusedPosts} 条内容。`);
+  // Removed official cast members are hidden by public_cast_ids above.
+  // Preserve their cloud row, posts, comments and private conversation history:
+  // deleting a character through a library edit must not cascade-delete content.
+  status(`✅ 增量发布完成：更新 ${chars.length} 位人物、${docPostRows.length} 条帖子或评论；未修改 ${reusedCharacters} 位人物和 ${reusedPosts} 条内容已跳过。公开联系人名单已同步。`);
   // Fixed random identities are intentionally retained. They must never be
   // garbage-collected merely because no new comment used them this publish.
   if(migrationFirstPublish)localStorage.removeItem('hw-gh-migration-first-publish');
