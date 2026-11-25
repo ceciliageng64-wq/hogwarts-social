@@ -649,7 +649,8 @@ function navigate(view,opts={}){
    if(anchor){const delta=anchor.getBoundingClientRect().top-saved.offset;window.scrollTo({top:Math.max(0,window.scrollY+delta),behavior:'auto'});}
    else window.scrollTo({top:saved.scrollY||0,behavior:'auto'});
   }));
- }else if(!(view==='post'&&feedReturnPosition)){
+ }else{
+  // A post detail always opens at its top; the saved feed position is used only when returning.
   window.scrollTo({top:0,behavior:'auto'});
  }
 }
