@@ -332,6 +332,8 @@ const clientId=()=>typeof crypto!=='undefined'&&typeof crypto.randomUUID==='func
 const cache={characters:[],posts:[],profiles:[],likes:[],follows:[],bookmarks:[],conversations:[],messages:[],dmImages:{},characterLikes:{}};
 const safeStorage={getItem(key){try{return localStorage.getItem(key)}catch{return null}},setItem(key,val){try{localStorage.setItem(key,val)}catch{}}};
 const state={view:'feed',profileKind:'character',profileId:'',postId:'',replyTo:'',quoteId:'',profileTab:'posts',theme:safeStorage.getItem('hw27-theme')||'light',user:null,myProfile:null,loggedIn:false,authReady:false,composerImage:null,dmConversationId:'',dmFile:null,uploading:false,editingProfile:false,dmLoading:false,bannerVisible:false,error:'',busy:false};
+// Remember the exact feed item and its viewport offset before opening a post.
+let feedReturnPosition=null;
 const hwClientDmReadKey=id=>'hw-client-dm-read:'+String(state.user?.id||'guest')+':'+String(id);
 function hwClientDmUnread(c){let seen=0;try{seen=new Date(localStorage.getItem(hwClientDmReadKey(c.id))||0).getTime()||0}catch(e){}return cache.messages.filter(m=>m.conversation_id===c.id&&m.sender_kind==='character'&&!m.recalled&&new Date(m.created_at).getTime()>seen).length;}
 function hwClientDmMarkRead(id){const c=cache.conversations.find(x=>x.id===id);if(!c)return;const incoming=cache.messages.filter(m=>m.conversation_id===id&&m.sender_kind==='character').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));const latest=incoming.at(-1);if(latest?.created_at){try{localStorage.setItem(hwClientDmReadKey(id),latest.created_at)}catch(e){}}}
@@ -626,8 +628,31 @@ async function loadPrivate(){if(!state.user||!C)return;
  }catch(e){toast('私有数据读取失败：'+H.errMsg(e))}
 }
 async function ensureSignedInReady(){if(!state.user)return false;if(state.myProfile)return true;try{state.myProfile=await H.ensureUserProfile();return true}catch(e){toast('建立个人资料失败：'+H.errMsg(e));return false}}
-function navigate(view,opts={}){if(view!=="post")hwUnreadReturn=false;state.view=view;if(view==='post'){state.postId=opts.id||state.postId;state.replyTo=opts.replyTo||'';}if(view==='profile'){state.profileKind=opts.kind||'character';state.profileId=opts.id||'';state.profileTab='posts';}if(view==='me'){if(!needAuth())return;state.view='profile';state.profileKind='user';state.profileId=state.user.id;state.profileTab='posts';state.editingProfile=false;}
- const hash=state.view==='post'?'post:'+state.postId:state.view==='profile'?'profile:'+state.profileKind+':'+state.profileId:state.view;history.replaceState(null,'','#'+encodeURIComponent(hash));renderPage();window.scrollTo({top:0,behavior:'auto'});}
+function navigate(view,opts={}){
+ if(view!=="post")hwUnreadReturn=false;
+ // Capture only when leaving the feed for a post; opening replies inside a thread must not overwrite it.
+ if(view==='post'&&state.view==='feed'){
+  const candidates=[...document.querySelectorAll('#content .post[data-post-id]')];
+  const anchor=candidates.find(el=>{const r=el.getBoundingClientRect();return r.bottom>0&&r.top<window.innerHeight;});
+  feedReturnPosition={scrollY:window.scrollY,postId:anchor?.dataset.postId||'',offset:anchor?anchor.getBoundingClientRect().top:0};
+ }
+ state.view=view;
+ if(view==='post'){state.postId=opts.id||state.postId;state.replyTo=opts.replyTo||'';}
+ if(view==='profile'){state.profileKind=opts.kind||'character';state.profileId=opts.id||'';state.profileTab='posts';}
+ if(view==='me'){if(!needAuth())return;state.view='profile';state.profileKind='user';state.profileId=state.user.id;state.profileTab='posts';state.editingProfile=false;}
+ const hash=state.view==='post'?'post:'+state.postId:state.view==='profile'?'profile:'+state.profileKind+':'+state.profileId:state.view;
+ history.replaceState(null,'','#'+encodeURIComponent(hash));renderPage();
+ if(view==='feed'&&opts.restoreFeedPosition&&feedReturnPosition){
+  const saved=feedReturnPosition;feedReturnPosition=null;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   const anchor=saved.postId?document.querySelector('#content .post[data-post-id="'+CSS.escape(saved.postId)+'"]'):null;
+   if(anchor){const delta=anchor.getBoundingClientRect().top-saved.offset;window.scrollTo({top:Math.max(0,window.scrollY+delta),behavior:'instant'});}
+   else window.scrollTo({top:saved.scrollY||0,behavior:'instant'});
+  }));
+ }else if(!(view==='post'&&feedReturnPosition)){
+  window.scrollTo({top:0,behavior:'auto'});
+ }
+}
 async function toggleLike(id){if(!needAuth())return;if(!await ensureSignedInReady())return;
  const active=ownLike(id);const query=C.from('hw_likes');const res=active?await query.delete().eq('user_id',state.user.id).eq('post_id',id):await query.insert({user_id:state.user.id,post_id:id});if(res.error){toast(H.errMsg(res.error));return}
  if(active)cache.likes=cache.likes.filter(x=>!(x.post_id===id&&x.user_id===state.user.id));else cache.likes.push({post_id:id,user_id:state.user.id});renderPage()}
@@ -905,7 +930,7 @@ if($('cast-search-input'))$('cast-search-input').addEventListener('input',render
 if($('cast-search-results'))$('cast-search-results').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b){$('cast-search-input').value='';renderCastSearch();await handleAction(b.dataset.action,b)}});
 $('content').addEventListener('input',e=>{if(e.target.id==='explore-cast-search'){const el=e.target;state.castSearch=el.value;const pos=el.selectionStart;const area=el.closest('#content');if(area){const matching=discoverableCharacters().filter(c=>castMatch(c,state.castSearch));const holder=area.querySelector('.explore-cast-results');if(holder)holder.innerHTML=matching.map(c=>`<div class="post" style="align-items:center">${authorLink({...c,kind:'character'})}<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="character" data-id="${E(c.id)}">${E(c.name)} ${authorBadge(c)}</strong><div class="muted">@${E(c.handle)}</div></div><button class="small-outline" data-action="profile" data-kind="character" data-id="${E(c.id)}">主页</button><button class="small-outline" data-action="start-dm" data-id="${E(c.id)}">✉ 私信</button></div>`).join('')||'<div class="empty">没有符合搜索条件的人物。</div>';}}});
 if($('nav-current'))$('nav-current').onclick=()=>navigate('me');if($('nav-post'))$('nav-post').onclick=()=>{if(needAuth())navigate('feed')};
-if($('back-button'))$('back-button').onclick=()=>{if(hwUnreadReturn){hwUnreadReturn=false;navigate('unread')}else navigate('feed')};
+if($('back-button'))$('back-button').onclick=()=>{if(hwUnreadReturn){hwUnreadReturn=false;navigate('unread')}else navigate('feed',{restoreFeedPosition:state.view==='post'})};
 $('brand-button').onclick=()=>navigate('feed');
 if($('theme-toggle'))$('theme-toggle').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';safeStorage.setItem('hw27-theme',state.theme);renderPage()};
 if($('sidebar-login'))$('sidebar-login').onclick=()=>showAuth();
