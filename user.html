@@ -401,7 +401,13 @@ function hwAmbientStats(post){
  // Official cast main posts get faster, higher engagement. Their authored replies
  // and all manually entered metrics remain unchanged as the baseline.
  if(!isPlayer&&!isRandomReply&&!isOfficialPost)return zero;
- const ms=Date.parse(post.published_at||post.created_at||'');
+ // Character stories use the 1993 world clock. Match engagement age to their
+ // displayed story time, including intentional backdating by the developer.
+ const worldStamp=isOfficialPost?hwStoryStamp(post):NaN;
+ const realStamp=Number.isFinite(worldStamp)&&worldStamp>0?(()=>{
+  const d=new Date(worldStamp);d.setFullYear(d.getFullYear()+33);return d.getTime();
+ })():NaN;
+ const ms=Number.isFinite(realStamp)?realStamp:Date.parse(post.published_at||post.created_at||'');
  if(!Number.isFinite(ms))return zero;
  const minutes=Math.max(0,(Date.now()-ms)/60000);
  const seed=hwAmbientSeed(post.id);
