@@ -2849,6 +2849,8 @@ $('feedContent').addEventListener('change',e=>{
 },true);
 
 // Once cloud characters load, incorporate their existing stable random identities.
+// Lightweight read-only access for the cloud reply identity selector.
+window.hwFixedRandomPoolList=()=>hwFixedRandomPool().map(p=>({...p}));
 window.hwFixedRandomPoolImport=rows=>{
  if(!Array.isArray(rows)||!rows.length)return;
  const pool=hwFixedRandomPool();
