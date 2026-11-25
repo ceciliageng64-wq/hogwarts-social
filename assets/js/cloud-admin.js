@@ -338,8 +338,22 @@ function status(t){$('hwCloudStatus').textContent=t}
 function busyState(v){busy=v;if($('hwCloudPublish'))$('hwCloudPublish').disabled=v;if($('hwCloudSendDM'))$('hwCloudSendDM').disabled=v}
 function personIdByPost(post,people){const h=String(post.handle||'').toLowerCase();const alias={pucey7:'adrianpucey',blaise:'blaisezabini',flint_7:'marcusflint',ced:'cedricdiggory',rd_01:'rogerdavies',fw_wtf:'fredweasley',notfred:'georgeweasley'};
  return people.find(p=>String(p.handle).toLowerCase()===h)?.id||people.find(p=>String(p.handle).toLowerCase()===(alias[h]||''))?.id||people.find(p=>String(p.name)===String(post.name))?.id||null;}
+// Incremental publishing: store only compact fingerprints, not entire images or posts.
+const HW_PUBLISH_HASH_KEY='hw-cloud-published-hashes-v1';
+const HW_IMAGE_URL_KEY='hw-cloud-uploaded-images-v1';
+function hwPublishFingerprint(data){
+ const str=typeof data==='string'?data:JSON.stringify(data);
+ let h=2166136261;
+ for(let i=0;i<str.length;i++)h=Math.imul(h^str.charCodeAt(i),16777619);
+ return str.length+':'+(h>>>0).toString(36);
+}
+function hwLoadPublishCache(key){try{const v=JSON.parse(localStorage.getItem(key)||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}catch{return {}}}
+function hwSavePublishCache(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(e){console.warn('增量同步缓存无法持久化，下次可能需要完整同步',e)}}
 const imageCache=new Map();
+const hwCloudImageUrlCache=hwLoadPublishCache(HW_IMAGE_URL_KEY);
 async function cloudImage(src){if(!src||typeof src!=='string')return null;if(src.startsWith('https://'))return src;if(imageCache.has(src))return imageCache.get(src);if(!src.startsWith('data:image/'))return null;
+ const fingerprint=hwPublishFingerprint(src);
+ if(hwCloudImageUrlCache[fingerprint]){imageCache.set(src,hwCloudImageUrlCache[fingerprint]);return hwCloudImageUrlCache[fingerprint]}
  let blob;
  if(src.startsWith('data:image/svg+xml')){
   // Generated media illustrations are SVG data URLs. Convert to JPEG before
@@ -349,7 +363,9 @@ async function cloudImage(src){if(!src||typeof src!=='string')return null;if(src
   const context=canvas.getContext('2d');if(!context)throw Error('浏览器不能转换图片');context.fillStyle='#ffffff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(img,0,0,canvas.width,canvas.height);
   blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('SVG 图片转换失败')),'image/jpeg',.9));
  }else blob=H.imageBlobFromDataUrl(src);
- const url=await H.uploadPublic(blob,'admin');imageCache.set(src,url);return url;}
+ const url=await H.uploadPublic(blob,'admin');imageCache.set(src,url);
+ hwCloudImageUrlCache[fingerprint]=url;hwSavePublishCache(HW_IMAGE_URL_KEY,hwCloudImageUrlCache);
+ return url;}
 function legacyCreatedAt(time,existing){if(existing)return existing;const text=String(time||''),now=Date.now();let mins=180;
  const seconds=/([\d.]+)\s*(?:秒|s(?:ec)?\b)/i.exec(text);const minutes=/([\d.]+)\s*(?:分钟|m\b)/i.exec(text);const hours=/([\d.]+)\s*(?:小时|h\b)/i.exec(text);if(seconds)mins=Number(seconds[1])/60;else if(minutes)mins=Number(minutes[1]);else if(hours)mins=Number(hours[1])*60;else if(/刚刚|now|just now/i.test(text))mins=0;
  return new Date(now-mins*60000).toISOString();}
@@ -366,15 +382,24 @@ async function publish(){
  busyState(true);
  try{
   const snapshot=window.hwLegacySnapshot();const people=(snapshot.people||[]).filter(p=>String(p.handle).toLowerCase()!=='my_account');
+  const previous=hwLoadPublishCache(HW_PUBLISH_HASH_KEY);
+  const forceFull=localStorage.getItem('hw-gh-migration-first-publish')==='1';
+  const previousPosts=previous.posts||{},previousChars=previous.characters||{};
+  const nextPostHashes={},nextCharacterHashes={};
+  const desiredPostIds=new Set();
+  let reusedPosts=0,reusedCharacters=0;
   status('正在准备人物资料…');
   const chars=[];const handles=new Set();const ids=new Set();
   for(const p of people){if(!p.id||!p.handle||!p.name||handles.has(p.handle.toLowerCase())||ids.has(p.id))continue;handles.add(p.handle.toLowerCase());ids.add(p.id);
    const page=snapshot.profilePages?.[p.id]||{};
+   const characterFingerprint=hwPublishFingerprint({p,page});
+   nextCharacterHashes[p.id]=characterFingerprint;
+   if(!forceFull&&previousChars[p.id]===characterFingerprint){reusedCharacters++;continue;}
    chars.push({id:p.id,handle:p.handle,name:p.name,avatar_url:await cloudImage(p.avatar),cover_url:await cloudImage(page.cover),bio:page.bio||'',location:page.location||'Hogwarts',joined_label:page.joined||'1991年9月',badge_type:cloudBadgeType(p.badgeType,p.verified),meta:{following:page.following,followers:page.followers}});
   }
   // Public directory membership: exactly the developer's saved People library,
   // never anonymous/random commenters later added for post author rendering.
-  const publishedCastIds=chars.map(c=>c.id);
+  const publishedCastIds=people.filter(p=>p.id&&p.handle&&p.name&&String(p.handle).toLowerCase()!=='my_account').map(p=>p.id);
   // Comments by random visitors may not live in the saved character directory.
   // Preserve their author identities in the cloud without modifying the V26 directory.
   for(const lang of ['zh','en']){
@@ -388,6 +413,9 @@ async function publish(){
       const fallback={id:'legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52),name:row.name||handle,handle,avatar:row.avatar||'',verified:!!row.verified,badgeType:row.badgeType||'blue'};
       if(!fallback.id||ids.has(fallback.id))continue;
       people.push(fallback);ids.add(fallback.id);handles.add(handle);
+      const extraFingerprint=hwPublishFingerprint(fallback);
+      nextCharacterHashes[fallback.id]=extraFingerprint;
+      if(!forceFull&&previousChars[fallback.id]===extraFingerprint){reusedCharacters++;continue;}
       chars.push({id:fallback.id,handle:fallback.handle,name:fallback.name,avatar_url:await cloudImage(fallback.avatar),cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:cloudBadgeType(fallback.badgeType,fallback.verified),meta:{}});
     }
   }
@@ -395,6 +423,10 @@ async function publish(){
   if(existingResp.error)throw existingResp.error;const existing=new Map((existingResp.data||[]).map(row=>[row.id,row]));
   async function createPost(src,lang,key,authorId,parentId=null,quoteId=null){if(!authorId)return;
    const id='v26:'+key,old=existing.get(id);
+   desiredPostIds.add(id);
+   const fingerprint=hwPublishFingerprint({src,lang,key,authorId,parentId,quoteId});
+   nextPostHashes[id]=fingerprint;
+   if(old&&!forceFull&&previousPosts[id]===fingerprint){reusedPosts++;return;}
    const metrics={replies:src.replies||'0',reposts:src.reposts||'0',likes:src.likes||'0',views:src.views||'0',bookmarks:src.bookmarks||'0',time_label:src.time||''};
    // Editor reposts contain an embedded quote (including a picture). Preserve it in
    // the cloud post's metrics so it can be rendered without creating a fake feed post.
@@ -470,6 +502,8 @@ async function publish(){
   if(castError)throw Error('同步人物搜索名单失败：'+castError.message);
   // Character profile likes live in a separate public snapshot. They are not
   // authored timeline posts and must never be inserted into hw_posts.
+  const nextLikesFingerprint=hwPublishFingerprint({likes:snapshot.profileLikes,cast:publishedCastIds});
+  if(forceFull||previous.likes!==nextLikesFingerprint){
   const publicCharacterLikes={};
   for(const personId of publishedCastIds){
    const rows=snapshot.profileLikes?.zh?.[personId]||[];
@@ -492,6 +526,7 @@ async function publish(){
   }
   const {error:likesError}=await u().from('hw_site_settings').upsert({key:'public_character_profile_likes',value:publicCharacterLikes,updated_at:new Date().toISOString()},{onConflict:'key'});
   if(likesError)throw Error('同步人物主页喜欢内容失败：'+likesError.message);
+  }
   // Postgres FK parent/quote rows must exist first. Sort by ancestor depth.
   const rank=new Map(docPostRows.map(p=>[p.id,p]));const depths=new Map();function depth(p,seen=new Set()){if(!p||seen.has(p.id))return 0;if(depths.has(p.id))return depths.get(p.id);seen.add(p.id);const dep=1+Math.max(depth(rank.get(p.parent_id),seen),depth(rank.get(p.quote_id),seen));depths.set(p.id,dep);seen.delete(p.id);return dep;}
   for(const post of docPostRows){const edited=v32Overrides[post.id];if(edited){post.body=edited.body;post.metrics=edited.metrics;if(edited.created_at)post.created_at=edited.created_at;}}
@@ -518,7 +553,7 @@ async function publish(){
   for(const p of docPostRows){const{error}=await u().from('hw_posts').upsert(p,{onConflict:'id'});if(error)throw Error('同步 '+p.id+' 失败：'+error.message);}
   const migrationFirstPublish=localStorage.getItem('hw-gh-migration-first-publish')==='1';
   // Remove only stale V26-mirrored rows; leave real visitors' posts and reactions untouched.
-  const desired=new Set(docPostRows.map(p=>p.id));const stale=migrationFirstPublish?[]:(existingResp.data||[]).filter(p=>!desired.has(p.id)).map(p=>p.id);
+  const stale=migrationFirstPublish?[]:(existingResp.data||[]).filter(p=>!desiredPostIds.has(p.id)).map(p=>p.id);
   // Delete deepest children first to avoid dangling refs from existing content.
   for(const id of stale){const{error}=await u().from('hw_posts').delete().eq('id',id);if(error)console.warn('Failed to prune stale V26 content',id,error.message);else delete v32Overrides[id];}try{localStorage.setItem('hw-v32-cloud-overrides',JSON.stringify(v32Overrides))}catch{}
   // Reconcile deleted cast members with public cloud. Never auto-delete players.
@@ -531,8 +566,10 @@ async function publish(){
     for(const p of removed){const {error}=await u().from('hw_characters').delete().eq('id',p.id);if(error)throw Error('删除人物 '+p.name+' 失败：'+error.message);}
     status('✅ 已同步人物库；删除 '+removed.length+' 位人物及关联内容。');
    }else status('人物发布成功，但已删除人物仍保留在游客端。要同步删除，请下次发布时确认。');
-  }else status(`✅ 已发布：${chars.length} 位人物 / ${docPostRows.length} 条帖子或回复。`);
+  }else status(`✅ 增量发布完成：更新 ${chars.length} 位人物、${docPostRows.length} 条帖子或评论；跳过未修改的 ${reusedCharacters} 位人物和 ${reusedPosts} 条内容。`);
   if(migrationFirstPublish)localStorage.removeItem('hw-gh-migration-first-publish');
+  // Advance the baseline only when all required writes succeeded.
+  hwSavePublishCache(HW_PUBLISH_HASH_KEY,{posts:nextPostHashes,characters:nextCharacterHashes,likes:nextLikesFingerprint});
   await v32Reload().catch(console.warn);
  }catch(e){console.error(e);const message=H.errMsg(e);if(message.includes('hw_characters_badge_type_check'))status('发布失败：人物标志类型与数据库格式不一致。请更新 V27.9.1 后重试；无需修改 SQL 或管理员权限。');else status('发布失败：'+message+'\n只有遇到权限或表不存在错误时，才需要检查 schema.sql 与 hw_admins。');}
  finally{busyState(false)}
