@@ -550,7 +550,18 @@ async function publish(){
     if(at>hwStoryNow()){if(parent&&parent>=hwStoryNow())throw Error('父帖超出当前世界时间：'+row.id);at=hwStoryNow();}
     row.story_at=new Date(at).toISOString();hwStoryById.set(row.id,at);
   }
-  for(const p of docPostRows){const{error}=await u().from('hw_posts').upsert(p,{onConflict:'id'});if(error)throw Error('同步 '+p.id+' 失败：'+error.message);}
+  // Batch writes within each ancestor depth; all parents are committed before their children.
+  // This preserves FK ordering while avoiding one network request per comment.
+  const groups=new Map();
+  for(const p of docPostRows){const d=depth(p);if(!groups.has(d))groups.set(d,[]);groups.get(d).push(p)}
+  for(const level of [...groups.keys()].sort((a,b)=>a-b)){
+   const rows=groups.get(level);
+   for(let i=0;i<rows.length;i+=50){
+    const batch=rows.slice(i,i+50);
+    const {error}=await u().from('hw_posts').upsert(batch,{onConflict:'id'});
+    if(error)throw Error('同步 '+batch[0].id+' 等 '+batch.length+' 条内容失败：'+error.message);
+   }
+  }
   const migrationFirstPublish=localStorage.getItem('hw-gh-migration-first-publish')==='1';
   // Remove only stale V26-mirrored rows; leave real visitors' posts and reactions untouched.
   const stale=migrationFirstPublish?[]:(existingResp.data||[]).filter(p=>!desiredPostIds.has(p.id)).map(p=>p.id);
