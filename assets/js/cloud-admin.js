@@ -443,6 +443,19 @@ async function publish(){
   const publishedCastIds=[...ids];
   // Fixed anonymous identity pool: reuse stable names/avatars; no new random cast.
   const randomPoolByHandle=new Map((snapshot.randomCommenterPool||[]).filter(p=>p?.handle).map(p=>[String(p.handle).toLowerCase(),p]));
+  // Publish every active fixed random identity independently of whether it appears
+  // in the current draft. This prevents an older/missing avatar row from being skipped
+  // merely because another comment with the same handle was encountered first.
+  for(const randomPerson of snapshot.randomCommenterPool||[]){
+   const handle=String(randomPerson?.handle||'').replace(/^@/,'').trim().toLowerCase();
+   if(!handle||!randomPerson?.name)continue;
+   const id='legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52);
+   if(!id||ids.has(id))continue;
+   const person={id,handle,name:randomPerson.name,avatar:randomPerson.avatar||'',verified:!!randomPerson.verified,badgeType:'blue'};
+   people.push(person);ids.add(id);handles.add(handle);
+   const fingerprint=hwPublishFingerprint(person);nextCharacterHashes[id]=fingerprint;
+   chars.push({id,handle,name:person.name,avatar_url:await cloudImage(person.avatar),cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:cloudBadgeType('blue',person.verified),meta:{}});
+  }
   // Comments by random visitors may not live in the saved character directory.
   // Preserve their author identities in the cloud without modifying the V26 directory.
   for(const lang of ['zh','en']){
