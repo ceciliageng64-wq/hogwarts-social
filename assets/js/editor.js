@@ -2775,8 +2775,9 @@ const hwCloudInlineDrafts=new Map();
 const hwCloudInlineFocus=new Map();
 const hwCloudInlineCursor=new Map();
 const hwCloudReadKey=id=>'hw-dev-dm-read:'+String(id);
+let hwCloudMarkAllPending=false;
 function hwCloudMarkRead(id){const c=hwCloudView.rows.find(x=>x.id===id);if(!c)return;const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(id),new Date(Math.max(Date.now(),new Date(latest.created_at).getTime())).toISOString())}catch(e){}}c.unreadCount=0;}
-function hwCloudMarkAllRead(){for(const c of hwCloudView.rows.filter(x=>String(x.character_id)===String(state.viewerId))){const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(c.id),new Date(Math.max(Date.now(),new Date(latest.created_at).getTime())).toISOString())}catch(e){}}c.unreadCount=0;}hwCloudDrawUnread();}
+function hwCloudMarkAllRead(){const own=hwCloudView.rows.filter(x=>String(x.character_id)===String(state.viewerId));if(!own.length){hwCloudMarkAllPending=true;return;}hwCloudMarkAllPending=false;for(const c of own){const latest=(c.messages||[]).filter(m=>m.sender_kind==='user').at(-1);if(latest?.created_at){try{localStorage.setItem(hwCloudReadKey(c.id),new Date(Math.max(Date.now(),new Date(latest.created_at).getTime())).toISOString())}catch(e){}}c.unreadCount=0;}hwCloudDrawUnread();}
 function hwCloudUnreadTotal(){return hwCloudView.rows.filter(c=>String(c.character_id)===String(state.viewerId)).reduce((n,c)=>n+(Number(c.unreadCount)||0),0)}
 function hwCloudDrawUnread(){const links=$('xNavLinks')?.querySelectorAll('.x-nav-link');const link=links?.[3];if(!link)return;let badge=link.querySelector('.hw-dm-unread-badge');const n=hwCloudUnreadTotal();if(n&&!badge){badge=document.createElement('span');badge.className='hw-dm-unread-badge';badge.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:99px;background:#e0245e;color:#fff;font-size:10px;font-weight:800;line-height:17px';link.append(badge)}if(badge){badge.textContent=n>99?'99+':String(n);badge.hidden=!n;badge.style.display=n?'inline-flex':'none';}if(n)link.setAttribute('aria-label','私信，'+n+'条未读');else link.setAttribute('aria-label','私信');}
 function hwCloudClearInlineImage(){hwCloudInlineImage=null;hwCloudInlineImageConversation='';if(hwCloudInlineImagePreview){URL.revokeObjectURL(hwCloudInlineImagePreview);hwCloudInlineImagePreview='';}}
@@ -2787,6 +2788,7 @@ function hwCloudInlinePreviewFor(id){
 window.hwCloudDmViewer=()=>state.viewerId;
 window.hwCloudDMUpdate=(rows)=>{
  hwCloudView.rows=Array.isArray(rows)?rows:[];
+ if(hwCloudMarkAllPending)hwCloudMarkAllRead();
  if(hwCloudView.selected&&!hwCloudView.rows.some(c=>c.id===hwCloudView.selected)){hwCloudView.selected='';hwCloudClearInlineImage();}
  hwCloudDrawUnread();
  if(state.viewMode==='dm'){
