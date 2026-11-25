@@ -243,7 +243,7 @@ window.hwDevCloudFeed={
  refresh:()=>v32Reload()
 };
 
-async function v32Reload(){if(!admin)return;const[posts,people,users]=await Promise.all([u().from('hw_posts').select('*').order('story_at',{ascending:false}).limit(3000),u().from('hw_characters').select('id,name,handle,avatar_url,badge_type').limit(1000),u().from('hw_profiles').select('id,display_name,handle,avatar_url,cover_url,bio,location,joined_label,badge_type').limit(1000)]);for(const x of [posts,people,users])if(x.error)throw x.error;v32.posts=posts.data||[];v32.people=new Map((people.data||[]).map(x=>[x.id,x]));v32.users=new Map((users.data||[]).map(x=>[x.id,x]));v32RenderPostList();v32RenderDetail();hwCloudRenderStoryList();window.dispatchEvent(new Event('hw-dev-cloud-refreshed'));if(!v33RenderAllPosts()&&!$('v33-feed')?.contains(document.activeElement))v33RefreshView();}
+async function v32Reload(){if(!admin)return;const[posts,people,users]=await Promise.all([u().from('hw_posts').select('*').order('story_at',{ascending:false}).limit(3000),u().from('hw_characters').select('id,name,handle,avatar_url,badge_type').limit(1000),u().from('hw_profiles').select('id,display_name,handle,avatar_url,cover_url,bio,location,joined_label,badge_type').limit(1000)]);for(const x of [posts,people,users])if(x.error)throw x.error;v32.posts=posts.data||[];v32.people=new Map((people.data||[]).map(x=>[x.id,x]));window.hwFixedRandomPoolImport?.(people.data||[]);v32.users=new Map((users.data||[]).map(x=>[x.id,x]));v32RenderPostList();v32RenderDetail();hwCloudRenderStoryList();window.dispatchEvent(new Event('hw-dev-cloud-refreshed'));if(!v33RenderAllPosts()&&!$('v33-feed')?.contains(document.activeElement))v33RefreshView();}
 $('hwTimelineRefresh').onclick=()=>v32Reload().catch(e=>status('读取帖子失败：'+H.errMsg(e)));
 $('hwTimelineFilter').onchange=v32RenderPostList;
 $('hwTimelineItems').onclick=e=>{const b=e.target.closest('[data-v32-open]');if(!b)return;v32.selected=b.dataset.v32Open;v32RenderPostList();v32RenderDetail();};
@@ -400,6 +400,8 @@ async function publish(){
   // Public directory membership: exactly the developer's saved People library,
   // never anonymous/random commenters later added for post author rendering.
   const publishedCastIds=[...ids];
+  // Fixed anonymous identity pool: reuse stable names/avatars; no new random cast.
+  const randomPoolByHandle=new Map((snapshot.randomCommenterPool||[]).filter(p=>p?.handle).map(p=>[String(p.handle).toLowerCase(),p]));
   // Comments by random visitors may not live in the saved character directory.
   // Preserve their author identities in the cloud without modifying the V26 directory.
   for(const lang of ['zh','en']){
@@ -410,7 +412,8 @@ async function publish(){
       if(!row?.handle||personIdByPost(row,people))continue;
       const handle=String(row.handle).replace(/^@/,'').trim().toLowerCase();
       if(!handle||handle==='my_account'||handles.has(handle))continue;
-      const fallback={id:'legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52),name:row.name||handle,handle,avatar:row.avatar||'',verified:!!row.verified,badgeType:row.badgeType||'blue'};
+      const fixed=randomPoolByHandle.get(handle);
+      const fallback={id:'legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52),name:fixed?.name||row.name||handle,handle,avatar:fixed?.avatar||row.avatar||'',verified:fixed?!!fixed.verified:!!row.verified,badgeType:row.badgeType||'blue'};
       if(!fallback.id||ids.has(fallback.id))continue;
       people.push(fallback);ids.add(fallback.id);handles.add(handle);
       const extraFingerprint=hwPublishFingerprint(fallback);
@@ -572,7 +575,6 @@ async function publish(){
   if(castErr)throw castErr;
   // Temporary commenters never belong to the editable permanent cast.
   // Never delete an active random commenter: hw_posts references its character ID.
-  const staleRandom=(cloudCast||[]).filter(x=>/^legacy_commenter_/i.test(String(x.id))&&!ids.has(x.id));
   const removed=migrationFirstPublish?[]:(cloudCast||[]).filter(x=>!/^legacy_commenter_/i.test(String(x.id))&&!ids.has(x.id));
   if(removed.length){
    const message='人物库中有 '+removed.length+' 位已被删除的人物（'+removed.slice(0,8).map(p=>p.name).join('、')+'）。\n同步删除会同时移除其云端帖子、评论以及与玩家的私信会话（不可恢复）。\n确定删除吗？';
@@ -581,25 +583,8 @@ async function publish(){
     status('✅ 已同步人物库；删除 '+removed.length+' 位人物及关联内容。');
    }else status('人物发布成功，但已删除人物仍保留在游客端。要同步删除，请下次发布时确认。');
   }else status(`✅ 增量发布完成：更新 ${chars.length} 位人物、${docPostRows.length} 条帖子或评论；跳过未修改的 ${reusedCharacters} 位人物和 ${reusedPosts} 条内容。`);
-  // Check a small batch with just three queries, then remove only unreferenced IDs.
-  // Never delete an identity with posts, conversations, or follows attached.
-  const candidateIds=staleRandom.slice(0,20).map(x=>x.id);
-  if(candidateIds.length){
-   try{
-    const checks=await Promise.all([
-     u().from('hw_posts').select('character_id').in('character_id',candidateIds).limit(5000),
-     u().from('hw_conversations').select('character_id').in('character_id',candidateIds).limit(5000),
-     u().from('hw_follows').select('character_id').in('character_id',candidateIds).limit(5000)
-    ]);
-    if(checks.every(x=>!x.error)){
-     const referenced=new Set(checks.flatMap(x=>(x.data||[]).map(y=>String(y.character_id))));
-     for(const id of candidateIds)if(!referenced.has(String(id))){
-      const {error}=await u().from('hw_characters').delete().eq('id',id);
-      if(error)console.warn('未清理临时身份',id,error.message);
-     }
-    }
-   }catch(e){console.warn('本次略过临时身份清理',e)}
-  }
+  // Fixed random identities are intentionally retained. They must never be
+  // garbage-collected merely because no new comment used them this publish.
   if(migrationFirstPublish)localStorage.removeItem('hw-gh-migration-first-publish');
   // Advance the baseline only when all required writes succeeded.
   hwSavePublishCache(HW_PUBLISH_HASH_KEY,{posts:nextPostHashes,characters:nextCharacterHashes,likes:nextLikesFingerprint});
