@@ -501,8 +501,11 @@ async function publish(){
   // admin required by RLS even though the key is public
   for(let i=0;i<chars.length;i+=60){const{error}=await u().from('hw_characters').upsert(chars.slice(i,i+60),{onConflict:'id'});if(error)throw error;}
   // Persist the official directory only after all referenced character rows exist.
-  const {error:castError}=await u().from('hw_site_settings').upsert({key:'public_cast_ids',value:publishedCastIds,updated_at:new Date().toISOString()},{onConflict:'key'});
-  if(castError)throw Error('同步人物搜索名单失败：'+castError.message);
+  const nextCastFingerprint=hwPublishFingerprint(publishedCastIds);
+  if(forceFull||previous.cast!==nextCastFingerprint){
+   const {error:castError}=await u().from('hw_site_settings').upsert({key:'public_cast_ids',value:publishedCastIds,updated_at:new Date().toISOString()},{onConflict:'key'});
+   if(castError)throw Error('同步人物搜索名单失败：'+castError.message);
+  }
   // Character profile likes live in a separate public snapshot. They are not
   // authored timeline posts and must never be inserted into hw_posts.
   const nextLikesFingerprint=hwPublishFingerprint({likes:snapshot.profileLikes,cast:publishedCastIds});
@@ -587,7 +590,7 @@ async function publish(){
   // garbage-collected merely because no new comment used them this publish.
   if(migrationFirstPublish)localStorage.removeItem('hw-gh-migration-first-publish');
   // Advance the baseline only when all required writes succeeded.
-  hwSavePublishCache(HW_PUBLISH_HASH_KEY,{posts:nextPostHashes,characters:nextCharacterHashes,likes:nextLikesFingerprint});
+  hwSavePublishCache(HW_PUBLISH_HASH_KEY,{posts:nextPostHashes,characters:nextCharacterHashes,likes:nextLikesFingerprint,cast:nextCastFingerprint});
   // Do not keep the publish button busy while refreshing the admin timeline.
   v32Reload().catch(console.warn);
  }catch(e){console.error(e);const message=H.errMsg(e);if(message.includes('hw_characters_badge_type_check'))status('发布失败：人物标志类型与数据库格式不一致。请更新 V27.9.1 后重试；无需修改 SQL 或管理员权限。');else status('发布失败：'+message+'\n只有遇到权限或表不存在错误时，才需要检查 schema.sql 与 hw_admins。');}
