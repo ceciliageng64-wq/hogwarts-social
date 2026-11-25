@@ -399,7 +399,7 @@ async function publish(){
   }
   // Public directory membership: exactly the developer's saved People library,
   // never anonymous/random commenters later added for post author rendering.
-  const publishedCastIds=people.filter(p=>p.id&&p.handle&&p.name&&String(p.handle).toLowerCase()!=='my_account').map(p=>p.id);
+  const publishedCastIds=[...ids];
   // Comments by random visitors may not live in the saved character directory.
   // Preserve their author identities in the cloud without modifying the V26 directory.
   for(const lang of ['zh','en']){
@@ -570,7 +570,8 @@ async function publish(){
   if(migrationFirstPublish)localStorage.removeItem('hw-gh-migration-first-publish');
   // Advance the baseline only when all required writes succeeded.
   hwSavePublishCache(HW_PUBLISH_HASH_KEY,{posts:nextPostHashes,characters:nextCharacterHashes,likes:nextLikesFingerprint});
-  await v32Reload().catch(console.warn);
+  // Do not keep the publish button busy while refreshing the admin timeline.
+  v32Reload().catch(console.warn);
  }catch(e){console.error(e);const message=H.errMsg(e);if(message.includes('hw_characters_badge_type_check'))status('发布失败：人物标志类型与数据库格式不一致。请更新 V27.9.1 后重试；无需修改 SQL 或管理员权限。');else status('发布失败：'+message+'\n只有遇到权限或表不存在错误时，才需要检查 schema.sql 与 hw_admins。');}
  finally{busyState(false)}
 }
