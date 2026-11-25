@@ -175,6 +175,33 @@ async function hwDevCloudRootId(row){
 }
 
 
+// Permanent cast and fixed random commenters share the same reply selector.
+function hwDevReplyCharacters(){
+ const formal=[...v32.people.values()].filter(p=>p.id&&p.name&&!/^legacy_commenter_/i.test(String(p.id))).map(p=>({...p,hwRandom:false}));
+ const random=new Map();
+ for(const p of v32.people.values())if(/^legacy_commenter_/i.test(String(p.id))&&p.name)random.set(String(p.handle||'').toLowerCase(),{...p,hwRandom:true});
+ for(const p of window.hwFixedRandomPoolList?.()||[]){
+  const handle=String(p.handle||'').replace(/^@/,'').trim().toLowerCase();
+  if(!handle||!p.name||random.has(handle))continue;
+  random.set(handle,{id:'legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52),handle,name:p.name,avatar_url:p.avatar||'',badge_type:p.verified?'blue':'none',hwRandom:true});
+ }
+ const sort=(x,y)=>String(x.name).localeCompare(String(y.name),'zh-CN');
+ return [...formal.sort(sort),...[...random.values()].sort(sort)];
+}
+async function hwDevEnsureReplyPerson(id){
+ const exists=v32.people.get(id);if(exists)return exists;
+ const selected=hwDevReplyCharacters().find(p=>p.id===id&&p.hwRandom);
+ if(!selected)throw Error('请选择有效的评论人物');
+ // The database requires every character comment to reference a real character ID.
+ // Create only the selected fixed identity once, never republish the entire pool.
+ const avatar=selected.avatar_url?await cloudImage(selected.avatar_url):null;
+ const row={id:selected.id,handle:selected.handle,name:selected.name,avatar_url:avatar,cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:selected.badge_type||'none',meta:{}};
+ const {error}=await u().from('hw_characters').upsert(row,{onConflict:'id',ignoreDuplicates:true});
+ if(error)throw Error('首次使用随机人物失败：'+error.message);
+ const person={...selected,avatar_url:avatar};
+ v32.people.set(id,person);
+ return person;
+}
 window.hwDevCloudFeed={
  list:()=>v32.posts.filter(p=>!p.parent_id).map(p=>{
   const person=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);
@@ -185,12 +212,12 @@ window.hwDevCloudFeed={
  reply:id=>{const p=v32.posts.find(x=>x.id===id);if(!p)return null;const a=p.author_kind==='character'?v32.people.get(p.character_id):v32.users.get(p.user_id);return {...p,authorName:v32PostAuthor(p),authorHandle:a?.handle||''};},
  playerReplies:id=>v32.posts.filter(x=>x.user_id===id&&x.parent_id).map(p=>{let root=p,seen=new Set();while(root?.parent_id&&!seen.has(root.id)){seen.add(root.id);root=v32.posts.find(x=>x.id===root.parent_id)}return {...p,authorName:v32PostAuthor(p),authorHandle:v32.users.get(id)?.handle||'',time:hwCloudStoryText(p),sortTime:hwCloudStoryMs(p),rootPostId:root?.id||p.parent_id,replyCount:0}}).sort((a,b)=>b.sortTime-a.sortTime),
  player:id=>v32.users.get(id),
- characters:()=>[...v32.people.values()].filter(p=>p.id&&p.name&&!/^legacy_commenter_/i.test(String(p.id))).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),
+ characters:()=>hwDevReplyCharacters(),
  sendReply:async(id,characterId,body,parentId='',imageFile=null)=>{
   if(!admin)throw Error('请先登录开发者账号');
-  const post=v32.posts.find(p=>p.id===id&&!p.parent_id),person=v32.people.get(characterId);
+  const post=v32.posts.find(p=>p.id===id&&!p.parent_id);
   if(!post)throw Error('帖子不存在或已被删除');
-  if(!person)throw Error('请选择有效的人物');
+  const person=await hwDevEnsureReplyPerson(characterId);
   const text=String(body||'').trim();if(!text&&!imageFile)throw Error('评论不能为空');
   if(parentId){
    let parent=v32.posts.find(p=>p.id===parentId);
