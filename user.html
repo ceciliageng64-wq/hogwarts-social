@@ -334,6 +334,23 @@ const safeStorage={getItem(key){try{return localStorage.getItem(key)}catch{retur
 const state={view:'feed',profileKind:'character',profileId:'',postId:'',replyTo:'',quoteId:'',profileTab:'posts',theme:safeStorage.getItem('hw27-theme')||'light',user:null,myProfile:null,loggedIn:false,authReady:false,composerImage:null,dmConversationId:'',dmFile:null,uploading:false,editingProfile:false,dmLoading:false,bannerVisible:false,error:'',busy:false};
 // Remember the exact feed item and its viewport offset before opening a post.
 let feedReturnPosition=null;
+// Remember the exact page and scroll anchor before opening a character/player profile.
+let profileReturnPosition=null;
+function capturePagePosition(){
+ const candidates=[...document.querySelectorAll('#content .post[data-post-id]')];
+ const anchor=candidates.find(el=>{const r=el.getBoundingClientRect();return r.bottom>0&&r.top<window.innerHeight;});
+ return {view:state.view,postId:state.postId||'',scrollY:window.scrollY,anchorId:anchor?.dataset.postId||'',offset:anchor?anchor.getBoundingClientRect().top:0};
+}
+function restorePagePosition(saved){
+ if(!saved)return;
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  if(saved.anchorId){
+   const el=document.querySelector('#content .post[data-post-id="'+CSS.escape(saved.anchorId)+'"]');
+   if(el){window.scrollTo({top:Math.max(0,window.scrollY+el.getBoundingClientRect().top-saved.offset),behavior:'auto'});return;}
+  }
+  window.scrollTo({top:saved.scrollY||0,behavior:'auto'});
+ }));
+}
 const hwClientDmReadKey=id=>'hw-client-dm-read:'+String(state.user?.id||'guest')+':'+String(id);
 function hwClientDmUnread(c){let seen=0;try{seen=new Date(localStorage.getItem(hwClientDmReadKey(c.id))||0).getTime()||0}catch(e){}return cache.messages.filter(m=>m.conversation_id===c.id&&m.sender_kind==='character'&&!m.recalled&&new Date(m.created_at).getTime()>seen).length;}
 function hwClientDmMarkRead(id){const c=cache.conversations.find(x=>x.id===id);if(!c)return;const incoming=cache.messages.filter(m=>m.conversation_id===id&&m.sender_kind==='character').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));const latest=incoming.at(-1);if(latest?.created_at){try{localStorage.setItem(hwClientDmReadKey(id),latest.created_at)}catch(e){}}}
@@ -791,6 +808,7 @@ function navigate(view,opts={}){
   const anchor=candidates.find(el=>{const r=el.getBoundingClientRect();return r.bottom>0&&r.top<window.innerHeight;});
   feedReturnPosition={scrollY:window.scrollY,postId:anchor?.dataset.postId||'',offset:anchor?anchor.getBoundingClientRect().top:0};
  }
+ if(view==='profile'&&state.view!=='profile')profileReturnPosition=capturePagePosition();
  state.view=view;
  if(view==='post'){state.postId=opts.id||state.postId;state.replyTo=opts.replyTo||'';}
  if(view==='profile'){state.profileKind=opts.kind||'character';state.profileId=opts.id||'';state.profileTab='posts';}
@@ -1086,7 +1104,17 @@ if($('cast-search-input'))$('cast-search-input').addEventListener('input',render
 if($('cast-search-results'))$('cast-search-results').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b){$('cast-search-input').value='';renderCastSearch();await handleAction(b.dataset.action,b)}});
 $('content').addEventListener('input',e=>{if(e.target.id==='explore-cast-search'){const el=e.target;state.castSearch=el.value;const pos=el.selectionStart;const area=el.closest('#content');if(area){const matching=discoverableCharacters().filter(c=>castMatch(c,state.castSearch));const holder=area.querySelector('.explore-cast-results');if(holder)holder.innerHTML=matching.map(c=>`<div class="post" style="align-items:center">${authorLink({...c,kind:'character'})}<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="character" data-id="${E(c.id)}">${E(c.name)} ${authorBadge(c)}</strong><div class="muted">@${E(c.handle)}</div></div><button class="small-outline" data-action="profile" data-kind="character" data-id="${E(c.id)}">主页</button><button class="small-outline" data-action="start-dm" data-id="${E(c.id)}">✉ 私信</button></div>`).join('')||'<div class="empty">没有符合搜索条件的人物。</div>';}}});
 if($('nav-current'))$('nav-current').onclick=()=>navigate('me');if($('nav-post'))$('nav-post').onclick=()=>{if(needAuth())navigate('feed')};
-if($('back-button'))$('back-button').onclick=()=>{if(hwUnreadReturn){hwUnreadReturn=false;navigate('unread')}else navigate('feed',{restoreFeedPosition:state.view==='post'})};
+if($('back-button'))$('back-button').onclick=()=>{
+ if(hwUnreadReturn){hwUnreadReturn=false;navigate('unread');return;}
+ if(state.view==='profile'&&profileReturnPosition){
+  const saved=profileReturnPosition;profileReturnPosition=null;
+  const target=saved.view||'feed';
+  if(target==='post')navigate('post',{id:saved.postId});
+  else navigate(target);
+  restorePagePosition(saved);return;
+ }
+ navigate('feed',{restoreFeedPosition:state.view==='post'});
+};
 $('brand-button').onclick=()=>navigate('feed');
 if($('theme-toggle'))$('theme-toggle').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';safeStorage.setItem('hw27-theme',state.theme);renderPage()};
 if($('sidebar-login'))$('sidebar-login').onclick=()=>showAuth();
