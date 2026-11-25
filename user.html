@@ -509,7 +509,7 @@ function hwUnreadPage(){
  const notices=ambient.map(event=>'<button type="button" class="hw-unread-group" data-action="ambient-open" data-id="'+E(event.post.id)+'" data-ambient-key="'+E(event.key)+'">'
   +'<div class="hw-unread-group-head"><strong>'+E(event.actor.name)+'</strong><span class="hw-unread-count">'+({like:'♡ 点赞',bookmark:'♧ 收藏',view:'◉ 浏览'}[event.kind])+'</span></div>'
   +'<p>'+E(event.actor.name)+' '+({like:'赞了',bookmark:'收藏了',view:'浏览了'}[event.kind])+'你的帖子：「'+E((event.post.body||'[图片]').slice(0,90))+'」</p>'
-  +'<small>'+(isRandomCommenter(event.actor)?'随机网友':'霍格沃茨人物库')+' · 点击查看帖子</small></button>').join('');
+  +'</button>').join('');
  const total=items.length+ambient.length;
  return '<div class="hw-unread-info"><strong>你有 '+total+' 条消息没有浏览过</strong><small>包含新帖子、真实评论和人物互动提示。点击互动提示后标记已读。</small></div>'
   +notices+cards
