@@ -392,20 +392,33 @@ function hwAmbientSeed(value){
 }
 function hwAmbientStats(post){
  const zero={likes:0,replies:0,reposts:0,bookmarks:0,views:0};
- if(post?.author_kind!=='user'||post.parent_id)return zero;
+ if(!post)return zero;
+ const isPlayer=post.author_kind==='user';
+ const isRandomReply=!!post.parent_id&&post.author_kind==='character'&&/^legacy_commenter_/i.test(String(post.character_id||''));
+ // Do not modify developer-managed official character posts and replies.
+ if(!isPlayer&&!isRandomReply)return zero;
  const ms=Date.parse(post.published_at||post.created_at||'');
  if(!Number.isFinite(ms))return zero;
- // Immediate activity, then a fixed, per-post lifetime cap.
- // Simulated counts do not write likes, bookmarks or comments to the cloud.
  const minutes=Math.max(0,(Date.now()-ms)/60000);
  const seed=hwAmbientSeed(post.id);
- const rise=(initial,limit,pace)=>minutes>=50?limit:Math.min(limit,initial+Math.floor((limit-initial)*(1-Math.exp(-minutes/pace))));
+ // Stable per-comment caps; fast initial growth, hard stop after 35 minutes.
+ // Only displayed counters change: no fake comments or reaction rows are inserted.
+ const rise=(initial,limit,pace,stop=35)=>minutes>=stop?limit:Math.min(limit,initial+Math.floor((limit-initial)*(1-Math.exp(-minutes/pace))));
+ if(post.parent_id){
+  return {
+   likes:rise(1+seed%3,6+seed%32,3+seed%7),
+   replies:rise(0,seed%3,9+seed%5),
+   reposts:rise(0,seed%5,10+seed%6),
+   bookmarks:rise(0,2+seed%12,7+seed%5),
+   views:rise(5+seed%16,45+seed%260,4+seed%8)
+  };
+ }
  return {
-  likes:rise(2+seed%3,16+seed%39,7+(seed%5)),
-  replies:rise(0,1+(seed%4),14),
-  reposts:rise(0,2+(seed%8),13),
-  bookmarks:rise(1+(seed%2),5+(seed%16),9),
-  views:rise(12+seed%18,85+(seed%440),6+(seed%7))
+  likes:rise(2+seed%3,16+seed%39,7+(seed%5),50),
+  replies:rise(0,1+(seed%4),14,50),
+  reposts:rise(0,2+(seed%8),13,50),
+  bookmarks:rise(1+(seed%2),5+(seed%16),9,50),
+  views:rise(12+seed%18,85+(seed%440),6+(seed%7),50)
  };
 }
 const hwAmbientReadKey=()=> 'hw-ambient-read-v1:'+String(state.user?.id||'guest');
@@ -444,7 +457,8 @@ function hwAmbientRefresh(){
  // Update only rendered counters to avoid destroying drafts, scroll positions and inputs.
  for(const article of document.querySelectorAll('#content article.post[data-post-id]')){
   const post=postById(article.dataset.postId);
-  if(!post||post.author_kind!=='user'||post.parent_id)continue;
+  if(!post)continue;
+  if(post.author_kind!=='user'&&!(post.parent_id&&post.author_kind==='character'&&/^legacy_commenter_/i.test(String(post.character_id||''))))continue;
   const metrics=hwAmbientStats(post),items={
    reply:formatNum(repliesTo(post.id).length+metricNumber(post.metrics?.replies)+metrics.replies),
    repost:formatNum(metricNumber(post.metrics?.reposts)+metrics.reposts),
