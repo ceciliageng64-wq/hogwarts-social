@@ -712,7 +712,7 @@ function renderPeopleList(){
  const temporary=$('temporaryPeopleList');
  if(temporary){
   const pool=hwFixedRandomPool();
-  temporary.innerHTML=pool.length?pool.slice(0,200).map(p=>'<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--stroke)">'+av(p,'sm')+'<span style="flex:1;min-width:0;overflow-wrap:anywhere"><strong>'+esc(p.name)+'</strong><small style="display:block">@'+esc(p.handle)+'</small></span><button type="button" class="smallbutton danger" data-random-remove="'+esc(p.handle)+'" title="移出随机账号池，不删除旧评论">移出</button></div>').join(''):'<p class="muted-hint">账号池为空，可在上方手动新增或随机生成。</p>';
+  temporary.innerHTML=pool.length?pool.slice(0,200).map(p=>'<div style="display:flex;align-items:center;gap:7px;padding:8px 0;border-bottom:1px solid var(--stroke)">'+av(p,'sm')+'<span style="flex:1;min-width:0;overflow-wrap:anywhere"><input type="text" maxlength="80" data-random-name="'+esc(p.handle)+'" value="'+esc(p.name)+'" aria-label="修改 '+esc(p.handle)+' 的昵称" style="width:100%;min-width:0;padding:6px;border:1px solid var(--stroke);border-radius:7px"><small style="display:block">@'+esc(p.handle)+'</small></span><button type="button" class="smallbutton primary" data-random-save="'+esc(p.handle)+'">保存名字</button><button type="button" class="smallbutton danger" data-random-remove="'+esc(p.handle)+'" title="移出账号池，不删除旧评论">移出</button></div>').join(''):'<p class="muted-hint">账号池为空，可在上方手动新增或随机生成。</p>';
   if(pool.length>200)temporary.innerHTML+='<small>共 '+pool.length+' 位，当前显示前 200 位。</small>';
  }
  $('personFormTitle').textContent=T('newPerson');$('personSave').textContent=T('savePerson');
@@ -878,6 +878,19 @@ $('randomPoolGenerate').onclick=()=>{
  changed();toast('已新增随机人物');
 };
 $('temporaryPeopleList').onclick=event=>{
+ const save=event.target.closest('[data-random-save]');
+ if(save){
+  const handle=canonicalHandle(save.dataset.randomSave),input=$('temporaryPeopleList').querySelector('[data-random-name="'+CSS.escape(handle)+'"]');
+  const name=String(input?.value||'').trim().slice(0,80);if(!name){toast('昵称不能为空');return}
+  const person=(state.randomCommenterPool||[]).find(p=>canonicalHandle(p.handle)===handle);if(!person){toast('随机人物不存在');return}
+  const oldName=person.name;person.name=name;
+  const update=row=>{if(row&&canonicalHandle(row.handle)===handle)row.name=name};
+  for(const lang of ['zh','en']){
+   const doc=state.drafts?.[lang];if(doc){update(doc.post);for(const row of [...(doc.replies||[]),...(doc.quotes||[])])update(row)}
+   for(const bank of [state.profilePosts?.[lang]||{},state.profileReposts?.[lang]||{}])for(const rows of Object.values(bank))for(const post of rows||[]){update(post);for(const row of [...(post.hwThread?.replies||[]),...(post.hwThread?.quotes||[])])update(row)}
+  }
+  changed();toast('已修改 '+oldName+' 的昵称；点击云端发布同步客户端');return;
+ }
  const btn=event.target.closest('[data-random-remove]');if(!btn)return;
  const handle=canonicalHandle(btn.dataset.randomRemove);
  state.randomCommenterPool=(state.randomCommenterPool||[]).filter(p=>canonicalHandle(p.handle)!==handle);
