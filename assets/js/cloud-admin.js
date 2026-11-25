@@ -189,14 +189,28 @@ function hwDevReplyCharacters(){
  return [...formal.sort(sort),...[...random.values()].sort(sort)];
 }
 async function hwDevEnsureReplyPerson(id){
- const exists=v32.people.get(id);if(exists)return exists;
+ const exists=v32.people.get(id);if(exists){
+  // Existing random identities can acquire an avatar after their first comment.
+  if(/^legacy_commenter_/i.test(String(id))){
+   const saved=(window.hwFixedRandomPoolList?.()||[]).find(p=>'legacy_commenter_'+String(p.handle||'').replace(/[^a-z0-9_]/g,'').slice(0,52)===id);
+   if(saved?.avatar){
+    const url=await cloudImage(saved.avatar);
+    if(url&&url!==exists.avatar_url){
+     const {error}=await u().from('hw_characters').update({avatar_url:url}).eq('id',id);
+     if(error)throw Error('同步随机人物头像失败：'+error.message);
+     exists.avatar_url=url;
+    }
+   }
+  }
+  return exists;
+ }
  const selected=hwDevReplyCharacters().find(p=>p.id===id&&p.hwRandom);
  if(!selected)throw Error('请选择有效的评论人物');
  // The database requires every character comment to reference a real character ID.
  // Create only the selected fixed identity once, never republish the entire pool.
  const avatar=selected.avatar_url?await cloudImage(selected.avatar_url):null;
  const row={id:selected.id,handle:selected.handle,name:selected.name,avatar_url:avatar,cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:selected.badge_type||'none',meta:{}};
- const {error}=await u().from('hw_characters').upsert(row,{onConflict:'id',ignoreDuplicates:true});
+ const {error}=await u().from('hw_characters').upsert(row,{onConflict:'id'});
  if(error)throw Error('首次使用随机人物失败：'+error.message);
  const person={...selected,avatar_url:avatar};
  v32.people.set(id,person);
@@ -445,7 +459,7 @@ async function publish(){
       people.push(fallback);ids.add(fallback.id);handles.add(handle);
       const extraFingerprint=hwPublishFingerprint(fallback);
       nextCharacterHashes[fallback.id]=extraFingerprint;
-      if(!forceFull&&previousChars[fallback.id]===extraFingerprint){reusedCharacters++;continue;}
+      // Random account avatars are refreshed on publish, including older cloud rows with missing images.
       chars.push({id:fallback.id,handle:fallback.handle,name:fallback.name,avatar_url:await cloudImage(fallback.avatar),cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:cloudBadgeType(fallback.badgeType,fallback.verified),meta:{}});
     }
   }
