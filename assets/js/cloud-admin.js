@@ -182,8 +182,9 @@ function hwDevReplyCharacters(){
  for(const p of v32.people.values())if(/^legacy_commenter_/i.test(String(p.id))&&p.name)random.set(String(p.handle||'').toLowerCase(),{...p,hwRandom:true});
  for(const p of window.hwFixedRandomPoolList?.()||[]){
   const handle=String(p.handle||'').replace(/^@/,'').trim().toLowerCase();
-  if(!handle||!p.name||random.has(handle))continue;
-  random.set(handle,{id:'legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52),handle,name:p.name,avatar_url:p.avatar||'',badge_type:p.verified?'blue':'none',hwRandom:true});
+  if(!handle||!p.name)continue;
+  // Prefer current local profile over a stale previously loaded cloud snapshot.
+  random.set(handle,{id:p.id||'legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52),handle,name:p.name,avatar_url:p.avatar||'',badge_type:p.verified?'blue':'none',hwRandom:true});
  }
  const sort=(x,y)=>String(x.name).localeCompare(String(y.name),'zh-CN');
  return [...formal.sort(sort),...[...random.values()].sort(sort)];
@@ -192,7 +193,7 @@ async function hwDevEnsureReplyPerson(id){
  const exists=v32.people.get(id);if(exists){
   // Existing random identities can acquire an avatar after their first comment.
   if(/^legacy_commenter_/i.test(String(id))){
-   const saved=(window.hwFixedRandomPoolList?.()||[]).find(p=>'legacy_commenter_'+String(p.handle||'').replace(/[^a-z0-9_]/g,'').slice(0,52)===id);
+   const saved=(window.hwFixedRandomPoolList?.()||[]).find(p=>String(p.id||('legacy_commenter_'+String(p.handle||'').replace(/[^a-z0-9_]/g,'').slice(0,52)))===id);
    if(saved?.avatar){
     const url=await cloudImage(saved.avatar);
     if(url&&url!==exists.avatar_url){
