@@ -2826,7 +2826,7 @@ function hwCloudDraw(){
  }
 }
 const hwOldRenderDM=renderPreviewOnly;
-renderPreviewOnly=function(){hwOldRenderDM();hwCloudDraw()};
+renderPreviewOnly=function(){hwOldRenderDM();hwCloudDraw();hwCloudDrawUnread()};
 $('feedContent').addEventListener('click',async e=>{
  if(state.viewMode!=='dm'||state.clientMode==='user')return;
  const cloud=e.target.closest('[data-cloud-chat]');
