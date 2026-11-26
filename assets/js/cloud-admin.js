@@ -700,10 +700,11 @@ async function publish(){
  }catch(e){console.error(e);const message=H.errMsg(e);if(message.includes('hw_characters_badge_type_check'))status('发布失败：人物标志类型与数据库格式不一致。请更新 V27.9.1 后重试；无需修改 SQL 或管理员权限。');else status('发布失败：'+message+'\n只有遇到权限或表不存在错误时，才需要检查 schema.sql 与 hw_admins。');}
  finally{busyState(false)}
 }
-async function listOptions(){if(!admin)return;const[profiles,characters]=await Promise.all([u().from('hw_profiles').select('id,display_name,handle').order('created_at',{ascending:false}).limit(200),u().from('hw_characters').select('id,name,handle').order('name').limit(200)]);
- if(profiles.error||characters.error){status('读取云端用户失败：'+H.errMsg(profiles.error||characters.error));return;}
+async function listOptions(){if(!admin)return;const[profiles,characters,cast]=await Promise.all([u().from('hw_profiles').select('id,display_name,handle').order('created_at',{ascending:false}).limit(200),u().from('hw_characters').select('id,name,handle').order('name').limit(1000),u().from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle()]);
+ if(profiles.error||characters.error||cast.error){status('读取云端用户失败：'+H.errMsg(profiles.error||characters.error||cast.error));return;}
+ const official=new Set(Array.isArray(cast.data?.value)?cast.data.value.map(String):[]);
  $('hwCloudVisitor').innerHTML=(profiles.data||[]).map(p=>`<option value="${S(p.id)}">${S(p.display_name)} @${S(p.handle)}</option>`).join('')||'<option value="">尚无注册用户</option>';
- $('hwCloudCharacter').innerHTML=(characters.data||[]).map(p=>`<option value="${S(p.id)}">${S(p.name)} @${S(p.handle)}</option>`).join('')||'<option value="">请先发布人物库</option>';
+ $('hwCloudCharacter').innerHTML=(characters.data||[]).filter(p=>official.has(String(p.id))).map(p=>`<option value="${S(p.id)}">${S(p.name)} @${S(p.handle)}</option>`).join('')||'<option value="">请先发布人物库</option>';
 }
 async function refreshInbox(){
  if(!admin)return;
