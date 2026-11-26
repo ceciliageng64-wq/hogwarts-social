@@ -2532,9 +2532,52 @@ u23PostCard=function(ref,options={}){const html=v25OldUserPostCard(ref,options);
 
 // Two screenshot modes for user view: current content and complete X layout.
 const v25ScreenButtons=document.createElement('div');v25ScreenButtons.id='v25ScreenBar';v25ScreenButtons.setAttribute('role','group');v25ScreenButtons.setAttribute('aria-label','用户截图导出');v25ScreenButtons.innerHTML=`<button type="button" id="v25ScreenCurrent">📷 当前内容 PNG</button><button type="button" id="v25ScreenFull">🖼️ 完整 X 页面 PNG</button>`;document.querySelector('.toolbar-right')?.append(v25ScreenButtons);
+// v43: Export the actual CSS rules, including base.css and features.css.
+// External linked styles are otherwise absent in SVG/foreignObject PNGs.
+async function v25CaptureStyles(){
+ const parts=[];
+ for(const sheet of Array.from(document.styleSheets)){
+  try{parts.push(Array.from(sheet.cssRules||[],rule=>rule.cssText).join('\n'))}
+  catch(error){
+   if(!sheet.href)continue;
+   try{
+    const url=new URL(sheet.href,document.baseURI);
+    if(url.origin!==window.location.origin)continue;
+    const response=await fetch(url.href,{cache:'force-cache'});
+    if(response.ok)parts.push(await response.text());
+   }catch(e){console.warn('截图加载 CSS 失败',e)}
+  }
+ }
+ return parts.join('\n');
+}
+// A foreignObject SVG cannot reliably reuse externally hosted private chat
+// photos and avatars. Embed their original bytes as data URLs in the clone.
+async function v25CaptureInlineImages(root){
+ const failed=[];
+ await Promise.all(Array.from(root.querySelectorAll('img')).map(async img=>{
+  const src=img.currentSrc||img.getAttribute('src')||'';
+  if(!src||src.startsWith('data:'))return;
+  try{
+   const url=new URL(src,document.baseURI);
+   const response=await fetch(url.href,{mode:'cors',credentials:'omit'});
+   if(!response.ok)throw Error('HTTP '+response.status);
+   const blob=await response.blob();
+   if(!blob.type.startsWith('image/'))throw Error('不是图片');
+   const data=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(reader.error||Error('图片读取失败'));
+    reader.readAsDataURL(blob);
+   });
+   img.src=data;img.removeAttribute('srcset');img.removeAttribute('sizes');
+  }catch(error){console.warn('无法将图片嵌入截图',src,error);failed.push(img.alt||'图片')}
+ }));
+ return failed;
+}
 async function v25CaptureUser(full=false){
  const area=$('captureArea'),fullRoot=document.querySelector('.app-viewport');
  if(!area||!fullRoot)return;
+ const isDMPage=state.viewMode==='dm'||(state.clientMode==='user'&&state.userNav==='messages');
  const isChat=state.clientMode==='user'&&state.userNav==='messages'&&!full;
  const chatOnly=isChat?area.querySelector('.u23-chat'):null;
  const root=full?fullRoot:(chatOnly||area),width=full?1150:600;
@@ -2573,24 +2616,43 @@ async function v25CaptureUser(full=false){
  // Never export developer actions, editable metrics, or the management rows.
  copy.querySelectorAll('.pv-post-edittools,.u25-user-shotbar,[data-u23="edit-own"],.quote-edit-preview,.x-delete-preview,.hw-dev-card-quick,.hw-dev-comment-admin,.hw-dev-comment-head-actions,.hw-dev-comment-editor,.hw-dev-feed-tools,[data-hw-dev-comment-metric],[data-hw-dev-feed],[data-hw-dev-comment],.v25-screenbar').forEach(el=>el.remove());
  // Keep the visible text of compositions, not form fields/controls.
- copy.querySelectorAll('textarea,select,input').forEach(el=>{
+ if(!isDMPage){
+  copy.querySelectorAll('textarea,select,input').forEach(el=>{
    if(el.tagName==='TEXTAREA'){
-     const div=document.createElement('div');div.style.cssText='padding:11px;font-size:14px;white-space:pre-wrap;color:var(--muted)';div.textContent=el.value||el.getAttribute('placeholder')||'';el.replaceWith(div);
+    const div=document.createElement('div');div.style.cssText='padding:11px;font-size:14px;white-space:pre-wrap;color:var(--muted)';div.textContent=el.value||el.getAttribute('placeholder')||'';el.replaceWith(div);
    }else el.remove();
- });
+  });
+ }else{
+  // Do not replace real messaging controls with plain, unstyled paragraphs.
+  const originals=root.querySelectorAll('textarea,input,select'),clones=copy.querySelectorAll('textarea,input,select');
+  originals.forEach((real,i)=>{
+   const cloned=clones[i];if(!cloned)return;
+   if(cloned.tagName==='TEXTAREA')cloned.textContent=real.value;
+   else if(cloned.tagName==='INPUT'&&cloned.type!=='file')cloned.setAttribute('value',real.value||'');
+   else if(cloned.tagName==='SELECT')for(const option of cloned.options)option.selected=option.value===real.value;
+  });
+ }
  const surfaceStyle=getComputedStyle(document.body);
- const outer=document.createElement('div');
- outer.className=document.body.className+' u23-user v273-shot-root';
+ const outer=document.createElement('body');
+ outer.className=document.body.className+' v273-shot-root'+(state.clientMode==='user'?' u23-user':'');
  outer.style.cssText=`width:${width}px;background:${state.theme==='dark'?'#000':'#fff'};color:${surfaceStyle.getPropertyValue('--ink')};--ink:${surfaceStyle.getPropertyValue('--ink')};--muted:${surfaceStyle.getPropertyValue('--muted')};--surface:${surfaceStyle.getPropertyValue('--surface')};--stroke:${surfaceStyle.getPropertyValue('--stroke')};--accent:#1d9bf0;--highlight:${surfaceStyle.getPropertyValue('--highlight')};--comp:${surfaceStyle.getPropertyValue('--comp')};`;
  const css=document.createElement('style');
- css.textContent=Array.from(document.querySelectorAll('style')).map(x=>x.textContent).join('\n')+`\n.v273-shot-root .x-feed{overflow:visible!important;height:auto!important;max-height:none!important;min-width:0!important;width:600px!important;flex-shrink:0!important}.v273-shot-root .app-viewport{display:grid!important;grid-template-columns:240px 600px 310px!important;width:1150px!important;max-width:none!important;height:auto!important;min-height:0!important}.v273-shot-root .x-nav,.v273-shot-root .x-right{display:flex!important;position:static!important;flex-shrink:0!important;height:auto!important;max-height:none!important}.v273-shot-root .x-right{display:block!important}.v273-shot-root .u23-chat,.v273-shot-root .u23-chat-messages{height:auto!important;max-height:none!important;overflow:visible!important;flex:none!important}.v273-shot-root .u23-inbox{min-height:0!important}.v273-shot-root .v26-current-chat-capture{width:600px!important;max-width:600px!important;min-height:600px!important}.v273-shot-root .pv-post-edittools,.v273-shot-root .quote-edit-preview,.v273-shot-root .x-delete-preview{display:none!important}`;
+ css.textContent=(await v25CaptureStyles())+`\n.v273-shot-root .x-feed{overflow:visible!important;height:auto!important;max-height:none!important;min-width:0!important;width:600px!important;flex-shrink:0!important}.v273-shot-root .app-viewport{display:grid!important;grid-template-columns:240px 600px 310px!important;width:1150px!important;max-width:none!important;height:auto!important;min-height:0!important}.v273-shot-root .x-nav,.v273-shot-root .x-right{display:flex!important;position:static!important;flex-shrink:0!important;height:auto!important;max-height:none!important}.v273-shot-root .x-right{display:block!important}.v273-shot-root .u23-chat,.v273-shot-root .u23-chat-messages{height:auto!important;max-height:none!important;overflow:visible!important;flex:none!important}.v273-shot-root .u23-inbox{min-height:0!important}.v273-shot-root .v26-current-chat-capture{width:600px!important;max-width:600px!important;min-height:600px!important}.v273-shot-root .dm-app{grid-template-columns:40% 60%!important}.v273-shot-root .pv-post-edittools,.v273-shot-root .quote-edit-preview,.v273-shot-root .x-delete-preview{display:none!important}`;
  outer.append(css,copy);
  // Measure the actual content height in a detached *but laid-out* off-screen stage.
  const measure=document.createElement('div');measure.style.cssText=`position:absolute;left:-20000px;top:0;visibility:hidden;pointer-events:none;width:${width}px;z-index:-1;`;
  measure.append(outer);document.body.append(measure);
  let height;
  try{
-  await Promise.all([...outer.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true});setTimeout(r,750)})));
+  const missingImages=await v25CaptureInlineImages(copy);
+  if(isDMPage&&missingImages.includes('私信图片'))throw Error('私信图片无法加载到截图，请确认图片正常显示后重试');
+  await Promise.all([...outer.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true});setTimeout(r,1200)})));
+  if(isDMPage){
+   for(const selector of ['.dm-messages','.dm-scroll','.u23-chat-messages','.u23-conv-list']){
+    const real=root.querySelectorAll(selector),cloneNodes=copy.querySelectorAll(selector);
+    real.forEach((el,i)=>{if(cloneNodes[i]){cloneNodes[i].scrollTop=el.scrollTop;cloneNodes[i].scrollLeft=el.scrollLeft}});
+   }
+  }
   height=Math.max(isChat?600:450,Math.ceil(copy.scrollHeight),Math.ceil(copy.getBoundingClientRect().height));
  }finally{measure.remove()}
  if(height>14000)throw Error(state.lang==='zh'?'页面过长，请分段截图（上限 14000px）':'Page is too long for a single PNG (max 14000px).');
