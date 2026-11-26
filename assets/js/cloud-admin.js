@@ -244,6 +244,57 @@ window.hwDevCloudFeed={
   if(error)throw error;
   await v32Reload();
  },
+ addRandomReplies:async(id,count=3)=>{
+  if(!admin||!await H.isAdmin())throw Error('只有管理员可以增加随机人物评论');
+  const post=v32.posts.find(p=>p.id===id&&!p.parent_id);
+  if(!post)throw Error('主帖不存在或已被删除');
+  const countSafe=Math.max(1,Math.min(5,Math.floor(Number(count)||3)));
+  const choices=hwDevReplyCharacters().filter(p=>p.hwRandom&&p.id&&p.handle);
+  if(!choices.length)throw Error('请先在开发端随机人物库新增至少一位固定随机人物');
+  // Keep one identity per batch where possible. Manual action only; never
+  // generate comments on load, and never impersonate real player accounts.
+  const sampled=[...choices];
+  for(let i=sampled.length-1;i>0;i--){
+   const j=Math.floor(Math.random()*(i+1));[sampled[i],sampled[j]]=[sampled[j],sampled[i]];
+  }
+  const chinese=[
+   '这帖子怎么还在持续更新，我的猫头鹰都跟不上了👀',
+   '我刚到礼堂就看到了这个讨论，什么情况？',
+   '说真的，这一楼有点东西，我先蹲后续',
+   '等等，我以为只有我发现这个细节😭',
+   '这评论区真的比魔法史课还精彩',
+   '我室友也刷到了，公共休息室已经聊起来了',
+   '哈哈哈先别急，让我把前情提要看完',
+   '有没有人能解释一下，现在已经到第几集了',
+   '这届霍格沃茨网友也太会聊天了',
+   '我觉得还得听听其他人的意见',
+   '居然连这里也讨论起来了，绝了',
+   '先放个书签，晚点回来补后续'
+  ];
+  const english=[
+   'Wait, how did this thread get so chaotic 😭',
+   'The common room is definitely talking about this',
+   'I need context before I pick a side 👀',
+   'This comment section is the real story',
+   'Even my owl heard about this by now',
+   'Someone please explain what happened next'
+  ];
+  const bank=post.language==='en'?english:chinese;
+  const rows=[];
+  for(let i=0;i<countSafe;i++){
+   const selected=sampled[i%sampled.length];
+   const person=await hwDevEnsureReplyPerson(selected.id);
+   rows.push({id:'v32:'+crypto.randomUUID(),author_kind:'character',character_id:person.id,
+    user_id:null,parent_id:id,quote_id:null,
+    body:bank[Math.floor(Math.random()*bank.length)],
+    image_url:null,language:post.language||'zh',
+    metrics:{likes:'0',replies:'0',reposts:'0',views:'0',bookmarks:'0'}});
+  }
+  const {error}=await u().from('hw_posts').insert(rows);
+  if(error)throw Error('批量发布随机人物评论失败：'+error.message);
+  await v32Reload();
+  return rows.length;
+ },
  editReply:async(id,body,characterId,parentId)=>{
   if(!admin)throw Error('需要开发者账号');
   const p=v32.posts.find(x=>x.id===id&&x.parent_id&&x.author_kind==='character');
