@@ -4109,7 +4109,7 @@ document.head.insertAdjacentHTML('beforeend','<style>'
  +'</style>');
 function hwDevMentionCandidates(query){
  const q=String(query||'').toLocaleLowerCase();
- const all=[...(state.people||[]).filter(p=>p.handle&&!String(p.id||'').startsWith('legacy_commenter_'))
+ const all=[...(state.people||[]).filter(p=>p.handle&&String(p.id)!=='sample_my_account'&&!String(p.id||'').startsWith('legacy_commenter_'))
   .map(p=>({id:p.id,handle:p.handle,name:p.name||p.handle,avatar:p.avatar||'',kind:'character'})),...hwDevMentionPick.cloud];
  const handles=new Map();
  for(const p of all){
@@ -4191,7 +4191,7 @@ document.addEventListener('input',e=>{
  }
 },true);
 document.addEventListener('keydown',e=>{
- if(state.clientMode!=='developer'||e.target!==hwDevMentionPick.target||hwDevMentionMenu.hidden)return;
+ if(state.clientMode!=='developer'||e.isComposing||hwDevMentionPick.composing||e.target!==hwDevMentionPick.target||hwDevMentionMenu.hidden)return;
  const opts=hwDevMentionPick.options;
  if(!opts.length)return;
  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
