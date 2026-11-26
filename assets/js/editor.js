@@ -3792,7 +3792,7 @@ function hwDevCloudReplyComposer(post){
   +'<label style="display:block;margin-top:8px">评论 / @正文<textarea rows="4" data-cloud-reply-field="body" placeholder="输入内容，或者先随机生成……" style="display:block;width:100%;box-sizing:border-box;padding:10px;border:1px solid #bdc6cb;border-radius:9px;background:var(--surface);color:var(--ink)">'+esc(saved.body||'')+'</textarea></label>'
   +'<div style="margin-top:10px"><label style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--stroke);border-radius:9px;padding:8px 11px">📷 评论图片<input type="file" data-cloud-reply-image accept="image/jpeg,image/png,image/webp,image/gif" style="max-width:185px;font-size:12px"></label>'
   +(hwDevCloudReplyImages.has(post.id)?'<button type="button" data-hw-dev-feed="cloud-image-remove" data-id="'+esc(post.id)+'" style="margin-left:8px">移除图片</button><div style="margin-top:8px"><img src="'+esc(hwDevCloudReplyImages.get(post.id).preview)+'" alt="待发布图片" style="max-width:240px;max-height:220px;border-radius:10px;object-fit:contain"></div>':'')+'</div>'
-  +'<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:9px"><button type="button" data-hw-dev-feed="cloud-generate" data-id="'+esc(post.id)+'">🎲 随机生成草稿</button><button type="button" data-hw-dev-feed="cloud-publish" data-id="'+esc(post.id)+'" style="background:#1d9bf0;color:white;border-radius:20px;padding:8px 16px">发布评论</button><button type="button" data-hw-dev-feed="cloud-random-comments" data-id="'+esc(post.id)+'" title="从固定随机人物库选人，一次发布3条云端评论">🎲 随机人物评论 +3</button></div>'
+  +'<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:9px"><button type="button" data-hw-dev-feed="cloud-generate" data-id="'+esc(post.id)+'">🎲 随机生成草稿</button><button type="button" data-hw-dev-feed="cloud-publish" data-id="'+esc(post.id)+'" style="background:#1d9bf0;color:white;border-radius:20px;padding:8px 16px">发布评论</button></div>'
   +'<small style="display:block;margin-top:6px;opacity:.7">草稿可修改，点击发布才发送给玩家。</small></section>';
 }
 function hwDevCloudReplies(post){
@@ -3935,16 +3935,6 @@ $('feedContent').addEventListener('click',e=>{
   if(action==='cloud-open'){hwDevCloudReturn=hwDevFeedPage==='player-profile'?'player-profile':'home';hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
   if(action==='cloud-image-remove'){const item=hwDevCloudReplyImages.get(target.dataset.id);if(item?.preview)URL.revokeObjectURL(item.preview);hwDevCloudReplyImages.delete(target.dataset.id);render();return;}
   if(action==='cloud-generate'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]'),input=form?.querySelector('[data-cloud-reply-field="body"]');if(!input)return;const at=input.value.match(/^@[^\s]+\s+/)?.[0]||'';input.value=at+hwDevCloudReplySamples[Math.floor(Math.random()*hwDevCloudReplySamples.length)];const item=hwDevCloudReplyDrafts.get(id)||{};item.body=input.value;hwDevCloudReplyDrafts.set(id,item);input.focus();return;}
-  if(action==='cloud-random-comments'){
-   const id=target.dataset.id;
-   if(target.disabled)return;
-   if(!window.hwDevCloudFeed?.addRandomReplies){toast('云端随机评论功能尚未加载，请刷新页面');return}
-   target.disabled=true;const previous=target.textContent;target.textContent='正在生成…';
-   window.hwDevCloudFeed.addRandomReplies(id,3)
-    .then(count=>{toast('已新增 '+count+' 条随机人物评论；热度会随时间增长');render()})
-    .catch(e=>{toast('随机评论添加失败：'+(e?.message||e));target.disabled=false;target.textContent=previous});
-   return;
-  }
   if(action==='cloud-publish'){const id=target.dataset.id,form=target.closest('[data-cloud-composer]');if(!form)return;const characterId=form.querySelector('[data-cloud-reply-field="character"]')?.value,body=form.querySelector('[data-cloud-reply-field="body"]')?.value.trim(),parentId=form.querySelector('[data-cloud-reply-field="parent"]')?.value||'';if(!characterId||(!body&&!hwDevCloudReplyImages.has(id))){toast('请选择评论人物并填写文字或添加图片');return;}if(target.disabled)return;target.disabled=true;const oldText=target.textContent;target.textContent='发布中…';window.hwDevCloudFeed.sendReply(id,characterId,body,parentId,hwDevCloudReplyImages.get(id)?.file||null).then(()=>{hwDevCloudReplyDrafts.delete(id);const item=hwDevCloudReplyImages.get(id);if(item?.preview)URL.revokeObjectURL(item.preview);hwDevCloudReplyImages.delete(id);toast('人物评论已发布，玩家端可见');render();}).catch(err=>{toast('评论发布失败：'+(err?.message||err));target.disabled=false;target.textContent=oldText;});return;}
   if(action==='cloud-manage'){hwDevCloudReturn=hwDevFeedPage==='player-profile'?'player-profile':'home';hwDevFeedFocus='cloud:'+target.dataset.id;hwDevFeedPage='post';render();return;}
   if(action==='cloud-reply-to'){
