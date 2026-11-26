@@ -511,6 +511,21 @@ async function publish(){
    nextPostHashes[id]=fingerprint;
    if(old&&!forceFull&&previousPosts[id]===fingerprint){reusedPosts++;return;}
    const metrics={replies:src.replies||'0',reposts:src.reposts||'0',likes:src.likes||'0',views:src.views||'0',bookmarks:src.bookmarks||'0',time_label:src.time||''};
+   // Preserve cloud-assigned heat when the local developer draft is republished.
+   // The original manually authored numbers remain the editable baseline;
+   // old metrics already contain the first heat snapshot.
+   const storedHeat=old?.metrics?.hw_heat_v1;
+   if(storedHeat&&typeof storedHeat==='object'){
+    const numeric=v=>{let raw=String(v??'0').replace(/,/g,'').trim().toUpperCase(),n=parseFloat(raw)||0;
+     if(raw.includes('亿'))n*=100000000;else if(raw.includes('万'))n*=10000;
+     else if(raw.endsWith('K'))n*=1000;else if(raw.endsWith('M'))n*=1000000;
+     return Math.max(0,Math.round(n));};
+    for(const field of ['likes','replies','reposts','bookmarks','views']){
+     const editedBase=numeric(metrics[field]),original=numeric(storedHeat.original?.[field]);
+     metrics[field]=String(editedBase===original?numeric(old.metrics[field]):editedBase+(Number(storedHeat[field])||0));
+    }
+    metrics.hw_heat_v1=storedHeat;
+   }
    // Editor reposts contain an embedded quote (including a picture). Preserve it in
    // the cloud post's metrics so it can be rendered without creating a fake feed post.
    if(src.isRepost&&src.quote&&typeof src.quote==='object'){
@@ -615,7 +630,9 @@ async function publish(){
   }
   // Postgres FK parent/quote rows must exist first. Sort by ancestor depth.
   const rank=new Map(docPostRows.map(p=>[p.id,p]));const depths=new Map();function depth(p,seen=new Set()){if(!p||seen.has(p.id))return 0;if(depths.has(p.id))return depths.get(p.id);seen.add(p.id);const dep=1+Math.max(depth(rank.get(p.parent_id),seen),depth(rank.get(p.quote_id),seen));depths.set(p.id,dep);seen.delete(p.id);return dep;}
-  for(const post of docPostRows){const edited=v32Overrides[post.id];if(edited){post.body=edited.body;post.metrics=edited.metrics;if(edited.created_at)post.created_at=edited.created_at;}}
+  for(const post of docPostRows){const edited=v32Overrides[post.id];if(edited){post.body=edited.body;post.metrics=edited.metrics;if(edited.created_at)post.created_at=edited.created_at;}
+   const heat=existing.get(post.id)?.metrics?.hw_heat_v1;if(heat&&typeof heat==='object')post.metrics.hw_heat_v1=heat;
+  }
   docPostRows.sort((a,b)=>depth(a)-depth(b));
   // Re-publications preserve old stories and publication identity. Only new rows need time.
   const hwStoryNow=()=>{const d=new Date();d.setFullYear(d.getFullYear()-33);return d.getTime()};
