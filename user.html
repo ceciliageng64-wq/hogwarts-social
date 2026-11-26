@@ -588,7 +588,7 @@ function hwUnreadPage(){
   +'<div class="hw-unread-group-head"><strong>'+E(event.actor.name)+'</strong><span class="hw-unread-count">'+({like:'♡ 点赞',bookmark:'♧ 收藏',view:'◉ 浏览'}[event.kind])+'</span></div>'
   +'<p>'+E(event.actor.name)+' '+({like:'赞了',bookmark:'收藏了',view:'浏览了'}[event.kind])+'你的帖子：「'+E((event.post.body||'[图片]').slice(0,90))+'」</p>'
   +'</button>').join('');
- const mentions=cache.mentions.map(m=>{const actor=cache.profiles.find(p=>p.id===m.actor_user_id),name=actor?.display_name||actor?.handle||'玩家',post=postById(m.comment_id||m.post_id);return '<button type="button" class="hw-unread-group hw-mention-notice" data-action="mention-open" data-id="'+E(m.id)+'">'+'<div class="hw-unread-group-head"><strong>'+E(name)+'</strong><span class="hw-unread-count">'+(m.read_at?'已读':'@ 提及 · 未读')+'</span></div>'+'<p>'+E(name)+' 在'+(m.comment_id?'评论':'帖子')+'中提及了你：'+E((post?.body||'内容已删除').slice(0,100))+'</p>'+'<small>点击查看'+(m.comment_id?'评论':'帖子')+'</small></button>';}).join('');
+ const mentions=cache.mentions.filter(m=>!m.read_at).map(m=>{const actor=cache.profiles.find(p=>p.id===m.actor_user_id),name=actor?.display_name||actor?.handle||'玩家',post=postById(m.comment_id||m.post_id);return '<button type="button" class="hw-unread-group hw-mention-notice" data-action="mention-open" data-id="'+E(m.id)+'">'+'<div class="hw-unread-group-head"><strong>'+E(name)+'</strong><span class="hw-unread-count">'+(m.read_at?'已读':'@ 提及 · 未读')+'</span></div>'+'<p>'+E(name)+' 在'+(m.comment_id?'评论':'帖子')+'中提及了你：'+E((post?.body||'内容已删除').slice(0,100))+'</p>'+'<small>点击查看'+(m.comment_id?'评论':'帖子')+'</small></button>';}).join('');
  const total=items.length+ambient.length+cache.mentions.filter(m=>!m.read_at).length;
  return '<div class="hw-unread-info"><strong>你有 '+total+' 条消息没有浏览过</strong><small>包含新帖子、真实评论和人物互动提示。点击互动提示后标记已读。</small></div>'
    +mentions+notices+cards
@@ -1229,6 +1229,7 @@ if($('user-message-file'))$('user-message-file').onchange=e=>{const f=e.target.f
 window.addEventListener('hashchange',()=>{restoreHash();renderPage()});
 H.onAuth(async u=>{if(state.user?.id===u?.id&&state.authReady)return;try{await setAuthState(u);subscribe();if(u)closeAuth()}catch(e){console.warn(e);setNotice('登录状态加载失败：'+H.errMsg(e))}});
 window.addEventListener('focus',()=>{if(state.user)hwLoadMentions()});
+setInterval(()=>{if(state.user&&!document.hidden)hwLoadMentions()},20000);
 restoreHash();renderPage();loadPublic();
 })();
 
