@@ -453,6 +453,7 @@ function hwPlayerHeatContext(){
  const trendingCount=Math.min(roots.length-viralCount,Math.max(roots.length>=5?2:0,Math.round(roots.length*0.28)));
  const tiers=new Map();
  for(let i=0;i<ranked.length;i++)tiers.set(ranked[i].id,i<viralCount?'viral':i<viralCount+trendingCount?'trending':'ordinary');
+ for(const p of roots){const locked=p.metrics?.hw_heat_v1?.tier;if(['viral','trending','ordinary'].includes(locked))tiers.set(p.id,locked)}
  hwPlayerHeatSnapshot={posts:cache.posts,tiers,replies};
  return hwPlayerHeatSnapshot;
 }
@@ -485,20 +486,21 @@ function hwCommentHeatContext(){
  const hotCount=Math.min(comments.length-viralCount,Math.max(comments.length>=5?2:0,Math.round(comments.length*0.28)));
  const tiers=new Map();
  for(let i=0;i<ranked.length;i++)tiers.set(ranked[i].id,i<viralCount?'viral':i<viralCount+hotCount?'trending':'ordinary');
+ for(const p of comments){const locked=p.metrics?.hw_heat_v1?.tier;if(['viral','trending','ordinary'].includes(locked))tiers.set(String(p.id),locked)}
  hwCommentHeatSnapshot={posts:cache.posts,likes:cache.likes,likeCount:cache.likes.length,tiers,replies,realLikes:likes};
  return hwCommentHeatSnapshot;
 }
-function hwAmbientStats(post){
+function hwAmbientRawStats(post){
  const zero={likes:0,replies:0,reposts:0,bookmarks:0,views:0};
  if(!post)return zero;
  const isPlayer=post.author_kind==='user';
  const isComment=!!post.parent_id&&(post.author_kind==='user'||post.author_kind==='character');
  const isOfficialPost=!post.parent_id&&post.author_kind==='character'
-  &&!!post.character_id&&!/^legacy_commenter_/i.test(String(post.character_id))
-  &&discoverableCharacters().some(p=>String(p.id)===String(post.character_id));
+  &&!!post.character_id&&!/^legacy_commenter_/i.test(String(post.character_id));
+ const isLegacyCharacterRoot=!post.parent_id&&post.author_kind==='character'&&!isOfficialPost;
  // Official cast main posts get faster, higher engagement. Their authored replies
  // and all manually entered metrics remain unchanged as the baseline.
- if(!isPlayer&&!isComment&&!isOfficialPost)return zero;
+ if(!isPlayer&&!isComment&&!isOfficialPost&&!isLegacyCharacterRoot)return zero;
  // Character stories use the 1993 world clock. Match engagement age to their
  // displayed story time, including intentional backdating by the developer.
  const worldStamp=isOfficialPost?hwStoryStamp(post):NaN;
@@ -568,6 +570,22 @@ function hwAmbientStats(post){
   views:rise(12+seed%18,85+(seed%440),6+(seed%7),50)
  };
 }
+
+/* V43 cloud backfill: pre-existing posts/comments now have the initial synthetic
+   heat persisted in hw_posts.metrics. Subtract that snapshot here to prevent
+   double-counting while continuing to grow after the snapshot was recorded.
+   Posts published later without this marker retain the original live formula. */
+function hwAmbientStats(post){
+ const raw=hwAmbientRawStats(post);
+ const saved=post?.metrics?.hw_heat_v1;
+ if(!saved||typeof saved!=='object')return raw;
+ const extra={};
+ for(const key of ['likes','replies','reposts','bookmarks','views']){
+  extra[key]=Math.max(0,raw[key]-(Number(saved[key])||0));
+ }
+ return extra;
+}
+
 const hwAmbientReadKey=()=> 'hw-ambient-read-v1:'+String(state.user?.id||'guest');
 function hwAmbientSeen(){try{return new Set(JSON.parse(localStorage.getItem(hwAmbientReadKey())||'[]'))}catch{return new Set()}}
 function hwAmbientMarkRead(key){
