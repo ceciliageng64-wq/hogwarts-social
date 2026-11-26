@@ -463,7 +463,7 @@ function hwPlayerHeatContext(){
    No synthetic likes, comment rows or fake user accounts are generated here. */
 let hwCommentHeatSnapshot=null;
 function hwCommentHeatContext(){
- if(hwCommentHeatSnapshot?.posts===cache.posts&&hwCommentHeatSnapshot?.likes===cache.likes)return hwCommentHeatSnapshot;
+ if(hwCommentHeatSnapshot?.posts===cache.posts&&hwCommentHeatSnapshot?.likes===cache.likes&&hwCommentHeatSnapshot.likeCount===cache.likes.length)return hwCommentHeatSnapshot;
  const comments=cache.posts.filter(p=>!!p.parent_id&&(p.author_kind==='user'||p.author_kind==='character'));
  const all=new Map(cache.posts.map(p=>[String(p.id),p]));
  const replies=new Map(),likes=new Map();
@@ -485,7 +485,7 @@ function hwCommentHeatContext(){
  const hotCount=Math.min(comments.length-viralCount,Math.max(comments.length>=5?2:0,Math.round(comments.length*0.28)));
  const tiers=new Map();
  for(let i=0;i<ranked.length;i++)tiers.set(ranked[i].id,i<viralCount?'viral':i<viralCount+hotCount?'trending':'ordinary');
- hwCommentHeatSnapshot={posts:cache.posts,likes:cache.likes,tiers,replies,realLikes:likes};
+ hwCommentHeatSnapshot={posts:cache.posts,likes:cache.likes,likeCount:cache.likes.length,tiers,replies,realLikes:likes};
  return hwCommentHeatSnapshot;
 }
 function hwAmbientStats(post){
@@ -607,8 +607,7 @@ function hwAmbientRefresh(){
   if(!post)continue;
   // A zero ambient result is harmless; update all visible posts without rerender.
   if(post.author_kind!=='user'&&!(post.author_kind==='character'&&
-   (post.parent_id? /^legacy_commenter_/i.test(String(post.character_id||'')):
-    discoverableCharacters().some(p=>String(p.id)===String(post.character_id)))))continue;
+   (post.parent_id||discoverableCharacters().some(p=>String(p.id)===String(post.character_id)))))continue;
   const metrics=hwAmbientStats(post),items={
    reply:formatNum(repliesTo(post.id).length+metricNumber(post.metrics?.replies)+metrics.replies),
    repost:formatNum(metricNumber(post.metrics?.reposts)+metrics.reposts),
