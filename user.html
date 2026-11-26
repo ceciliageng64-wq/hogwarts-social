@@ -456,17 +456,49 @@ function hwPlayerHeatContext(){
  hwPlayerHeatSnapshot={posts:cache.posts,tiers,replies};
  return hwPlayerHeatSnapshot;
 }
+
+/* V42: identical popularity model for every published comment, regardless of
+   whether its author is a player, a formal cast member or a fixed random NPC.
+   Tiers are chosen deterministically from comment IDs plus actual activity.
+   No synthetic likes, comment rows or fake user accounts are generated here. */
+let hwCommentHeatSnapshot=null;
+function hwCommentHeatContext(){
+ if(hwCommentHeatSnapshot?.posts===cache.posts&&hwCommentHeatSnapshot?.likes===cache.likes)return hwCommentHeatSnapshot;
+ const comments=cache.posts.filter(p=>!!p.parent_id&&(p.author_kind==='user'||p.author_kind==='character'));
+ const all=new Map(cache.posts.map(p=>[String(p.id),p]));
+ const replies=new Map(),likes=new Map();
+ for(const comment of comments){
+  const parent=all.get(String(comment.parent_id));
+  if(parent?.parent_id&&String(parent.user_id||parent.character_id||'')!==String(comment.user_id||comment.character_id||'')){
+   replies.set(String(parent.id),(replies.get(String(parent.id))||0)+1);
+  }
+ }
+ for(const like of cache.likes){
+  if(!all.has(String(like.post_id)))continue;
+  const id=String(like.post_id);likes.set(id,(likes.get(id)||0)+1);
+ }
+ const ranked=comments.map(p=>{
+  const count=replies.get(String(p.id))||0,heart=likes.get(String(p.id))||0;
+  return {id:String(p.id),score:hwAmbientSeed('comment-heat-v2:'+p.id)/4294967296-Math.min(18,count)*0.06-Math.min(30,heart)*0.025};
+ }).sort((a,b)=>a.score-b.score||a.id.localeCompare(b.id));
+ const viralCount=comments.length>=3?Math.max(2,Math.round(comments.length*0.18)):comments.length===2?1:comments.length;
+ const hotCount=Math.min(comments.length-viralCount,Math.max(comments.length>=5?2:0,Math.round(comments.length*0.28)));
+ const tiers=new Map();
+ for(let i=0;i<ranked.length;i++)tiers.set(ranked[i].id,i<viralCount?'viral':i<viralCount+hotCount?'trending':'ordinary');
+ hwCommentHeatSnapshot={posts:cache.posts,likes:cache.likes,tiers,replies,realLikes:likes};
+ return hwCommentHeatSnapshot;
+}
 function hwAmbientStats(post){
  const zero={likes:0,replies:0,reposts:0,bookmarks:0,views:0};
  if(!post)return zero;
  const isPlayer=post.author_kind==='user';
- const isRandomReply=!!post.parent_id&&post.author_kind==='character'&&/^legacy_commenter_/i.test(String(post.character_id||''));
+ const isComment=!!post.parent_id&&(post.author_kind==='user'||post.author_kind==='character');
  const isOfficialPost=!post.parent_id&&post.author_kind==='character'
   &&!!post.character_id&&!/^legacy_commenter_/i.test(String(post.character_id))
   &&discoverableCharacters().some(p=>String(p.id)===String(post.character_id));
  // Official cast main posts get faster, higher engagement. Their authored replies
  // and all manually entered metrics remain unchanged as the baseline.
- if(!isPlayer&&!isRandomReply&&!isOfficialPost)return zero;
+ if(!isPlayer&&!isComment&&!isOfficialPost)return zero;
  // Character stories use the 1993 world clock. Match engagement age to their
  // displayed story time, including intentional backdating by the developer.
  const worldStamp=isOfficialPost?hwStoryStamp(post):NaN;
@@ -492,22 +524,21 @@ function hwAmbientStats(post){
    views:rise(200+seed%301,viral?80000+seed%120001:trending?20000+seed%60001:5000+seed%15001,3+seed%5,35)
   };
  }
- if(post.parent_id){
-  // Most comments are modest; some become hot, and a small fraction go viral.
-  // Each comment gets a reproducible popularity tier, not a fresh random draw.
-  const tier=(seed>>>8)%100;
-  const hot=tier>=65&&tier<93,viral=tier>=93;
-  const likesCap=viral?1000+(seed%1501):hot?200+(seed%601):25+(seed%156);
-  const viewsCap=viral?12000+(seed%18001):hot?2500+(seed%7501):300+(seed%2201);
-  const bookmarksCap=viral?95+(seed%206):hot?25+(seed%76):4+(seed%27);
-  const repostsCap=viral?65+(seed%136):hot?12+(seed%44):2+(seed%13);
-  const repliesCap=viral?7+(seed%10):hot?3+(seed%6):seed%4;
+ if(isComment){
+  const heat=hwCommentHeatContext();
+  const tier=heat.tiers.get(String(post.id))||'ordinary';
+  const viral=tier==='viral',hot=tier==='trending';
+  const actualReplies=heat.replies.get(String(post.id))||0;
+  const actualLikes=heat.realLikes.get(String(post.id))||0;
+  const boost=1+Math.min(.8,actualReplies*.12+actualLikes*.035);
+  const cap=value=>Math.round(value*boost);
+  const duration=viral?140:hot?105:65;
   return {
-   likes:rise(2+seed%5,likesCap,5+seed%8,50),
-   replies:rise(0,repliesCap,12+seed%7,50),
-   reposts:rise(0,repostsCap,9+seed%7,50),
-   bookmarks:rise(1+seed%3,bookmarksCap,7+seed%7,50),
-   views:rise(15+seed%26,viewsCap,5+seed%9,50)
+   likes:rise(viral?16+seed%31:hot?7+seed%15:2+seed%5,cap(viral?1800+seed%6201:hot?350+seed%1651:24+seed%170),viral?22+seed%9:hot?17+seed%9:8+seed%7,duration),
+   replies:rise(0,cap(viral?30+seed%91:hot?9+seed%30:1+seed%6),viral?35:hot?26:17,duration),
+   reposts:rise(viral?3+seed%7:hot?1+seed%4:0,cap(viral?220+seed%901:hot?40+seed%201:3+seed%20),viral?27:hot?21:12,duration),
+   bookmarks:rise(viral?5+seed%12:hot?2+seed%6:1,cap(viral?270+seed%1301:hot?55+seed%281:4+seed%36),viral?28:hot?22:11,duration),
+   views:rise(viral?100+seed%201:hot?38+seed%101:15+seed%26,cap(viral?40000+seed%110001:hot?7000+seed%29001:300+seed%2401),viral?21:hot?17:8+seed%9,duration)
   };
  }
  // A significant minority of player posts become blockbuster hits. They
