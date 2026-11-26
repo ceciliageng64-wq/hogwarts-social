@@ -2578,10 +2578,28 @@ async function v25CaptureUser(full=false){
  const area=$('captureArea'),fullRoot=document.querySelector('.app-viewport');
  if(!area||!fullRoot)return;
  const isDMPage=state.viewMode==='dm'||(state.clientMode==='user'&&state.userNav==='messages');
+ const isDevConversation=!full&&state.clientMode==='developer'&&state.viewMode==='dm';
  const isChat=state.clientMode==='user'&&state.userNav==='messages'&&!full;
  const chatOnly=isChat?area.querySelector('.u23-chat'):null;
- const root=full?fullRoot:(chatOnly||area),width=full?1150:600;
- const copy=root.cloneNode(true);
+ const selectedThread=isDevConversation?area.querySelector('.dm-app .dm-thread'):null;
+ if(isDevConversation&&(!hwCloudView.selected||!selectedThread?.querySelector('.dm-messages')||selectedThread.dataset.cloudConversationId!==hwCloudView.selected)){
+  throw Error('请先打开一位玩家的真实私信会话，再导出聊天截图');
+ }
+ const root=full?fullRoot:(selectedThread||chatOnly||area),width=full?1150:600;
+ let copy=root.cloneNode(true);
+ if(isDevConversation){
+  // Export only the selected player's entire cloud conversation. Do not
+  // include the inbox, the management actions or the unsent reply editor.
+  const header=copy.querySelector('.dm-thread-top');
+  const messages=copy.querySelector('.dm-messages');
+  if(!header||!messages)throw Error('当前玩家的私信内容尚未加载');
+  header.querySelectorAll('button,.hw-cloud-clear-btn').forEach(el=>el.remove());
+  copy.replaceChildren(header,messages);
+  const singleThread=document.createElement('section');
+  singleThread.className='dm-app v43-dm-capture';
+  singleThread.append(copy);
+  copy=singleThread;
+ }
  if(isChat)copy.classList.add('v26-current-chat-capture');
  copy.style.cssText+=`;width:${width}px!important;max-width:none!important;max-height:none!important;height:auto!important;overflow:visible!important;min-height:0!important;`;
  // Developer editing uses buttons as wrappers around actual comment text and photos.
@@ -2637,7 +2655,7 @@ async function v25CaptureUser(full=false){
  outer.className=document.body.className+' v273-shot-root'+(state.clientMode==='user'?' u23-user':'');
  outer.style.cssText=`width:${width}px;background:${state.theme==='dark'?'#000':'#fff'};color:${surfaceStyle.getPropertyValue('--ink')};--ink:${surfaceStyle.getPropertyValue('--ink')};--muted:${surfaceStyle.getPropertyValue('--muted')};--surface:${surfaceStyle.getPropertyValue('--surface')};--stroke:${surfaceStyle.getPropertyValue('--stroke')};--accent:#1d9bf0;--highlight:${surfaceStyle.getPropertyValue('--highlight')};--comp:${surfaceStyle.getPropertyValue('--comp')};font-family:${getComputedStyle(document.documentElement).fontFamily};font-size:${getComputedStyle(document.body).fontSize};`;
  const css=document.createElement('style');
- css.textContent=(await v25CaptureStyles())+`\n.v273-shot-root .x-feed{overflow:visible!important;height:auto!important;max-height:none!important;min-width:0!important;width:600px!important;flex-shrink:0!important}.v273-shot-root .app-viewport{display:grid!important;grid-template-columns:240px 600px 310px!important;width:1150px!important;max-width:none!important;height:auto!important;min-height:0!important}.v273-shot-root .x-nav,.v273-shot-root .x-right{display:flex!important;position:static!important;flex-shrink:0!important;height:auto!important;max-height:none!important}.v273-shot-root .x-right{display:block!important}.v273-shot-root .u23-chat,.v273-shot-root .u23-chat-messages{height:auto!important;max-height:none!important;overflow:visible!important;flex:none!important}.v273-shot-root .u23-inbox{min-height:0!important}.v273-shot-root .v26-current-chat-capture{width:600px!important;max-width:600px!important;min-height:600px!important}.v273-shot-root .dm-app{grid-template-columns:40% 60%!important}.v273-shot-root .pv-post-edittools,.v273-shot-root .quote-edit-preview,.v273-shot-root .x-delete-preview{display:none!important}`;
+ css.textContent=(await v25CaptureStyles())+`\n.v273-shot-root .x-feed{overflow:visible!important;height:auto!important;max-height:none!important;min-width:0!important;width:600px!important;flex-shrink:0!important}.v273-shot-root .app-viewport{display:grid!important;grid-template-columns:240px 600px 310px!important;width:1150px!important;max-width:none!important;height:auto!important;min-height:0!important}.v273-shot-root .x-nav,.v273-shot-root .x-right{display:flex!important;position:static!important;flex-shrink:0!important;height:auto!important;max-height:none!important}.v273-shot-root .x-right{display:block!important}.v273-shot-root .u23-chat,.v273-shot-root .u23-chat-messages{height:auto!important;max-height:none!important;overflow:visible!important;flex:none!important}.v273-shot-root .u23-inbox{min-height:0!important}.v273-shot-root .v26-current-chat-capture{width:600px!important;max-width:600px!important;min-height:600px!important}.v273-shot-root .dm-app{grid-template-columns:40% 60%!important}.v273-shot-root .v43-dm-capture{display:block!important;grid-template-columns:none!important;width:600px!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}.v273-shot-root .v43-dm-capture .dm-thread{width:100%!important;min-width:0!important;min-height:0!important;max-height:none!important;height:auto!important;overflow:visible!important}.v273-shot-root .v43-dm-capture .dm-messages{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;flex:none!important}.v273-shot-root .v43-dm-capture .dm-thread-top{min-height:60px!important;flex:none!important}.v273-shot-root .pv-post-edittools,.v273-shot-root .quote-edit-preview,.v273-shot-root .x-delete-preview{display:none!important}`;
  outer.append(css,copy);
  // Measure the actual content height in a detached *but laid-out* off-screen stage.
  const measure=document.createElement('div');measure.style.cssText=`position:absolute;left:-20000px;top:0;visibility:hidden;pointer-events:none;width:${width}px;z-index:-1;`;
@@ -2647,9 +2665,9 @@ async function v25CaptureUser(full=false){
   const missingImages=await v25CaptureInlineImages(copy);
   if(isDMPage&&missingImages.includes('私信图片'))throw Error('私信图片无法加载到截图，请确认图片正常显示后重试');
   await Promise.all([...outer.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true});setTimeout(r,1200)})));
-  if(isDMPage&&state.clientMode==='developer'){
-   // scrollTop is a DOM-only property, never serialized into SVG. Encode the
-   // live visible viewport with CSS so the PNG matches the scrolled chat.
+  if(isDMPage&&state.clientMode==='developer'&&!isDevConversation){
+   // The full-page export preserves visible scrolling; selected-chat-only
+   // capture expands the whole transcript instead of cropping messages.
    for(const selector of ['.dm-messages','.dm-scroll']){
     const real=root.querySelectorAll(selector),cloneNodes=copy.querySelectorAll(selector);
     real.forEach((el,i)=>{
@@ -2664,7 +2682,7 @@ async function v25CaptureUser(full=false){
     });
    }
   }
-  height=Math.max(isChat?600:450,Math.ceil(copy.scrollHeight),Math.ceil(copy.getBoundingClientRect().height));
+  height=Math.max(isDevConversation?80:isChat?600:450,Math.ceil(copy.scrollHeight),Math.ceil(copy.getBoundingClientRect().height));
  }finally{measure.remove()}
  if(height>14000)throw Error(state.lang==='zh'?'页面过长，请分段截图（上限 14000px）':'Page is too long for a single PNG (max 14000px).');
  outer.style.height=height+'px';copy.style.minHeight=height+'px';
@@ -2680,7 +2698,7 @@ async function v25CaptureUser(full=false){
  const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas is unavailable');ctx.scale(scale,scale);
  ctx.fillStyle=state.theme==='dark'?'#000':'#fff';ctx.fillRect(0,0,width,height);ctx.drawImage(bmp,0,0,width,height,0,0,width,height);
  const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('PNG creation failed')),'image/png'));
- downloadBlob(blob,(state.lang==='zh'?'霍格沃茨用户界面_':'Hogwarts_User_')+(full?'完整页面':'当前页面')+'.png');
+ downloadBlob(blob,isDevConversation?(state.lang==='zh'?'霍格沃茨_当前玩家私信.png':'Hogwarts_Selected_Chat.png'):(state.lang==='zh'?'霍格沃茨用户界面_':'Hogwarts_User_')+(full?'完整页面':'当前页面')+'.png');
  toast(state.lang==='zh'?'截图已导出 PNG':'PNG exported');
 }
 $('v25ScreenCurrent').onclick=()=>v25CaptureUser(false).catch(err=>toast((state.lang==='zh'?'截图失败：':'Capture failed: ')+err.message));
