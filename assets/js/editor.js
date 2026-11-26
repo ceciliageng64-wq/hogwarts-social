@@ -2647,10 +2647,21 @@ async function v25CaptureUser(full=false){
   const missingImages=await v25CaptureInlineImages(copy);
   if(isDMPage&&missingImages.includes('私信图片'))throw Error('私信图片无法加载到截图，请确认图片正常显示后重试');
   await Promise.all([...outer.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true});setTimeout(r,1200)})));
-  if(isDMPage){
-   for(const selector of ['.dm-messages','.dm-scroll','.u23-chat-messages','.u23-conv-list']){
+  if(isDMPage&&state.clientMode==='developer'){
+   // scrollTop is a DOM-only property, never serialized into SVG. Encode the
+   // live visible viewport with CSS so the PNG matches the scrolled chat.
+   for(const selector of ['.dm-messages','.dm-scroll']){
     const real=root.querySelectorAll(selector),cloneNodes=copy.querySelectorAll(selector);
-    real.forEach((el,i)=>{if(cloneNodes[i]){cloneNodes[i].scrollTop=el.scrollTop;cloneNodes[i].scrollLeft=el.scrollLeft}});
+    real.forEach((el,i)=>{
+     const target=cloneNodes[i];if(!target||!el.clientHeight)return;
+     target.style.setProperty('height',el.clientHeight+'px','important');
+     target.style.setProperty('min-height','0px','important');
+     target.style.setProperty('max-height',el.clientHeight+'px','important');
+     target.style.setProperty('overflow','hidden','important');
+     target.style.setProperty('flex','none','important');
+     const first=target.firstElementChild;
+     if(first&&el.scrollTop>0)first.style.setProperty('margin-top',-el.scrollTop+'px','important');
+    });
    }
   }
   height=Math.max(isChat?600:450,Math.ceil(copy.scrollHeight),Math.ceil(copy.getBoundingClientRect().height));
