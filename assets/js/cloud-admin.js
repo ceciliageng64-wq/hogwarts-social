@@ -749,7 +749,7 @@ async function renderAuth(){await H.ready;
  if(!H.client){status('Supabase 组件暂未加载，请检查网络后刷新。编辑器本地功能仍可用。');$('hwCloudAuthTools').hidden=true;return;}
  if(!H.user){admin=false;$('hwCloudLogin').hidden=false;$('hwCloudOtherAccount').hidden=true;$('hwCloudAuthTools').hidden=true;status(H.callbackError||'请填写开发者邮箱，点击发送登录链接。');return;}
  try{admin=await H.isAdmin();$('hwCloudLogin').hidden=true;$('hwCloudOtherAccount').hidden=admin;$('hwCloudAuthTools').hidden=!admin;
-  if(admin){status('✅ 管理员已登录。每条人物主贴均可独立编辑、随机互动数据和添加评论。');await refreshIntegratedDM();await v32Reload().catch(e=>status('帖子列表读取失败：'+H.errMsg(e)));const {data:trendRow}=await u().from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle();if(trendRow?.value&&Array.isArray(trendRow.value)){window.hwApplyPublicTrends?.(trendRow.value);}}
+  if(admin){status('✅ 管理员已登录。每条人物主贴均可独立编辑、随机互动数据和添加评论。');await refreshIntegratedDM();await v32Reload().catch(e=>status('帖子列表读取失败：'+H.errMsg(e)));window.dispatchEvent(new Event('hw:dev-mentions-refresh'));const {data:trendRow}=await u().from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle();if(trendRow?.value&&Array.isArray(trendRow.value)){window.hwApplyPublicTrends?.(trendRow.value);}}
   else status('当前是玩家账号（'+H.user.email+'），没有开发者权限。请点击“退出玩家账号”，再输入开发者邮箱发送登录链接。');
  }catch(e){status('权限校验失败：'+H.errMsg(e)+'。请先执行 supabase_schema.sql。');$('hwCloudAuthTools').hidden=true;}
 }
