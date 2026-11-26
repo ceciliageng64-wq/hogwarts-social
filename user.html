@@ -1335,98 +1335,34 @@ async function ensureScreenshotLibrary(){
  });
  return hwScreenshotLibraryPromise;
 }
-function hwShotPageRanges(screen,total,maxHeight=3000){
- const rect=screen.getBoundingClientRect();
- const boundaries=[...screen.querySelectorAll('.post,.profile-head,.profile-tabs,.banner,.threadline,.composer,.profile-edit,.empty')]
-  .map(el=>Math.round(el.getBoundingClientRect().top-rect.top))
-  .filter(y=>y>0&&y<total)
-  .sort((a,b)=>a-b);
- const pages=[];
- for(let start=0;start<total;){
-  const target=Math.min(total,start+maxHeight);
-  let end=target;
-  if(target<total){
-   const minimum=start+Math.floor(maxHeight*.63);
-   for(const y of boundaries)if(y>=minimum&&y<=target)end=y;
-  }
-  if(end<=start)end=target;
-  pages.push({start,height:end-start});
-  start=end;
- }
- return pages;
-}
-function hwShotCrc32(bytes){
- if(!hwShotCrc32.table){
-  hwShotCrc32.table=Array.from({length:256},(_,i)=>{
-   let c=i;for(let j=0;j<8;j++)c=(c>>>1)^((c&1)?0xedb88320:0);return c>>>0;
-  });
- }
- let crc=0xffffffff;
- for(const byte of bytes)crc=hwShotCrc32.table[(crc^byte)&255]^(crc>>>8);
- return (crc^0xffffffff)>>>0;
-}
-async function hwShotPngZip(files){
- const local=[],central=[];
- let offset=0,centralSize=0;
- const current=new Date(),dosTime=(current.getHours()<<11)|(current.getMinutes()<<5)|(current.getSeconds()>>1);
- const dosDate=((Math.max(1980,current.getFullYear())-1980)<<9)|((current.getMonth()+1)<<5)|current.getDate();
- for(const file of files){
-  const name=new TextEncoder().encode(file.name),bytes=new Uint8Array(await file.blob.arrayBuffer()),crc=hwShotCrc32(bytes);
-  const localHead=new Uint8Array(30+name.length),v=new DataView(localHead.buffer);
-  v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);
-  v.setUint16(10,dosTime,true);v.setUint16(12,dosDate,true);
-  v.setUint32(14,crc,true);v.setUint32(18,bytes.length,true);v.setUint32(22,bytes.length,true);
-  v.setUint16(26,name.length,true);localHead.set(name,30);
-  const center=new Uint8Array(46+name.length),c=new DataView(center.buffer);
-  c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);
-  c.setUint16(12,dosTime,true);c.setUint16(14,dosDate,true);
-  c.setUint32(16,crc,true);c.setUint32(20,bytes.length,true);c.setUint32(24,bytes.length,true);
-  c.setUint16(28,name.length,true);c.setUint32(42,offset,true);center.set(name,46);
-  local.push(localHead,file.blob);central.push(center);
-  offset+=localHead.length+bytes.length;centralSize+=center.length;
- }
- const footer=new Uint8Array(22),e=new DataView(footer.buffer);
- e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);
- e.setUint32(12,centralSize,true);e.setUint32(16,offset,true);
- return new Blob([...local,...central,footer],{type:'application/zip'});
-}
 function hwShotDownload(blob,filename){
  const link=document.createElement('a'),url=URL.createObjectURL(blob);
  link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();
  setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
-async function hwScreenshotRender({screen,width,full,isolated,dark}){
- const height=Math.ceil(Math.max(160,screen.scrollHeight,screen.getBoundingClientRect().height));
- const scale=height>4000?1.5:Math.min(2,window.devicePixelRatio||2);
+// Single capped PNG; profile captures start from the live scroll position.
+function hwShotCrop(total,width,startOffset=0){
+ const maxHeight=Math.min(14000,Math.floor(14000000/width));
+ const start=Math.max(0,Math.min(Math.floor(Number(startOffset)||0),Math.max(0,total-1)));
+ const height=Math.max(1,Math.min(total-start,maxHeight));
+ const scale=Math.min(2,window.devicePixelRatio||2,Math.sqrt(14000000/(width*height)));
+ return {start,height,scale};
+}
+async function hwScreenshotRender({screen,width,full,isolated,dark,startOffset=0}){
+ const total=Math.ceil(Math.max(160,screen.scrollHeight,screen.getBoundingClientRect().height));
+ const {start,height,scale}=hwShotCrop(total,width,startOffset);
+ const canvas=await window.html2canvas(screen,{
+  useCORS:true,allowTaint:false,logging:false,
+  backgroundColor:dark?'#000':'#fff',
+  scale,width,height,x:0,y:start,
+  windowWidth:full?1320:600,windowHeight:Math.min(1200,height),
+  scrollX:0,scrollY:0,removeContainer:true
+ });
+ if(!canvas.width||!canvas.height)throw Error('没有生成有效图片');
+ const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('生成 PNG 失败')),'image/png'));
  const label=isolated?'当前对话':full?'完整页面':'当前内容';
- const time=Date.now();
- if(height<=4500){
-  const canvas=await window.html2canvas(screen,{useCORS:true,allowTaint:false,logging:false,backgroundColor:dark?'#000':'#fff',scale,width,height,windowWidth:full?1320:600,windowHeight:Math.min(1200,height),scrollX:0,scrollY:0,removeContainer:true});
-  if(!canvas.width||!canvas.height)throw Error('没有生成有效图片');
-  const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('生成 PNG 失败')),'image/png'));
-  hwShotDownload(blob,`霍格沃茨-${label}-${time}.png`);
-  toast('截图已保存。');
- }else{
-  const pages=hwShotPageRanges(screen,height,2800);
-  const viewport=document.createElement('div');
-  viewport.style.cssText=`position:relative;overflow:hidden;width:${width}px;background:${dark?'#000':'#fff'};`;
-  screen.parentNode.replaceChild(viewport,screen);
-  viewport.appendChild(screen);
-  screen.style.setProperty('transform-origin','top left','important');
-  const images=[];
-  for(let i=0;i<pages.length;i++){
-   const page=pages[i];
-   viewport.style.height=page.height+'px';
-   screen.style.setProperty('transform',`translate3d(0,${-page.start}px,0)`,'important');
-   const canvas=await window.html2canvas(viewport,{useCORS:true,allowTaint:false,logging:false,backgroundColor:dark?'#000':'#fff',scale:1.5,width,height:page.height,windowWidth:full?1320:600,windowHeight:page.height,scrollX:0,scrollY:0,removeContainer:true});
-   if(!canvas.width||!canvas.height)throw Error('第 '+(i+1)+' 张截图生成失败');
-   const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('第 '+(i+1)+' 张 PNG 生成失败')),'image/png'));
-   images.push({name:`霍格沃茨-${label}-第${String(i+1).padStart(2,'0')}张.png`,blob});
-  }
-  const archive=await hwShotPngZip(images);
-  hwShotDownload(archive,`霍格沃茨-${label}-共${images.length}张-${time}.zip`);
-  toast(`页面过长，已自动分成 ${images.length} 张连续 PNG，打包保存为 ZIP。`);
- }
+ hwShotDownload(blob,`霍格沃茨-${label}-${Date.now()}.png`);
+ toast(total-start>height?'截图已保存：从当前浏览位置开始，截至本张 PNG 的最大安全高度。':'截图已保存。');
 }
 async function takeScreenshot(mode){
  let holder=null;
@@ -1434,6 +1370,8 @@ async function takeScreenshot(mode){
  if(isolated&&!cache.conversations.some(c=>c.id===state.dmConversationId)){toast('请先选择一位联系人，才能截取当前对话。');return}
  const original=full?$('captureAll'):isolated?document.querySelector('.conversation-view'):$('captureMain');
  if(!original)return;
+ // Freeze the player's CURRENT page position before any asynchronous work.
+ const startOffset=state.view==='profile'&&!isolated?Math.max(0,Math.floor(-original.getBoundingClientRect().top)):0;
  try{
   await ensureScreenshotLibrary();
   $('hw-shot-menu').hidden=true;$('shot-toggle').setAttribute('aria-expanded','false');
@@ -1470,7 +1408,7 @@ async function takeScreenshot(mode){
   await Promise.race([Promise.all([...screen.querySelectorAll('img')].map(img=>img.decode?.().catch(()=>{})||Promise.resolve())),new Promise(r=>setTimeout(r,3500))]);
   // Reset scrolling in the staging copy so the start of each conversation is included.
   for(const el of screen.querySelectorAll('*'))if(el.scrollTop)el.scrollTop=0;
-  await hwScreenshotRender({screen,width,full,isolated,dark});
+  await hwScreenshotRender({screen,width,full,isolated,dark,startOffset});
  }catch(e){toast('截图失败：'+H.errMsg(e));console.error(e)}finally{if(holder)holder.remove()}
 }
 async function deleteMyAccount(){
