@@ -819,7 +819,7 @@ function hwExploreDirectoryResults(){
    +'<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="'+p.kind+'" data-id="'+E(p.id)+'" style="cursor:pointer">'+E(p.name)+' '+authorBadge(p)+'</strong>'
    +'<div class="muted">@'+E(p.handle)+(p.bio?' · '+E(p.bio.slice(0,75)):'')+'</div></div>'
    +'<button class="small-outline" data-action="profile" data-kind="'+p.kind+'" data-id="'+E(p.id)+'">主页</button>'
-   +(isChar?'<button class="small-outline" data-action="start-dm" data-id="'+E(p.id)+'">✉ 私信</button>':'')
+   +(isChar?'<button class="small-outline" data-action="start-dm" data-id="'+E(p.id)+'">✉ 私信</button>':'<button type="button" class="small-outline" title="仅作展示，玩家之间暂不支持私信" aria-label="私信（暂不可用）">✉ 私信</button>')
    +'</div>';
  }).join('')||'<div class="empty">没有符合搜索条件的账号。</div>';
 }
@@ -859,7 +859,7 @@ function renderProfile(){
  const title={posts:'帖子',replies:'回复',media:'媒体',likes:'喜欢'};
  const selected=contents[tab]||posts;
  const followers=kind==='character'?cache.follows.filter(x=>x.character_id===p.id).length:0;
- const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'&&!isRandomCommenter(p)?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:'';
+ const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'&&!isRandomCommenter(p)?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:kind==='user'?'<button type="button" class="small-outline" title="仅作展示，玩家之间暂不支持私信" aria-label="私信（暂不可用）">发私信</button>':'';
  const following=kind==='character'?p.meta?.following:'0';
  const followersLabel=kind==='character'?p.meta?.followers:formatNum(followers);
  const emptyText=tab==='replies'?'还没有公开回复。':tab==='media'?'还没有发布带图片的帖子。':tab==='likes'?'还没有喜欢的帖子。':'这里暂时没有动态。';
