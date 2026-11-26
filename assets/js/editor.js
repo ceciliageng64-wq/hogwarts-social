@@ -3773,7 +3773,7 @@ function hwDevCloudReplies(post){
   return (byParent.get(parent)||[]).map(r=>{
    if(visited.has(r.id))return '';visited.add(r.id);
    const pid=esc(r.id),editing=hwDevCloudEditingReply===r.id,replyTo=rows.find(x=>x.id===r.parent_id);
-   return '<div style="margin-left:'+Math.min(depth,3)*14+'px;padding:11px 0;border-bottom:1px solid var(--border,#ddd)">'
+   return '<div data-hw-cloud-reply-id="'+pid+'" style="margin-left:'+Math.min(depth,3)*14+'px;padding:11px 0;border-bottom:1px solid var(--border,#ddd)">'
     +'<strong>'+esc(r.authorName)+'</strong> <small>@'+esc(r.authorHandle||'')+' · '+esc(r.time)+'</small>'
     +(replyTo?'<div style="font-size:12px;opacity:.7">回复 @'+esc(replyTo.authorHandle||replyTo.authorName)+'</div>':'')
     +'<p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0">'+esc(r.body||'[图片]')+'</p>'
@@ -3958,4 +3958,100 @@ $('feedContent').addEventListener('change',e=>{
 $('feedContent').addEventListener('keydown',e=>{
   if(e.target.matches('[data-hw-dev-comment-metric]')&&e.key==='Enter'){e.preventDefault();e.target.blur();}
 },true);
+
+/* Live cloud mentions for the real developer-side bell (third navigation item).
+   Keep the local simulated user notification screen unchanged. */
+const hwCharNotice={items:[],profiles:new Map(),body:new Map(),viewer:'',shown:false,busy:false,error:''};
+document.head.insertAdjacentHTML('beforeend','<style>.hw-char-notice-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e0245e;margin-left:5px}.hw-char-notice-dot[hidden]{display:none!important}.hw-char-notice{display:block;width:100%;border:0;border-bottom:1px solid var(--border,#ddd);background:transparent;color:inherit;padding:14px 18px;text-align:left;cursor:pointer}.hw-char-notice:hover{background:var(--hover,rgba(128,128,128,.08))}.hw-char-notice.unread{border-left:3px solid #e0245e}.hw-char-notice p{margin:6px 0;overflow-wrap:anywhere}.hw-char-notice small{opacity:.7}</style>');
+function hwCharNoticeMine(){return hwCharNotice.items.filter(m=>String(m.recipient_character_id)===String(state.viewerId))}
+function hwCharNoticeBadge(){
+ const bell=$('xNavLinks')?.querySelectorAll('.x-nav-link')?.[2];if(!bell)return;
+ let dot=bell.querySelector('.hw-char-notice-dot');
+ if(!dot){dot=document.createElement('span');dot.className='hw-char-notice-dot';bell.append(dot)}
+ const count=hwCharNoticeMine().filter(m=>!m.read_at).length;
+ dot.hidden=state.clientMode!=='developer'||count===0;
+ if(state.clientMode==='developer')bell.setAttribute('aria-label','通知'+(count?'，'+count+' 条未读提及':''));
+}
+async function hwCharNoticeRefresh(){
+ const H=window.HWCloud,viewer=String(state.viewerId||'');
+ if(!H?.client||!H.user||!window.hwCloudIsAdmin?.()||hwCharNotice.busy||!viewer)return;
+ hwCharNotice.busy=true;hwCharNotice.error='';
+ try{
+  const [mentions,profiles]=await Promise.all([
+   H.client.from('hw_mentions').select('id,recipient_character_id,actor_user_id,post_id,comment_id,mentioned_handle,created_at,read_at')
+    .eq('recipient_kind','character').eq('recipient_character_id',viewer).order('created_at',{ascending:false}).limit(300),
+   H.client.from('hw_profiles').select('id,display_name,handle').limit(1000)
+  ]);
+  if(mentions.error||profiles.error)throw mentions.error||profiles.error;
+  const items=mentions.data||[],ids=[...new Set(items.map(m=>m.comment_id||m.post_id))];
+  const posts=ids.length?await H.client.from('hw_posts').select('id,body').in('id',ids):{data:[],error:null};
+  if(posts.error)throw posts.error;
+  hwCharNotice.items=items;hwCharNotice.profiles=new Map((profiles.data||[]).map(p=>[p.id,p]));
+  hwCharNotice.body=new Map((posts.data||[]).map(p=>[p.id,p.body]));
+  hwCharNotice.viewer=viewer;hwCharNoticeBadge();
+  if(hwCharNotice.shown)hwCharNoticeRender();
+ }catch(e){hwCharNotice.error=e.message||String(e);console.warn('提及通知读取失败',e);if(hwCharNotice.shown)hwCharNoticeRender()}
+ finally{hwCharNotice.busy=false}
+}
+function hwCharNoticeRender(){
+ if(!hwCharNotice.shown||state.clientMode!=='developer')return;
+ const current=String(state.viewerId||''),name=personById(current)?.name||'当前人物';
+ $('postHeader').textContent='通知';$('backArrow').innerHTML='';
+ const data=hwCharNoticeMine().map(m=>{
+  const author=hwCharNotice.profiles.get(m.actor_user_id),who=author?.display_name||author?.handle||'玩家';
+  const body=String(hwCharNotice.body.get(m.comment_id||m.post_id)||'内容已删除');
+  return '<button type="button" class="hw-char-notice '+(!m.read_at?'unread':'')+'" data-hw-char-notice="'+esc(m.id)+'"><strong>'+esc(who)+'</strong> 在'+(m.comment_id?'评论':'帖子')+'中提及了 @'+esc(m.mentioned_handle)
+   +'<p>'+esc(body.slice(0,160))+'</p><small>'+esc(new Date(m.created_at).toLocaleString('zh-CN'))+(m.read_at?' · 已读':' · 未读')+' · 点击查看</small></button>';
+ }).join('');
+ $('feedContent').innerHTML='<div class="u23-page-head"><strong>🔔 '+esc(name)+' · 提及通知</strong><small>仅当前人物收到的真实玩家 @</small></div>'
+  +(hwCharNotice.error?'<div class="u23-empty">'+esc(hwCharNotice.error)+'</div>'
+   :!window.hwCloudIsAdmin?.()?'<div class="u23-empty">请登录开发者管理员账号。</div>'
+   :current!==hwCharNotice.viewer?'<div class="u23-empty">正在加载通知…</div>'
+   :data||'<div class="u23-empty">当前人物暂无提及通知。</div>');
+ hwCharNoticeBadge();
+}
+async function hwCharNoticeOpen(id){
+ const m=hwCharNoticeMine().find(x=>x.id===id),H=window.HWCloud;if(!m)return;
+ if(!m.read_at&&H?.client){
+  try{
+   const {data,error}=await H.client.from('hw_mentions').update({read_at:new Date().toISOString()})
+    .eq('id',m.id).eq('recipient_kind','character').eq('recipient_character_id',state.viewerId).is('read_at',null).select('id');
+   if(error)throw error;
+   if(data?.length)m.read_at=new Date().toISOString();
+  }catch(e){console.warn('已读同步失败',e);toast('未能同步通知已读状态')}
+ }
+ hwCharNotice.shown=false;hwDevFeedPage='post';hwDevFeedFocus='cloud:'+m.post_id;hwDevCloudReturn='home';
+ try{await window.hwDevCloudFeed?.refresh()}catch(e){console.warn(e)}
+ render();
+ if(m.comment_id)requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  const el=$('feedContent')?.querySelector('[data-hw-cloud-reply-id="'+CSS.escape(m.comment_id)+'"]');
+  if(el){el.scrollIntoView({block:'center',behavior:'smooth'});el.style.outline='2px solid #1d9bf0';setTimeout(()=>{if(el.isConnected)el.style.outline=''},2400)}
+ }));
+}
+const hwCharNoticePreviousRender=render;
+render=function(){hwCharNoticePreviousRender();hwCharNoticeBadge();if(hwCharNotice.shown)hwCharNoticeRender()};
+$('xNavLinks').addEventListener('click',e=>{
+ if(state.clientMode!=='developer')return;
+ const nav=e.target.closest('.x-nav-link'),links=$('xNavLinks').querySelectorAll('.x-nav-link');
+ if(nav===links[2]){
+  e.preventDefault();e.stopImmediatePropagation();
+  hwDevFeedPage='';hwDevFeedFocus='';hwCharNotice.shown=true;state.viewMode='thread';
+  render();hwCharNoticeRefresh().catch(console.warn);
+ }else if(nav)hwCharNotice.shown=false;
+},true);
+$('feedContent').addEventListener('click',e=>{
+ const b=e.target.closest('[data-hw-char-notice]');if(!b||!hwCharNotice.shown)return;
+ e.preventDefault();e.stopImmediatePropagation();hwCharNoticeOpen(b.dataset.hwCharNotice);
+},true);
+document.addEventListener('change',e=>{
+ if(e.target?.id!=='viewerSelect'&&e.target?.id!=='dmOwner')return;
+ hwCharNotice.viewer='';hwCharNotice.items=[];hwCharNoticeBadge();
+ Promise.resolve().then(()=>hwCharNoticeRefresh()).catch(console.warn);
+},true);
+window.addEventListener('focus',()=>{if(state.clientMode==='developer')hwCharNoticeRefresh().catch(console.warn)});
+if(window.HWCloud?.client)window.HWCloud.client.channel('hw-dev-character-mentions')
+ .on('postgres_changes',{event:'*',schema:'public',table:'hw_mentions'},()=>hwCharNoticeRefresh().catch(console.warn)).subscribe();
+setInterval(()=>{if(state.clientMode==='developer')hwCharNoticeRefresh().catch(console.warn)},20000);
+window.addEventListener('hw:dev-mentions-refresh',()=>hwCharNoticeRefresh().catch(console.warn));
+
 })();
