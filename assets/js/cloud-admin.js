@@ -68,7 +68,7 @@ cloudTimelineBox.innerHTML=`<div class="hw-inbox-head"><b>📝 全部帖子 · �
 /* Main posts are now managed in the central thread; no extra cloud timeline panel. */
 cloudTimelineBox.hidden=true;document.body.append(cloudTimelineBox);
 const cloudTimelineStyle=document.createElement('style');cloudTimelineStyle.textContent=`#hwCloudTimelineBox{margin-top:16px;gap:10px}#hwTimelineItems{max-height:340px;overflow:auto;border:1px solid #dbe5ed;border-radius:12px}#hwTimelineItems button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e9edf1;background:#fff;color:#0f1419;padding:10px;cursor:pointer;line-height:1.5}#hwTimelineItems button:hover,#hwTimelineItems button.active{background:#edf7ff}#hwTimelineItems button small{display:block;color:#536471}#hwTimelineDetail{display:grid;gap:9px}#hwTimelineDetail textarea,#hwTimelineDetail input,#hwTimelineDetail select{width:100%;box-sizing:border-box;border:1px solid #d7e1e8;border-radius:9px;padding:9px;background:#fff;color:#0f1419}#hwTimelineDetail .hw-metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#hwTimelineDetail label{display:grid;gap:4px}#hwTimelineDetail .hw-cloud-reply{border:1px solid #e9edf1;border-radius:9px;padding:8px;line-height:1.45}#hwTimelineDetail .hw-cloud-reply small{color:#536471}#hwTimelineDetail .hw-actions{display:flex;gap:8px;flex-wrap:wrap}#hwTimelineDetail .hw-actions button{flex:1;min-width:90px}`;document.head.append(cloudTimelineStyle);
-const v32={posts:[],people:new Map(),users:new Map(),selected:'',expanded:false};
+const v32={posts:[],people:new Map(),users:new Map(),castIds:new Set(),selected:'',expanded:false};
 window.hwCloudStoryForLegacy=id=>v32.posts.find(p=>p.id===id)?.story_at||null;
 // Keep direct cloud edits through subsequent local draft publishing, rather than silently reverting them.
 let v32Overrides={};try{v32Overrides=JSON.parse(localStorage.getItem('hw-v32-cloud-overrides')||'{}')||{}}catch{}
@@ -78,7 +78,7 @@ const cloudPostText=p=>String(p.body||'').slice(0,130);
 function v32PostAuthor(p){if(p.author_kind==='character'){const x=v32.people.get(p.character_id);return x?.name||'人物账号'}return v32.users.get(p.user_id)?.display_name||'玩家';}
 function v32RenderPostList(){const shown=v32.posts.filter(p=>!p.parent_id&&p.author_kind==='character');const list=$('hwTimelineItems');if(!list)return;list.innerHTML=shown.map(p=>`<button type="button" data-v32-open="${S(p.id)}" class="${p.id===v32.selected?'active':''}"><b>${S(v32PostAuthor(p))}</b> <small>${S(p.author_kind==='user'?'玩家帖子':'人物帖子')} · ${S(new Date(p.story_at||p.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}</small>${S(cloudPostText(p)||'[图片]')}</button>`).join('')||'<div style="padding:14px;color:#536471">这里还没有帖子。</div>'}
 function v32Metrics(p){return ['replies','reposts','likes','views','bookmarks'].map((key,i)=>{const names=['评论','转发','喜欢','浏览','书签'];return `<label>${names[i]}<input data-v32-metric="${key}" value="${S(String(p.metrics?.[key]||'0'))}" maxlength="25"></label>`}).join('')}
-function v32RenderDetail(){const box=$('hwTimelineDetail'),p=v32.posts.find(p=>p.id===v32.selected);if(!box)return;if(!p){box.innerHTML='<small class="hw-mini">点击上面的帖子查看评论及编辑选项。</small>';return;}const child=v32.posts.filter(x=>x.parent_id===p.id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)),isChar=p.author_kind==='character';const chars=[...v32.people].map(([id,c])=>`<option value="${S(id)}" ${id===p.character_id?'selected':''}>${S(c.name)}</option>`).join('');box.innerHTML=`<div class="hw-inbox-meta"><b>${S(v32PostAuthor(p))}</b> · ${S(p.author_kind==='user'?'玩家帖子（不可代替玩家编辑）':'人物帖子')}<br><small>同一条帖子在首页、作者主页和详情里共享内容。</small></div><label>正文<textarea id="v32Body" rows="4" ${isChar?'':'readonly'}>${S(p.body||'')}</textarea></label>${`<div class="hw-metric-grid">${v32Metrics(p)}</div><div class="hw-actions"><button type="button" id="v32Save" class="hw-primary">${isChar?'保存正文和互动数字':'保存玩家帖互动数字'}</button>${isChar?'<button type="button" id="v32Delete">删除人物帖子</button>':''}</div>`}<b style="font-size:13px">评论 · ${child.length} 条</b><div id="v32Comments">${child.map(x=>`<div class="hw-cloud-reply"><b>${S(v32PostAuthor(x))}</b>：${S(x.body||'[图片]')}<small> ${S(new Date(x.story_at||x.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}</small></div>`).join('')||'<span class="hw-mini">暂无评论。</span>'}</div><label>选择评论人物<select id="v32ReplyCharacter">${chars}</select></label><label>评论内容<textarea id="v32ReplyText" rows="3" placeholder="输入评论，或点随机生成…"></textarea></label><div class="hw-actions"><button type="button" id="v32RandomReply">🎲 随机评论</button><button type="button" id="v32SendReply" class="hw-primary">发布人物评论</button></div>`;
+function v32RenderDetail(){const box=$('hwTimelineDetail'),p=v32.posts.find(p=>p.id===v32.selected);if(!box)return;if(!p){box.innerHTML='<small class="hw-mini">点击上面的帖子查看评论及编辑选项。</small>';return;}const child=v32.posts.filter(x=>x.parent_id===p.id).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)),isChar=p.author_kind==='character';const chars=[...v32.people].filter(([id])=>v32.castIds.has(String(id))).map(([id,c])=>`<option value="${S(id)}" ${id===p.character_id?'selected':''}>${S(c.name)}</option>`).join('');box.innerHTML=`<div class="hw-inbox-meta"><b>${S(v32PostAuthor(p))}</b> · ${S(p.author_kind==='user'?'玩家帖子（不可代替玩家编辑）':'人物帖子')}<br><small>同一条帖子在首页、作者主页和详情里共享内容。</small></div><label>正文<textarea id="v32Body" rows="4" ${isChar?'':'readonly'}>${S(p.body||'')}</textarea></label>${`<div class="hw-metric-grid">${v32Metrics(p)}</div><div class="hw-actions"><button type="button" id="v32Save" class="hw-primary">${isChar?'保存正文和互动数字':'保存玩家帖互动数字'}</button>${isChar?'<button type="button" id="v32Delete">删除人物帖子</button>':''}</div>`}<b style="font-size:13px">评论 · ${child.length} 条</b><div id="v32Comments">${child.map(x=>`<div class="hw-cloud-reply"><b>${S(v32PostAuthor(x))}</b>：${S(x.body||'[图片]')}<small> ${S(new Date(x.story_at||x.created_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))}</small></div>`).join('')||'<span class="hw-mini">暂无评论。</span>'}</div><label>选择评论人物<select id="v32ReplyCharacter">${chars}</select></label><label>评论内容<textarea id="v32ReplyText" rows="3" placeholder="输入评论，或点随机生成…"></textarea></label><div class="hw-actions"><button type="button" id="v32RandomReply">🎲 随机评论</button><button type="button" id="v32SendReply" class="hw-primary">发布人物评论</button></div>`;
 }
 
 /* Cloud-backed historical time editor. Does not touch author, post body or media. */
@@ -177,7 +177,7 @@ async function hwDevCloudRootId(row){
 
 // Permanent cast and fixed random commenters share the same reply selector.
 function hwDevReplyCharacters(){
- const formal=[...v32.people.values()].filter(p=>p.id&&p.name&&!/^legacy_commenter_/i.test(String(p.id))).map(p=>({...p,hwRandom:false}));
+ const formal=[...v32.people.values()].filter(p=>p.id&&p.name&&v32.castIds.has(String(p.id))&&!/^legacy_commenter_/i.test(String(p.id))).map(p=>({...p,hwRandom:false}));
  const random=new Map();
  for(const p of v32.people.values())if(/^legacy_commenter_/i.test(String(p.id))&&p.name)random.set(String(p.handle||'').toLowerCase(),{...p,hwRandom:true});
  for(const p of window.hwFixedRandomPoolList?.()||[]){
@@ -285,7 +285,7 @@ window.hwDevCloudFeed={
  refresh:()=>v32Reload()
 };
 
-async function v32Reload(){if(!admin)return;const[posts,people,users]=await Promise.all([u().from('hw_posts').select('*').order('story_at',{ascending:false}).limit(3000),u().from('hw_characters').select('id,name,handle,avatar_url,badge_type').limit(1000),u().from('hw_profiles').select('id,display_name,handle,avatar_url,cover_url,bio,location,joined_label,badge_type').limit(1000)]);for(const x of [posts,people,users])if(x.error)throw x.error;v32.posts=posts.data||[];v32.people=new Map((people.data||[]).map(x=>[x.id,x]));window.hwFixedRandomPoolImport?.(people.data||[]);v32.users=new Map((users.data||[]).map(x=>[x.id,x]));v32RenderPostList();v32RenderDetail();hwCloudRenderStoryList();window.dispatchEvent(new Event('hw-dev-cloud-refreshed'));if(!v33RenderAllPosts()&&!$('v33-feed')?.contains(document.activeElement))v33RefreshView();}
+async function v32Reload(){if(!admin)return;const[posts,people,users,cast]=await Promise.all([u().from('hw_posts').select('*').order('story_at',{ascending:false}).limit(3000),u().from('hw_characters').select('id,name,handle,avatar_url,badge_type').limit(1000),u().from('hw_profiles').select('id,display_name,handle,avatar_url,cover_url,bio,location,joined_label,badge_type').limit(1000),u().from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle()]);for(const x of [posts,people,users,cast])if(x.error)throw x.error;v32.castIds=new Set(Array.isArray(cast.data?.value)?cast.data.value.map(String):[]);v32.posts=posts.data||[];v32.people=new Map((people.data||[]).map(x=>[x.id,x]));window.hwFixedRandomPoolImport?.(people.data||[]);v32.users=new Map((users.data||[]).map(x=>[x.id,x]));v32RenderPostList();v32RenderDetail();hwCloudRenderStoryList();window.dispatchEvent(new Event('hw-dev-cloud-refreshed'));if(!v33RenderAllPosts()&&!$('v33-feed')?.contains(document.activeElement))v33RefreshView();}
 $('hwTimelineRefresh').onclick=()=>v32Reload().catch(e=>status('读取帖子失败：'+H.errMsg(e)));
 $('hwTimelineFilter').onchange=v32RenderPostList;
 $('hwTimelineItems').onclick=e=>{const b=e.target.closest('[data-v32-open]');if(!b)return;v32.selected=b.dataset.v32Open;v32RenderPostList();v32RenderDetail();};
@@ -433,7 +433,9 @@ async function publish(){
  if(busy||!admin)return;if(typeof window.hwLegacySnapshot!=='function'){status('本地草稿未初始化');return;}
  busyState(true);
  try{
-  const snapshot=window.hwLegacySnapshot();const people=(snapshot.people||[]).filter(p=>String(p.handle).toLowerCase()!=='my_account');
+  const snapshot=window.hwLegacySnapshot();
+  const retiredHandles=new Set((snapshot.deletedPeopleHandles||[]).map(h=>String(h).toLowerCase()));
+  const people=(snapshot.people||[]).filter(p=>String(p.handle).toLowerCase()!=='my_account'&&!retiredHandles.has(String(p.handle).toLowerCase()));
   const previous=hwLoadPublishCache(HW_PUBLISH_HASH_KEY);
   const forceFull=localStorage.getItem('hw-gh-migration-first-publish')==='1';
   const previousPosts=previous.posts||{},previousChars=previous.characters||{};
@@ -480,7 +482,7 @@ async function publish(){
     for(const row of extras){
       if(!row?.handle||personIdByPost(row,people))continue;
       const handle=String(row.handle).replace(/^@/,'').trim().toLowerCase();
-      if(!handle||handle==='my_account'||handles.has(handle))continue;
+      if(!handle||handle==='my_account'||handles.has(handle)||retiredHandles.has(handle))continue;
       const fixed=randomPoolByHandle.get(handle);
       const fallback={id:'legacy_commenter_'+handle.replace(/[^a-z0-9_]/g,'').slice(0,52),name:fixed?.name||row.name||handle,handle,avatar:fixed?.avatar||row.avatar||'',verified:fixed?!!fixed.verified:!!row.verified,badgeType:row.badgeType||'blue'};
       if(!fallback.id||ids.has(fallback.id))continue;
@@ -493,7 +495,14 @@ async function publish(){
       chars.push({id:fallback.id,handle:fallback.handle,name:fallback.name,avatar_url:await cloudImage(fallback.avatar),cover_url:null,bio:'',location:'Hogwarts',joined_label:'1991年9月',badge_type:cloudBadgeType(fallback.badgeType,fallback.verified),meta:{}});
     }
   }
-  const docPostRows=[];const existingResp=await u().from('hw_posts').select('id,source_key,created_at,story_at,published_at,metrics').like('source_key','v26:%').limit(5000);
+  // Retired cast rows and their history remain as archives, not public contacts.
+  const retiredCloudIds=new Set();
+  if(retiredHandles.size){
+   const removed=await u().from('hw_characters').select('id,handle').in('handle',[...retiredHandles]);
+   if(removed.error)throw removed.error;
+   for(const row of removed.data||[])retiredCloudIds.add(String(row.id));
+  }
+  const docPostRows=[];const existingResp=await u().from('hw_posts').select('id,source_key,created_at,story_at,published_at,metrics,character_id,parent_id').like('source_key','v26:%').limit(5000);
   if(existingResp.error)throw existingResp.error;const existing=new Map((existingResp.data||[]).map(row=>[row.id,row]));
   async function createPost(src,lang,key,authorId,parentId=null,quoteId=null){if(!authorId)return;
    const id='v26:'+key,old=existing.get(id);
@@ -665,13 +674,22 @@ async function publish(){
   }
   const migrationFirstPublish=localStorage.getItem('hw-gh-migration-first-publish')==='1';
   // Remove only stale V26-mirrored rows; leave real visitors' posts and reactions untouched.
-  const stale=migrationFirstPublish?[]:(existingResp.data||[]).filter(p=>!desiredPostIds.has(p.id)).map(p=>p.id);
+  const isRetiredHistory=row=>{
+   const visited=new Set();
+   while(row&&!visited.has(row.id)){
+    if(retiredCloudIds.has(String(row.character_id||'')))return true;
+    visited.add(row.id);
+    row=row.parent_id?existing.get(row.parent_id):null;
+   }
+   return false;
+  };
+  const stale=migrationFirstPublish?[]:(existingResp.data||[]).filter(p=>!desiredPostIds.has(p.id)&&!isRetiredHistory(p)).map(p=>p.id);
   // Delete deepest children first to avoid dangling refs from existing content.
   for(const id of stale){const{error}=await u().from('hw_posts').delete().eq('id',id);if(error)console.warn('Failed to prune stale V26 content',id,error.message);else delete v32Overrides[id];}try{localStorage.setItem('hw-v32-cloud-overrides',JSON.stringify(v32Overrides))}catch{}
   // Removed official cast members are hidden by public_cast_ids above.
   // Preserve their cloud row, posts, comments and private conversation history:
   // deleting a character through a library edit must not cascade-delete content.
-  status(`✅ 增量发布完成：更新 ${chars.length} 位人物、${docPostRows.length} 条帖子或评论；未修改 ${reusedCharacters} 位人物和 ${reusedPosts} 条内容已跳过。公开联系人名单已同步。`);
+  status(`✅ 增量发布完成：更新 ${chars.length} 位人物、${docPostRows.length} 条帖子或评论；未修改 ${reusedCharacters} 位人物和 ${reusedPosts} 条内容已跳过。玩家端正式联系人已严格同步为人物库 ${publishedCastIds.length} 位；删除的人物不再公开展示。`);
   // Fixed random identities are intentionally retained. They must never be
   // garbage-collected merely because no new comment used them this publish.
   if(migrationFirstPublish)localStorage.removeItem('hw-gh-migration-first-publish');
