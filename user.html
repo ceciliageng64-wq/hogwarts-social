@@ -420,6 +420,42 @@ function hwAmbientSeed(value){
  let hash=2166136261;for(const ch of String(value||''))hash=Math.imul(hash^ch.charCodeAt(0),16777619);
  return hash>>>0;
 }
+// Keep more than one player post eligible for viral reach. Selection is
+// pseudorandom yet reproducible from permanent post IDs, then boosted by
+// actual conversation activity (including nested replies). The selection is
+// cached per public-post snapshot, so a 10-second counter tick is inexpensive.
+let hwPlayerHeatSnapshot=null;
+function hwPlayerHeatContext(){
+ if(hwPlayerHeatSnapshot?.posts===cache.posts)return hwPlayerHeatSnapshot;
+ const roots=cache.posts.filter(p=>p.author_kind==='user'&&!p.parent_id&&visibleLocalePost(p));
+ const byId=new Map(cache.posts.map(p=>[p.id,p]));
+ const replies=new Map();
+ for(const comment of cache.posts){
+  if(!comment.parent_id)continue;
+  let cursor=comment,visited=new Set();
+  for(let depth=0;depth<32&&cursor?.parent_id&&!visited.has(cursor.id);depth++){
+   visited.add(cursor.id);
+   cursor=byId.get(cursor.parent_id);
+  }
+  if(cursor?.id&&cursor.author_kind==='user'&&!cursor.parent_id&&comment.user_id!==cursor.user_id){
+   replies.set(cursor.id,(replies.get(cursor.id)||0)+1);
+  }
+ }
+ const ranked=roots.map(p=>{
+  const actualReplies=replies.get(p.id)||0;
+  const randomness=hwAmbientSeed('player-heat-v2:'+p.id)/4294967296;
+  return {id:p.id,score:randomness-Math.min(actualReplies,18)*0.065};
+ }).sort((a,b)=>a.score-b.score||String(a.id).localeCompare(String(b.id)));
+ // Approximately 18% viral and another 28% hot; whenever there are at least
+ // three player posts, guarantee two distinct viral posts rather than a single
+ // lucky hit. No rows or reaction records are synthesized in the database.
+ const viralCount=roots.length>=3?Math.max(2,Math.round(roots.length*0.18)):roots.length===2?1:roots.length;
+ const trendingCount=Math.min(roots.length-viralCount,Math.max(roots.length>=5?2:0,Math.round(roots.length*0.28)));
+ const tiers=new Map();
+ for(let i=0;i<ranked.length;i++)tiers.set(ranked[i].id,i<viralCount?'viral':i<viralCount+trendingCount?'trending':'ordinary');
+ hwPlayerHeatSnapshot={posts:cache.posts,tiers,replies};
+ return hwPlayerHeatSnapshot;
+}
 function hwAmbientStats(post){
  const zero={likes:0,replies:0,reposts:0,bookmarks:0,views:0};
  if(!post)return zero;
@@ -472,6 +508,25 @@ function hwAmbientStats(post){
    reposts:rise(0,repostsCap,9+seed%7,50),
    bookmarks:rise(1+seed%3,bookmarksCap,7+seed%7,50),
    views:rise(15+seed%26,viewsCap,5+seed%9,50)
+  };
+ }
+ // A significant minority of player posts become blockbuster hits. They
+ // grow more slowly than official cast posts, but have far higher ceilings
+ // than ordinary posts. Actual replies and likes increase the reach further.
+ const heat=hwPlayerHeatContext();
+ const tier=heat.tiers.get(post.id)||'ordinary';
+ if(tier!=='ordinary'){
+  const realReplies=heat.replies.get(post.id)||0;
+  const actualLikes=cache.likes.filter(x=>x.post_id===post.id).length;
+  const responseBoost=1+Math.min(0.75,realReplies*0.09+actualLikes*0.035);
+  const viral=tier==='viral',duration=viral?140:105;
+  const ceiling=(value)=>Math.round(value*responseBoost);
+  return {
+   likes:rise(viral?15+seed%30:7+seed%15,ceiling(viral?3000+seed%9001:450+seed%2351),viral?22+seed%9:16+seed%8,duration),
+   replies:rise(0,ceiling(viral?70+seed%161:18+seed%53),viral?31+seed%10:25+seed%9,duration),
+   reposts:rise(viral?5+seed%9:2+seed%5,ceiling(viral?400+seed%2601:50+seed%451),viral?28+seed%10:20+seed%9,duration),
+   bookmarks:rise(viral?9+seed%17:3+seed%11,ceiling(viral?600+seed%3501:95+seed%706),viral?26+seed%9:19+seed%9,duration),
+   views:rise(viral?120+seed%261:45+seed%110,ceiling(viral?60000+seed%240001:12000+seed%68001),viral?19+seed%10:15+seed%8,duration)
   };
  }
  return {
