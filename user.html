@@ -1362,7 +1362,7 @@ function hwShotAnchorOffset(screen,anchor,fallback){
 }
 // Single capped PNG; profile captures start from the live scroll position.
 function hwShotCrop(total,width,startOffset=0){
- const maxHeight=Math.min(7000,Math.floor(7000000/width));
+ const maxHeight=Math.min(3500,Math.floor(3500000/width));
  const start=Math.max(0,Math.min(Math.floor(Number(startOffset)||0),Math.max(0,total-1)));
  const height=Math.max(1,Math.min(total-start,maxHeight));
  const scale=Math.min(2,window.devicePixelRatio||2,Math.sqrt(14000000/(width*height)));
