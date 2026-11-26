@@ -642,7 +642,37 @@ function isRandomCommenter(c){return /^legacy_commenter_/i.test(String(c?.id||''
 function discoverableCharacters(){const ids=new Set(Array.isArray(cache.castIds)?cache.castIds.map(String):[]);return cache.characters.filter(c=>ids.has(String(c.id)));}
 function isPublicCastPost(post){return post?.author_kind!=='character'||isRandomCommenter({id:post.character_id})||discoverableCharacters().some(c=>String(c.id)===String(post.character_id));}
 function castMatch(c,query){const q=String(query||'').trim().toLowerCase().replace(/^@/,'');return !q||String(c.name||'').toLowerCase().includes(q)||String(c.handle||'').toLowerCase().includes(q);}
-function renderCastSearch(){const box=$('cast-search-results'),input=$('cast-search-input');if(!box||!input)return;const q=input.value.trim();box.hidden=!q;if(!q)return;const rows=discoverableCharacters().filter(c=>castMatch(c,q)).slice(0,30);box.innerHTML=rows.map(c=>`<button type="button" class="cast-result" data-action="profile" data-kind="character" data-id="${E(c.id)}">${avatar(c.avatar_url,c.name)}<span>${E(c.name)}<small>@${E(c.handle)}</small></span></button>`).join('')||'<p class="muted">人物库中没有找到匹配的角色。</p>';}
+// One combined directory for the Explore page, the contact sidebar and the
+// top account search. Players are public hw_profiles; only published characters
+// from public_cast_ids qualify. No temporary random commenters can leak in.
+function hwPublicDirectory(){
+ const chars=discoverableCharacters().map(c=>({kind:'character',id:c.id,name:c.name||c.handle,handle:c.handle,avatar_url:c.avatar_url,bio:c.bio,badge_type:c.badge_type}));
+ const players=cache.profiles.map(p=>({kind:'user',id:p.id,name:p.display_name||p.handle,handle:p.handle,avatar_url:p.avatar_url,bio:p.bio,badge_type:p.badge_type}));
+ const seen=new Set();
+ const rank=p=>{let h=2166136261;for(const ch of String(p.handle||'').toLowerCase())h=Math.imul(h^ch.charCodeAt(0),16777619);return h>>>0;};
+ return chars.concat(players).filter(p=>{
+  if(!p.id||!p.handle)return false;
+  const key=p.kind+':'+String(p.id);
+  if(seen.has(key))return false;
+  seen.add(key);return true;
+ }).sort((a,b)=>{
+  // Roger Davies first as requested, with all remaining accounts evenly mixed
+  // by the same stable @handle hash (never separated by account type).
+  const roger=p=>String(p.handle).toLowerCase()==='rogerdavies'?0:1;
+  return roger(a)-roger(b)||rank(a)-rank(b)||String(a.handle).localeCompare(String(b.handle),'en');
+ });
+}
+function hwDirectorySearch(query){
+ const q=String(query||'').trim().toLocaleLowerCase().replace(/^@/,'');
+ return hwPublicDirectory().filter(p=>!q||String(p.name).toLocaleLowerCase().includes(q)||String(p.handle).toLowerCase().includes(q));
+}
+function renderCastSearch(){
+ const box=$('cast-search-results'),input=$('cast-search-input');if(!box||!input)return;
+ const q=input.value.trim();box.hidden=!q;if(!q)return;
+ const rows=hwDirectorySearch(q);
+ box.innerHTML=rows.map(p=>'<button type="button" class="cast-result" data-action="profile" data-kind="'+p.kind+'" data-id="'+E(p.id)+'">'
+  +avatar(p.avatar_url,p.name)+'<span>'+E(p.name)+'<small>@'+E(p.handle)+'</small></span></button>').join('')||'<p class="muted">没有找到匹配的账号。</p>';
+}
 function authorOf(post){if(post.author_kind==='character'){const c=cache.characters.find(x=>x.id===post.character_id);return c?{...c,kind:'character'}:{id:post.character_id||'',name:'校园账号',handle:'anonymous',kind:'character'};}
  const p=cache.profiles.find(x=>x.id===post.user_id);return p?{...p,name:p.display_name,kind:'user',badge_type:p.badge_type}: {id:post.user_id||'',name:'用户',handle:'visitor',kind:'user'};}
 function authorBadge(a){return H.renderBadge(a.badge_type||'none')}
@@ -781,7 +811,19 @@ function feedComposer(targetId=''){const me=state.myProfile;const target=targetI
 function renderFeed(){const tops=cache.posts.filter(x=>!x.parent_id&&visibleLocalePost(x)&&isPublicCastPost(x)&&hwStoryStamp(x)<=hwWorldNow()+1000).sort(hwStorySort);return `<div>${state.user?feedComposer():`<div class="composer" style="align-items:center;justify-content:space-between"><span class="muted">游客可以浏览时间线，登录后发帖与互动。</span><button class="primary" data-action="login">登录</button></div>`}${tops.length?tops.map(x=>postCard(x)).join(''):`<div class="empty"><strong>霍格沃茨还没有公开动态</strong>校园动态尚未发布，请稍后再来看看。</div>`}</div>`;}
 function tree(parent,depth=0,seen=new Set()){if(depth>16)return '';return repliesTo(parent).map(r=>{if(seen.has(r.id))return '';const ns=new Set(seen);ns.add(r.id);return `<div class="threadline" style="margin-left:${Math.min(depth,4)*8+8}px">${postCard(r,{depth})}${tree(r.id,depth+1,ns)}</div>`}).join('')}
 function renderDetail(){const p=postById(state.postId);if(!p)return `<div class="empty">这条帖子尚不存在或已被删除。</div>`;return `${postCard(p)}${state.user?feedComposer(state.replyTo||p.id):`<div class="composer"><span class="muted">登录后可以参与楼中楼回复。</span><button class="primary" data-action="login">登录</button></div>`}${tree(p.id)}`;}
-function renderExplore(){return `<div><div class="sidecard" style="margin:15px"><h2>🏰 霍格沃茨校园</h2><p>只显示开发者人物库里的正式角色。可按昵称或账号搜索。</p><input id="explore-cast-search" type="search" placeholder="搜索人物名字或 @账号" value="${E(state.castSearch||'')}" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:11px;margin-top:8px"></div><div class="explore-cast-results">${discoverableCharacters().filter(c=>castMatch(c,state.castSearch)).map(c=>`<div class="post" style="align-items:center">${authorLink({...c,kind:'character'})}<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="character" data-id="${E(c.id)}" style="cursor:pointer">${E(c.name)} ${authorBadge(c)}</strong><div class="muted">@${E(c.handle)} · ${E(c.bio?.slice(0,75)||'Hogwarts')}</div></div><button class="small-outline" data-action="profile" data-kind="character" data-id="${E(c.id)}">主页</button><button class="small-outline" data-action="start-dm" data-id="${E(c.id)}">✉ 私信</button></div>`).join('')}</div></div>`;}
+function hwExploreDirectoryResults(){
+ const entries=hwDirectorySearch(state.castSearch);
+ return entries.map(p=>{
+  const isChar=p.kind==='character';
+  return '<div class="post" style="align-items:center">'+authorLink(p)
+   +'<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="'+p.kind+'" data-id="'+E(p.id)+'" style="cursor:pointer">'+E(p.name)+' '+authorBadge(p)+'</strong>'
+   +'<div class="muted">@'+E(p.handle)+(p.bio?' · '+E(p.bio.slice(0,75)):'')+'</div></div>'
+   +'<button class="small-outline" data-action="profile" data-kind="'+p.kind+'" data-id="'+E(p.id)+'">主页</button>'
+   +(isChar?'<button class="small-outline" data-action="start-dm" data-id="'+E(p.id)+'">✉ 私信</button>':'')
+   +'</div>';
+ }).join('')||'<div class="empty">没有符合搜索条件的账号。</div>';
+}
+function renderExplore(){return `<div><div class="sidecard" style="margin:15px"><h2>🏰 霍格沃茨校园</h2><p>正式人物与已注册玩家同步显示，可按昵称或 @账号搜索。</p><input id="explore-cast-search" type="search" placeholder="搜索人物或玩家昵称、@账号" value="${E(state.castSearch||'')}" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:11px;margin-top:8px"></div><div class="explore-cast-results">${hwExploreDirectoryResults()}</div></div>`;}
 // Developer-curated likes represent the character's public liked-post showcase.
 // They do not have hw_posts IDs, so render them read-only instead of wiring
 // misleading like/reply/repost actions to nonexistent database rows.
@@ -849,10 +891,16 @@ function renderProfileEdit(){
 function renderBookmarks(){const ids=new Set(cache.bookmarks.filter(x=>x.user_id===state.user?.id).map(x=>x.post_id)),posts=cache.posts.filter(x=>ids.has(x.id));return posts.length?posts.map(postCard).join(''):'<div class="empty">还没有添加书签。</div>'}
 function renderContactsPanel(){
  const box=$('contact-card');if(!box)return;
- const contacts=discoverableCharacters().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'zh-CN'));
+ const contacts=hwPublicDirectory();
  if(!contacts.length){box.innerHTML='<h2>人物联系人</h2><p>暂时没有可用联系人。</p>';return;}
  const visible=contacts.slice(0,state.showAllContacts?contacts.length:8);
- box.innerHTML='<h2>人物联系人</h2><p>点击人物即可打开私信。</p><div class="contact-inline">'+visible.map(c=>`<button class="contact-chip" data-action="start-dm" data-id="${E(c.id)}" title="给 ${E(c.name)} 发私信">${avatar(c.avatar_url,c.name)}<span>${E(c.name)}</span></button>`).join('')+'</div>'+(contacts.length>8?`<button class="contact-toggle" data-action="toggle-contacts">${state.showAllContacts?'收起联系人':`查看全部 ${contacts.length} 位联系人`}</button>`:'');
+ box.innerHTML='<h2>人物联系人</h2><p>点击角色发私信，点击玩家查看主页。</p><div class="contact-inline">'
+  +visible.map(p=>{
+   const isChar=p.kind==='character';
+   return '<button class="contact-chip" data-action="'+(isChar?'start-dm':'profile')+'" data-kind="'+p.kind+'" data-id="'+E(p.id)+'" title="'+(isChar?'给 '+E(p.name)+' 发私信':'查看 '+E(p.name)+' 的主页')+'">'
+    +avatar(p.avatar_url,p.name)+'<span>'+E(p.name)+'</span></button>';
+  }).join('')+'</div>'
+  +(contacts.length>8?'<button class="contact-toggle" data-action="toggle-contacts">'+(state.showAllContacts?'收起联系人':'查看全部 '+contacts.length+' 位联系人')+'</button>':'');
 }
 function renderMessages(){if(!state.user)return `<div class="empty"><strong>你的私信仅登录后可见</strong><p style="margin:10px 0 16px">登录后可给人物联系人发私信，并在这里查看全部对话。</p><button class="primary" data-action="login">🎮 游戏账号 / 游客</button></div>`;
  const convos=cache.conversations;
@@ -886,6 +934,27 @@ async function hwAllPlayerProfiles(){
   if(batch.length<pageSize)return {data:rows,error:null};
  }
 }
+let hwDirectoryRefreshing=false;
+async function hwRefreshPublicDirectory(){
+ if(!C||hwDirectoryRefreshing||document.hidden)return;
+ hwDirectoryRefreshing=true;
+ try{
+  const res=await hwAllPlayerProfiles();
+  if(res.error)throw res.error;
+  const profiles=res.data||[];
+  const signature=list=>list.map(p=>[p.id,p.handle,p.display_name,p.avatar_url,p.badge_type].join(':')).join('|');
+  if(signature(profiles)===signature(cache.profiles))return;
+  cache.profiles=profiles;
+  if(state.user)state.myProfile=profiles.find(p=>p.id===state.user.id)||state.myProfile;
+  // Do not rebuild the whole page or erase a post/comment draft in progress.
+  renderContactsPanel();renderCastSearch();
+  if(state.view==='explore'){const holder=$('content')?.querySelector('.explore-cast-results');if(holder)holder.innerHTML=hwExploreDirectoryResults();}
+ }catch(e){console.warn('注册玩家联系人刷新失败',e)}
+ finally{hwDirectoryRefreshing=false}
+}
+window.addEventListener('focus',()=>hwRefreshPublicDirectory());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)hwRefreshPublicDirectory()});
+setInterval(()=>{if(!document.hidden)hwRefreshPublicDirectory()},20000);
 async function loadPublic(silent=false){if(!C){setNotice('Supabase 客户端未加载。请检查网络连接；站点需要加载 Supabase JavaScript SDK。');return;}
  try{const [chars,posts,profiles,likes,follows,trends,castDirectory,characterLikes]=await Promise.all([
  C.from('hw_characters').select('*').order('name').limit(1000),C.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),hwAllPlayerProfiles(),C.from('hw_likes').select('post_id,user_id').limit(10000),C.from('hw_follows').select('character_id,user_id').limit(10000),C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_character_profile_likes').maybeSingle()]);
@@ -1166,7 +1235,7 @@ async function setAuthState(user){state.user=user||null;state.loggedIn=!!user;st
  await loadPublic();await hwUnreadInitialize();await hwLoadMentions();renderPage();}
 function subscribe(){if(!C)return;
  if(publicChannel)C.removeChannel(publicChannel);
- publicChannel=C.channel('hw-public-v27').on('postgres_changes',{event:'*',schema:'public',table:'hw_posts'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_characters'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_profiles'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_likes'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_follows'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_trends'},refreshPublicTrends).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_cast_ids'},scheduleRefresh).subscribe();
+ publicChannel=C.channel('hw-public-v27').on('postgres_changes',{event:'*',schema:'public',table:'hw_posts'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_characters'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_profiles'},hwRefreshPublicDirectory).on('postgres_changes',{event:'*',schema:'public',table:'hw_likes'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_follows'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_trends'},refreshPublicTrends).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_cast_ids'},scheduleRefresh).subscribe();
  if(personalChannel)C.removeChannel(personalChannel);
  if(state.user)personalChannel=C.channel('hw-personal-'+state.user.id).on('postgres_changes',{event:'*',schema:'public',table:'hw_messages'},()=>loadPrivate()).on('postgres_changes',{event:'*',schema:'public',table:'hw_conversations'},()=>loadPrivate()).on('postgres_changes',{event:'*',schema:'public',table:'hw_mentions'},()=>hwLoadMentions()).subscribe();}
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>loadPublic(true),500)}
@@ -1230,7 +1299,7 @@ $('content').addEventListener('submit',e=>{if(e.target.id==='profile-form')saveP
 $('identity-card').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b)await handleAction(b.dataset.action,b)});if($('contact-card'))$('contact-card').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b)await handleAction(b.dataset.action,b)});
 if($('cast-search-input'))$('cast-search-input').addEventListener('input',renderCastSearch);
 if($('cast-search-results'))$('cast-search-results').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(b){$('cast-search-input').value='';renderCastSearch();await handleAction(b.dataset.action,b)}});
-$('content').addEventListener('input',e=>{if(e.target.id==='compose-body'){hwMentionInput();return}if(e.target.id==='explore-cast-search'){const el=e.target;state.castSearch=el.value;const pos=el.selectionStart;const area=el.closest('#content');if(area){const matching=discoverableCharacters().filter(c=>castMatch(c,state.castSearch));const holder=area.querySelector('.explore-cast-results');if(holder)holder.innerHTML=matching.map(c=>`<div class="post" style="align-items:center">${authorLink({...c,kind:'character'})}<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="character" data-id="${E(c.id)}">${E(c.name)} ${authorBadge(c)}</strong><div class="muted">@${E(c.handle)}</div></div><button class="small-outline" data-action="profile" data-kind="character" data-id="${E(c.id)}">主页</button><button class="small-outline" data-action="start-dm" data-id="${E(c.id)}">✉ 私信</button></div>`).join('')||'<div class="empty">没有符合搜索条件的人物。</div>';}}});
+$('content').addEventListener('input',e=>{if(e.target.id==='compose-body'){hwMentionInput();return}if(e.target.id==='explore-cast-search'){state.castSearch=e.target.value;const holder=e.target.closest('#content')?.querySelector('.explore-cast-results');if(holder)holder.innerHTML=hwExploreDirectoryResults();}});
 if($('nav-current'))$('nav-current').onclick=()=>navigate('me');if($('nav-post'))$('nav-post').onclick=()=>{if(needAuth())navigate('feed')};
 if($('back-button'))$('back-button').onclick=()=>{
  if(hwUnreadReturn){hwUnreadReturn=false;navigate('unread');return;}
