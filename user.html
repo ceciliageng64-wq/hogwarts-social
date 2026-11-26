@@ -157,7 +157,6 @@ body.dark .account-danger{background:#281316!important;color:#ff8496!important}
 </style>
 <style>
 /* Unified player/character mention search: no identity type labels. */
-.hw-mention-hint{position:sticky;top:-4px;z-index:1;padding:8px 10px;font-size:12px;color:var(--sub);background:var(--bg);border-bottom:1px solid var(--line)}
 .compose-side{position:relative;min-width:0}
 .hw-mention-picker{position:absolute;z-index:28;left:0;right:0;top:auto;background:var(--bg);border:1px solid var(--line);border-radius:13px;box-shadow:0 10px 28px #0002;max-height:270px;overflow:auto;padding:4px}
 .hw-mention-picker[hidden]{display:none!important}
@@ -690,11 +689,13 @@ function hwMentionCandidates(query){
  const chars=discoverableCharacters().map(p=>({kind:'character',id:p.id,name:p.name||p.handle,handle:p.handle,avatar_url:p.avatar_url}));
  const players=cache.profiles.map(p=>({kind:'user',id:p.id,name:p.display_name||p.handle,handle:p.handle,avatar_url:p.avatar_url}));
  const seen=new Set();
+ // One shared, deterministic order for people of both kinds, never grouped by kind.
+ const order=p=>{let h=2166136261;for(const ch of String(p.handle||'').toLowerCase()){h=Math.imul(h^ch.charCodeAt(0),16777619)}return h>>>0};
  return chars.concat(players).filter(p=>{
   if(!p.handle||!p.id)return false;
   const token=p.kind+':'+p.id;if(seen.has(token))return false;seen.add(token);
   return !q||String(p.name||'').toLocaleLowerCase().includes(q)||String(p.handle).toLowerCase().includes(q);
- }).sort((a,b)=>String(a.name).localeCompare(String(b.name),'zh-CN')||String(a.handle).localeCompare(String(b.handle)));
+ }).sort((a,b)=>order(a)-order(b)||String(a.handle).localeCompare(String(b.handle),'en'));
 }
 function hwMentionInput(){
  const area=$('compose-body'),list=$('hw-mention-picker');if(!area||!list)return;
@@ -703,8 +704,7 @@ function hwMentionInput(){
  if(!found){hwMentionPicker.options=[];list.hidden=true;return}
  hwMentionPicker.end=pos;hwMentionPicker.start=pos-found[2].length-1;
  const options=hwMentionCandidates(found[2]);hwMentionPicker.options=options;hwMentionPicker.active=0;
- list.innerHTML=(options.length>8?'<div class="hw-mention-hint">共 '+options.length+' 个账号 · 可上下滑动或继续输入昵称筛选</div>':'')
-  +options.map((p,i)=>'<button type="button" class="hw-mention-choice'+(i===0?' is-active':'')+'" data-action="mention-choose" data-kind="'+p.kind+'" data-id="'+E(p.id)+'">'
+ list.innerHTML=options.map((p,i)=>'<button type="button" class="hw-mention-choice'+(i===0?' is-active':'')+'" data-action="mention-choose" data-kind="'+p.kind+'" data-id="'+E(p.id)+'">'
   +avatar(p.avatar_url,p.name)+'<span><strong>'+E(p.name)+'</strong><small>@'+E(p.handle)+'</small></span></button>').join('');
  list.hidden=!options.length;
 }
