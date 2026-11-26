@@ -342,7 +342,7 @@ const icons={
  view:'<path d="M4 20V12M9 20V7M14 20V14M19 20V3"/>'};
 const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[k]||''}</svg>`;
 const clientId=()=>typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,14);
-const cache={characters:[],posts:[],profiles:[],likes:[],follows:[],bookmarks:[],conversations:[],messages:[],dmImages:{},characterLikes:{},mentions:[]};
+const cache={characters:[],posts:[],profiles:[],likes:[],follows:[],userFollows:[],bookmarks:[],conversations:[],messages:[],dmImages:{},characterLikes:{},mentions:[]};
 const safeStorage={getItem(key){try{return localStorage.getItem(key)}catch{return null}},setItem(key,val){try{localStorage.setItem(key,val)}catch{}}};
 const state={view:'feed',profileKind:'character',profileId:'',postId:'',replyTo:'',quoteId:'',profileTab:'posts',theme:safeStorage.getItem('hw27-theme')||'light',user:null,myProfile:null,loggedIn:false,authReady:false,composerImage:null,dmConversationId:'',dmFile:null,uploading:false,editingProfile:false,dmLoading:false,bannerVisible:false,error:'',busy:false};
 // Remember the exact feed item and its viewport offset before opening a post.
@@ -694,6 +694,61 @@ function likeCount(post){const base=metricNumber(post.metrics?.likes),cloudLikes
 function ownLike(id){return !!state.user&&cache.likes.some(x=>x.user_id===state.user.id&&x.post_id===id)}
 function ownBookmark(id){return !!state.user&&cache.bookmarks.some(x=>x.user_id===state.user.id&&x.post_id===id)}
 function ownFollow(id){return !!state.user&&cache.follows.some(x=>x.user_id===state.user.id&&x.character_id===id)}
+
+function ownPlayerFollow(id){return !!state.user&&cache.userFollows.some(x=>x.follower_user_id===state.user.id&&x.followed_user_id===id)}
+function hwTotalFollowing(id){return cache.follows.filter(x=>x.user_id===id).length+cache.userFollows.filter(x=>x.follower_user_id===id).length}
+// Background popularity is a deterministic display-only estimate from real
+// posting/comment activity and elapsed time. It never creates fake followers.
+function hwOrganicFollowerEstimate(playerId,now=Date.now()){
+ const player=cache.profiles.find(x=>x.id===playerId)||(state.user?.id===playerId?state.myProfile:null);
+ if(!player)return 0;
+ const registered=Date.parse(player.created_at||'');
+ if(!Number.isFinite(registered))return 0;
+ const elapsedHours=Math.max(0,(now-registered)/3600000);
+ // Quiet accounts grow slowly (roughly one follower every 24-36 hours).
+ let seed=2166136261;
+ for(const ch of String(playerId))seed=Math.imul(seed^ch.charCodeAt(0),16777619);
+ let total=Math.floor((elapsedHours+((seed>>>0)%16))/36);
+ const authoredRoots=new Set(cache.posts.filter(p=>p.author_kind==='user'&&p.user_id===playerId&&!p.parent_id).map(p=>p.id));
+ const all=new Map(cache.posts.map(p=>[p.id,p]));
+ // Each published post or reply provides an initial small boost and then
+ // receives additional followers over several days, based on its real age.
+ for(const post of cache.posts){
+  const posted=Date.parse(post.published_at||post.created_at||'');
+  if(!Number.isFinite(posted)||posted>now)continue;
+  const hours=Math.max(0,(now-posted)/3600000);
+  if(post.author_kind==='user'&&post.user_id===playerId){
+   total+=post.parent_id?Math.floor(Math.min(hours,120)*0.018):1+Math.floor(Math.min(hours,168)*0.052);
+   continue;
+  }
+  if(!post.parent_id)continue;
+  let cursor=post,rootId='',seen=new Set();
+  for(let depth=0;depth<24&&cursor&&!seen.has(cursor.id);depth++){
+   seen.add(cursor.id);
+   if(!cursor.parent_id){rootId=cursor.id;break}
+   cursor=all.get(cursor.parent_id);
+  }
+  if(authoredRoots.has(rootId)){
+   // Replies from other people to a player's posts accelerate growth.
+   total+=Math.floor(Math.min(hours,120)*0.034);
+  }
+ }
+ return Math.min(999999,Math.max(0,total));
+}
+function hwPlayerFollowers(id,now=Date.now()){
+ return cache.userFollows.filter(x=>x.followed_user_id===id).length+hwOrganicFollowerEstimate(id,now);
+}
+function hwProfileFollowerTick(){
+ if(state.view!=='profile'||state.profileKind!=='user')return;
+ const id=state.profileId;
+ const following=document.getElementById('hw-player-following-number');
+ const followers=document.getElementById('hw-player-followers-number');
+ if(following)following.textContent=formatNum(hwTotalFollowing(id));
+ if(followers)followers.textContent=formatNum(hwPlayerFollowers(id));
+}
+// Update only the two numbers so the clock never destroys profile drafts.
+setInterval(()=>{if(!document.hidden)hwProfileFollowerTick()},60000);
+
 function mentionLink(text){
  // Resolve mentions against live public profiles, never random commenter identities.
  // Build the markup from escaped text fragments rather than parsing escaped HTML.
@@ -811,6 +866,15 @@ function feedComposer(targetId=''){const me=state.myProfile;const target=targetI
 function renderFeed(){const tops=cache.posts.filter(x=>!x.parent_id&&visibleLocalePost(x)&&isPublicCastPost(x)&&hwStoryStamp(x)<=hwWorldNow()+1000).sort(hwStorySort);return `<div>${state.user?feedComposer():`<div class="composer" style="align-items:center;justify-content:space-between"><span class="muted">游客可以浏览时间线，登录后发帖与互动。</span><button class="primary" data-action="login">登录</button></div>`}${tops.length?tops.map(x=>postCard(x)).join(''):`<div class="empty"><strong>霍格沃茨还没有公开动态</strong>校园动态尚未发布，请稍后再来看看。</div>`}</div>`;}
 function tree(parent,depth=0,seen=new Set()){if(depth>16)return '';return repliesTo(parent).map(r=>{if(seen.has(r.id))return '';const ns=new Set(seen);ns.add(r.id);return `<div class="threadline" style="margin-left:${Math.min(depth,4)*8+8}px">${postCard(r,{depth})}${tree(r.id,depth+1,ns)}</div>`}).join('')}
 function renderDetail(){const p=postById(state.postId);if(!p)return `<div class="empty">这条帖子尚不存在或已被删除。</div>`;return `${postCard(p)}${state.user?feedComposer(state.replyTo||p.id):`<div class="composer"><span class="muted">登录后可以参与楼中楼回复。</span><button class="primary" data-action="login">登录</button></div>`}${tree(p.id)}`;}
+
+function hwFollowDirectoryButton(p){
+ if(p.kind==='user'&&state.user?.id===p.id)return '';
+ if(p.kind==='character'&&isRandomCommenter(p))return '';
+ const player=p.kind==='user',on=player?ownPlayerFollow(p.id):ownFollow(p.id);
+ return '<button type="button" class="small-outline" data-action="'+(player?'follow-user':'follow')+'" data-id="'+E(p.id)+'">'
+  +(on?'正在关注':'关注')+'</button>';
+}
+
 function hwExploreDirectoryResults(){
  const entries=hwDirectorySearch(state.castSearch);
  return entries.map(p=>{
@@ -819,6 +883,7 @@ function hwExploreDirectoryResults(){
    +'<div style="flex:1;min-width:0"><strong data-action="profile" data-kind="'+p.kind+'" data-id="'+E(p.id)+'" style="cursor:pointer">'+E(p.name)+' '+authorBadge(p)+'</strong>'
    +'<div class="muted">@'+E(p.handle)+(p.bio?' · '+E(p.bio.slice(0,75)):'')+'</div></div>'
    +'<button class="small-outline" data-action="profile" data-kind="'+p.kind+'" data-id="'+E(p.id)+'">主页</button>'
+   +hwFollowDirectoryButton(p)
    +(isChar?'<button class="small-outline" data-action="start-dm" data-id="'+E(p.id)+'">✉ 私信</button>':'<button type="button" class="small-outline" title="仅作展示，玩家之间暂不支持私信" aria-label="私信（暂不可用）">✉ 私信</button>')
    +'</div>';
  }).join('')||'<div class="empty">没有符合搜索条件的账号。</div>';
@@ -859,15 +924,15 @@ function renderProfile(){
  const title={posts:'帖子',replies:'回复',media:'媒体',likes:'喜欢'};
  const selected=contents[tab]||posts;
  const followers=kind==='character'?cache.follows.filter(x=>x.character_id===p.id).length:0;
- const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'&&!isRandomCommenter(p)?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:kind==='user'?'<button type="button" class="small-outline" title="仅作展示，玩家之间暂不支持私信" aria-label="私信（暂不可用）">发私信</button>':'';
- const following=kind==='character'?p.meta?.following:'0';
- const followersLabel=kind==='character'?p.meta?.followers:formatNum(followers);
+ const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'&&!isRandomCommenter(p)?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:kind==='user'?'<div class="profile-top-actions"><button class="small-outline" data-action="follow-user" data-id="'+E(p.id)+'">'+(ownPlayerFollow(p.id)?'正在关注':'关注')+'</button><button type="button" class="small-outline" title="仅作展示，玩家之间暂不支持私信" aria-label="私信（暂不可用）">发私信</button></div>':'';
+ const following=kind==='character'?p.meta?.following:formatNum(hwTotalFollowing(p.id));
+ const followersLabel=kind==='character'?p.meta?.followers:formatNum(hwPlayerFollowers(p.id));
  const emptyText=tab==='replies'?'还没有公开回复。':tab==='media'?'还没有发布带图片的帖子。':tab==='likes'?'还没有喜欢的帖子。':'这里暂时没有动态。';
  return `<div class="profile-card"><div class="banner profile-cover">${p.cover_url?`<img src="${E(p.cover_url)}" alt="${E(a.name)} 的封面图" crossorigin="anonymous">`:''}</div>
  <div class="profile-head"><div class="profile-avatar-row"><button class="profile-header-avatar" data-action="profile" data-kind="${E(kind)}" data-id="${E(p.id)}" aria-label="查看${E(a.name)}的主页">${avatar(p.avatar_url,a.name,'big')}</button>${otherActions}</div>
  <div class="profile-name">${E(a.name)} ${authorBadge(a)}</div><div class="profile-handle">@${E(p.handle)}</div>${p.bio?`<div class="profile-bio">${mentionLink(p.bio)}</div>`:''}
  <div class="profile-meta"><span class="profile-meta-item">${pinSvg}${E(p.location||'霍格沃茨')}</span><span class="profile-meta-item">${calendarSvg}加入于 ${E(localizedDate(p.joined_label))}</span></div>
- <div class="profile-follow-data"><span><strong>${E(following||'0')}</strong> 正在关注</span><span><strong>${E(followersLabel||'0')}</strong> 关注者</span></div></div>
+ <div class="profile-follow-data"><span><strong ${kind==='user'?'id="hw-player-following-number"':''}>${E(following||'0')}</strong> 正在关注</span><span><strong ${kind==='user'?'id="hw-player-followers-number"':''}>${E(followersLabel||'0')}</strong> 关注者</span></div></div>
  ${state.editingProfile&&isMe?renderProfileEdit():''}
  <div class="profile-tabs" role="tablist" aria-label="个人主页分类">${Object.entries(title).map(([key,text])=>`<button role="tab" aria-selected="${tab===key}" data-action="profile-tab" data-tab="${key}" class="${tab===key?'active':''}">${text}</button>`).join('')}</div>
  ${isMe&&tab==='posts'?feedComposer():''}${selected.length?selected.map(post=>kind==='character'&&tab==='likes'?characterLikeCard(post):postCard(post)).join(''):`<div class="profile-tabs-empty"><strong>${title[tab]||'帖子'}</strong>${emptyText}</div>`}</div>`;
@@ -956,10 +1021,10 @@ window.addEventListener('focus',()=>hwRefreshPublicDirectory());
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)hwRefreshPublicDirectory()});
 setInterval(()=>{if(!document.hidden)hwRefreshPublicDirectory()},20000);
 async function loadPublic(silent=false){if(!C){setNotice('Supabase 客户端未加载。请检查网络连接；站点需要加载 Supabase JavaScript SDK。');return;}
- try{const [chars,posts,profiles,likes,follows,trends,castDirectory,characterLikes]=await Promise.all([
- C.from('hw_characters').select('*').order('name').limit(1000),C.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),hwAllPlayerProfiles(),C.from('hw_likes').select('post_id,user_id').limit(10000),C.from('hw_follows').select('character_id,user_id').limit(10000),C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_character_profile_likes').maybeSingle()]);
- for(const r of [chars,posts,profiles,likes,follows,trends,castDirectory,characterLikes])if(r.error)throw r.error;
- Object.assign(cache,{characters:chars.data||[],posts:posts.data||[],profiles:profiles.data||[],likes:likes.data||[],follows:follows.data||[],trends:Array.isArray(trends.data?.value)?trends.data.value:null,castIds:Array.isArray(castDirectory.data?.value)?castDirectory.data.value:null,characterLikes:characterLikes.data?.value&&typeof characterLikes.data.value==='object'&&!Array.isArray(characterLikes.data.value)?characterLikes.data.value:{}});setNotice('');renderPublicTrends();
+ try{const [chars,posts,profiles,likes,follows,userFollows,trends,castDirectory,characterLikes]=await Promise.all([
+ C.from('hw_characters').select('*').order('name').limit(1000),C.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),hwAllPlayerProfiles(),C.from('hw_likes').select('post_id,user_id').limit(10000),C.from('hw_follows').select('character_id,user_id').limit(10000),C.from('hw_user_follows').select('follower_user_id,followed_user_id').limit(10000),C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_character_profile_likes').maybeSingle()]);
+ for(const r of [chars,posts,profiles,likes,follows,userFollows,trends,castDirectory,characterLikes])if(r.error)throw r.error;
+ Object.assign(cache,{characters:chars.data||[],posts:posts.data||[],profiles:profiles.data||[],likes:likes.data||[],follows:follows.data||[],userFollows:userFollows.data||[],trends:Array.isArray(trends.data?.value)?trends.data.value:null,castIds:Array.isArray(castDirectory.data?.value)?castDirectory.data.value:null,characterLikes:characterLikes.data?.value&&typeof characterLikes.data.value==='object'&&!Array.isArray(characterLikes.data.value)?characterLikes.data.value:{}});setNotice('');renderPublicTrends();
  if(state.user){state.myProfile=cache.profiles.find(x=>x.id===state.user.id)||state.myProfile;}
  if(!(state.editingProfile&&state.view==='profile'&&state.profileKind==='user'))renderPage();
  }catch(e){const msg=H.errMsg(e);console.warn(e);setNotice('尚未连接到云端数据：'+msg+'。请检查网络连接或联系网站维护人员。');renderPage()}
@@ -1008,6 +1073,22 @@ async function toggleLike(id){if(!needAuth())return;if(!await ensureSignedInRead
 async function toggleBookmark(id){if(!needAuth())return;if(!await ensureSignedInReady())return;
  const active=ownBookmark(id);const query=C.from('hw_bookmarks');const res=active?await query.delete().eq('user_id',state.user.id).eq('post_id',id):await query.insert({user_id:state.user.id,post_id:id});if(res.error){toast(H.errMsg(res.error));return}
  if(active)cache.bookmarks=cache.bookmarks.filter(x=>!(x.post_id===id&&x.user_id===state.user.id));else cache.bookmarks.push({post_id:id,user_id:state.user.id});renderPage();}
+
+async function togglePlayerFollow(id){
+ if(!needAuth())return;
+ if(!await ensureSignedInReady())return;
+ if(id===state.user.id){toast('不能关注自己的账号');return}
+ if(!cache.profiles.some(p=>p.id===id)){toast('这个玩家账号已经不存在');return}
+ const me=state.user.id,active=ownPlayerFollow(id),table=C.from('hw_user_follows');
+ const result=active
+  ?await table.delete().eq('follower_user_id',me).eq('followed_user_id',id)
+  :await table.insert({follower_user_id:me,followed_user_id:id});
+ if(result.error){toast('关注状态同步失败：'+H.errMsg(result.error));return}
+ if(active)cache.userFollows=cache.userFollows.filter(x=>!(x.follower_user_id===me&&x.followed_user_id===id));
+ else cache.userFollows.push({follower_user_id:me,followed_user_id:id});
+ renderPage();
+}
+
 async function toggleFollow(id){if(!needAuth())return;if(!await ensureSignedInReady())return;const active=ownFollow(id);const q=C.from('hw_follows');const res=active?await q.delete().eq('user_id',state.user.id).eq('character_id',id):await q.insert({user_id:state.user.id,character_id:id});if(res.error){toast(H.errMsg(res.error));return}
  if(active)cache.follows=cache.follows.filter(x=>!(x.user_id===state.user.id&&x.character_id===id));else cache.follows.push({user_id:state.user.id,character_id:id});renderPage()}
 async function submitPost(parentId='',quoteId=''){if(!needAuth())return;if(!await ensureSignedInReady())return;
@@ -1213,7 +1294,7 @@ async function deleteMyAccount(){
   }catch(e){console.warn('本地缓存清理部分失败',e)}
   await H.signOut().catch(e=>console.warn('账号已在服务端删除，本地退出返回了错误',e));
   state.user=null;state.myProfile=null;state.view='feed';
-  cache.mentions=[];cache.conversations=[];cache.messages=[];cache.bookmarks=[];cache.likes=[];cache.follows=[];
+  cache.mentions=[];cache.conversations=[];cache.messages=[];cache.bookmarks=[];cache.likes=[];cache.follows=[];cache.userFollows=[];
   window.location.replace(window.location.pathname+'#feed');
   window.location.reload();
  }catch(e){
@@ -1225,20 +1306,43 @@ async function deleteMyAccount(){
  }
 }
 async function handleAction(action,el){const id=el.dataset.id;
- switch(action){case 'mention-choose':hwMentionChoose(el.dataset.kind,id);break;case 'mention-open':await hwOpenMention(id);break;case 'unread-open':hwOpenUnread(id);break;case 'ambient-open':hwAmbientMarkRead(el.dataset.ambientKey);hwUnreadReturn=true;navigate('post',{id});break;case 'login':showAuth();break;case 'sign-out':await H.signOut();toast('已退出');break;case 'delete-account':await deleteMyAccount();break;case 'post':navigate('post',{id});break;case 'profile':if(el.dataset.kind==='character'&&/^legacy_commenter_/i.test(String(id)))break;navigate('profile',{id,kind:el.dataset.kind});break;case 'like':await toggleLike(id);break;case 'bookmark':await toggleBookmark(id);break;case 'follow':await toggleFollow(id);break;case 'reply':if(!needAuth())return;navigate('post',{id,replyTo:id});break;case 'repost':await repost(id);break;case 'delete':await deletePost(id);break;case 'submit-post':await submitPost(el.dataset.parent||'');break;
+ switch(action){case 'mention-choose':hwMentionChoose(el.dataset.kind,id);break;case 'mention-open':await hwOpenMention(id);break;case 'unread-open':hwOpenUnread(id);break;case 'ambient-open':hwAmbientMarkRead(el.dataset.ambientKey);hwUnreadReturn=true;navigate('post',{id});break;case 'login':showAuth();break;case 'sign-out':await H.signOut();toast('已退出');break;case 'delete-account':await deleteMyAccount();break;case 'post':navigate('post',{id});break;case 'profile':if(el.dataset.kind==='character'&&/^legacy_commenter_/i.test(String(id)))break;navigate('profile',{id,kind:el.dataset.kind});break;case 'like':await toggleLike(id);break;case 'bookmark':await toggleBookmark(id);break;case 'follow':await toggleFollow(id);break;case 'follow-user':await togglePlayerFollow(id);break;case 'reply':if(!needAuth())return;navigate('post',{id,replyTo:id});break;case 'repost':await repost(id);break;case 'delete':await deletePost(id);break;case 'submit-post':await submitPost(el.dataset.parent||'');break;
  case 'toggle-dm-contacts':state.showAllDMContacts=!state.showAllDMContacts;renderPage();break;case 'toggle-contacts':state.showAllContacts=!state.showAllContacts;renderContactsPanel();break;case 'profile-tab':state.profileTab=el.dataset.tab||'posts';renderPage();break;case 'edit-me':if(!needAuth())return;navigate('me');state.editingProfile=true;renderPage();break;case 'edit-profile':if(!needAuth())return;state.editingProfile=true;renderPage();break;case 'cancel-profile':state.editingProfile=false;renderPage();break;case 'upload-avatar':$('user-avatar-file').click();break;case 'upload-cover':$('user-cover-file').click();break;
  case 'start-dm':await startConversation(id);break;case 'dm-delete-conversation':await deleteConversation(id);break;case 'dm-select':state.dmConversationId=id;hwClientDmMarkRead(id);renderPage();break;case 'dm-send':await sendMessage();break;case 'dm-recall':await recallMessage(id);break;
  default:break;
  }}
-async function setAuthState(user){state.user=user||null;state.loggedIn=!!user;state.authReady=true;state.myProfile=null;cache.mentions=[];hwUnreadReset();
+async function setAuthState(user){state.user=user||null;state.loggedIn=!!user;state.authReady=true;state.myProfile=null;cache.mentions=[];cache.userFollows=[];hwUnreadReset();
  if(user){try{state.myProfile=await H.ensureUserProfile();await loadPrivate();}catch(e){setNotice('已登录，但建立个人资料失败：'+H.errMsg(e)+'。请确认 SQL 已运行。')}}else{cache.bookmarks=[];cache.conversations=[];cache.messages=[];state.dmConversationId='';if(state.view==='profile'&&state.profileKind==='user')state.view='feed';}
  await loadPublic();await hwUnreadInitialize();await hwLoadMentions();renderPage();}
 function subscribe(){if(!C)return;
  if(publicChannel)C.removeChannel(publicChannel);
- publicChannel=C.channel('hw-public-v27').on('postgres_changes',{event:'*',schema:'public',table:'hw_posts'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_characters'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_profiles'},hwRefreshPublicDirectory).on('postgres_changes',{event:'*',schema:'public',table:'hw_likes'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_follows'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_trends'},refreshPublicTrends).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_cast_ids'},scheduleRefresh).subscribe();
+ publicChannel=C.channel('hw-public-v27').on('postgres_changes',{event:'*',schema:'public',table:'hw_posts'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_characters'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_profiles'},hwRefreshPublicDirectory).on('postgres_changes',{event:'*',schema:'public',table:'hw_likes'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_follows'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_user_follows'},scheduleRefresh).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_trends'},refreshPublicTrends).on('postgres_changes',{event:'*',schema:'public',table:'hw_site_settings',filter:'key=eq.public_cast_ids'},scheduleRefresh).subscribe();
  if(personalChannel)C.removeChannel(personalChannel);
  if(state.user)personalChannel=C.channel('hw-personal-'+state.user.id).on('postgres_changes',{event:'*',schema:'public',table:'hw_messages'},()=>loadPrivate()).on('postgres_changes',{event:'*',schema:'public',table:'hw_conversations'},()=>loadPrivate()).on('postgres_changes',{event:'*',schema:'public',table:'hw_mentions'},()=>hwLoadMentions()).subscribe();}
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>loadPublic(true),500)}
+
+let hwFollowsRefreshing=false;
+async function hwRefreshFollowRelations(){
+ if(!C||hwFollowsRefreshing||document.hidden)return;
+ hwFollowsRefreshing=true;
+ try{
+  const [characters,players]=await Promise.all([
+   C.from('hw_follows').select('user_id,character_id').limit(10000),
+   C.from('hw_user_follows').select('follower_user_id,followed_user_id').limit(10000)
+  ]);
+  if(characters.error||players.error)throw characters.error||players.error;
+  cache.follows=characters.data||[];
+  cache.userFollows=players.data||[];
+  hwProfileFollowerTick();
+  // Do not rerender a writing draft. The next profile/explore navigation
+  // picks up accurate button states from the refreshed relation caches.
+ }catch(e){console.warn('关注关系刷新失败',e)}
+ finally{hwFollowsRefreshing=false}
+}
+window.addEventListener('focus',()=>hwRefreshFollowRelations());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)hwRefreshFollowRelations()});
+setInterval(()=>{if(!document.hidden)hwRefreshFollowRelations()},30000);
+
 /* V39: refresh only the trend widget, not the entire page/chat, on cloud changes. */
 let trendFetchInProgress=false;
 async function refreshPublicTrends(){
