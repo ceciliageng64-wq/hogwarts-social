@@ -2635,7 +2635,7 @@ async function v25CaptureUser(full=false){
  const surfaceStyle=getComputedStyle(document.body);
  const outer=document.createElement('body');
  outer.className=document.body.className+' v273-shot-root'+(state.clientMode==='user'?' u23-user':'');
- outer.style.cssText=`width:${width}px;background:${state.theme==='dark'?'#000':'#fff'};color:${surfaceStyle.getPropertyValue('--ink')};--ink:${surfaceStyle.getPropertyValue('--ink')};--muted:${surfaceStyle.getPropertyValue('--muted')};--surface:${surfaceStyle.getPropertyValue('--surface')};--stroke:${surfaceStyle.getPropertyValue('--stroke')};--accent:#1d9bf0;--highlight:${surfaceStyle.getPropertyValue('--highlight')};--comp:${surfaceStyle.getPropertyValue('--comp')};`;
+ outer.style.cssText=`width:${width}px;background:${state.theme==='dark'?'#000':'#fff'};color:${surfaceStyle.getPropertyValue('--ink')};--ink:${surfaceStyle.getPropertyValue('--ink')};--muted:${surfaceStyle.getPropertyValue('--muted')};--surface:${surfaceStyle.getPropertyValue('--surface')};--stroke:${surfaceStyle.getPropertyValue('--stroke')};--accent:#1d9bf0;--highlight:${surfaceStyle.getPropertyValue('--highlight')};--comp:${surfaceStyle.getPropertyValue('--comp')};font-family:${getComputedStyle(document.documentElement).fontFamily};font-size:${getComputedStyle(document.body).fontSize};`;
  const css=document.createElement('style');
  css.textContent=(await v25CaptureStyles())+`\n.v273-shot-root .x-feed{overflow:visible!important;height:auto!important;max-height:none!important;min-width:0!important;width:600px!important;flex-shrink:0!important}.v273-shot-root .app-viewport{display:grid!important;grid-template-columns:240px 600px 310px!important;width:1150px!important;max-width:none!important;height:auto!important;min-height:0!important}.v273-shot-root .x-nav,.v273-shot-root .x-right{display:flex!important;position:static!important;flex-shrink:0!important;height:auto!important;max-height:none!important}.v273-shot-root .x-right{display:block!important}.v273-shot-root .u23-chat,.v273-shot-root .u23-chat-messages{height:auto!important;max-height:none!important;overflow:visible!important;flex:none!important}.v273-shot-root .u23-inbox{min-height:0!important}.v273-shot-root .v26-current-chat-capture{width:600px!important;max-width:600px!important;min-height:600px!important}.v273-shot-root .dm-app{grid-template-columns:40% 60%!important}.v273-shot-root .pv-post-edittools,.v273-shot-root .quote-edit-preview,.v273-shot-root .x-delete-preview{display:none!important}`;
  outer.append(css,copy);
@@ -2669,12 +2669,16 @@ async function v25CaptureUser(full=false){
  if(height>14000)throw Error(state.lang==='zh'?'页面过长，请分段截图（上限 14000px）':'Page is too long for a single PNG (max 14000px).');
  outer.style.height=height+'px';copy.style.minHeight=height+'px';
  const sourceText=new XMLSerializer().serializeToString(outer);
- const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${sourceText}</foreignObject></svg>`;
+ // SVG image media queries use the SVG width rather than the real browser
+ // width. Render chat captures at the browser's breakpoint, then crop exactly
+ // the 600px cloned feed; otherwise a desktop conversation becomes mobile.
+ const svgWidth=isDMPage?Math.max(width,Math.round(window.innerWidth||width)):width;
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${height}"><foreignObject width="${width}" height="100%">${sourceText}</foreignObject></svg>`;
  const bmp=new Image();bmp.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);await bmp.decode();
  const scale=height>7500?1:2;
  const canvas=document.createElement('canvas');canvas.width=width*scale;canvas.height=height*scale;
  const ctx=canvas.getContext('2d');if(!ctx)throw Error('Canvas is unavailable');ctx.scale(scale,scale);
- ctx.fillStyle=state.theme==='dark'?'#000':'#fff';ctx.fillRect(0,0,width,height);ctx.drawImage(bmp,0,0,width,height);
+ ctx.fillStyle=state.theme==='dark'?'#000':'#fff';ctx.fillRect(0,0,width,height);ctx.drawImage(bmp,0,0,width,height,0,0,width,height);
  const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('PNG creation failed')),'image/png'));
  downloadBlob(blob,(state.lang==='zh'?'霍格沃茨用户界面_':'Hogwarts_User_')+(full?'完整页面':'当前页面')+'.png');
  toast(state.lang==='zh'?'截图已导出 PNG':'PNG exported');
