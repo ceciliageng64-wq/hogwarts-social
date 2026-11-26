@@ -696,6 +696,17 @@ function ownBookmark(id){return !!state.user&&cache.bookmarks.some(x=>x.user_id=
 function ownFollow(id){return !!state.user&&cache.follows.some(x=>x.user_id===state.user.id&&x.character_id===id)}
 
 function ownPlayerFollow(id){return !!state.user&&cache.userFollows.some(x=>x.follower_user_id===state.user.id&&x.followed_user_id===id)}
+function hwIsMutualPlayerFollow(id){
+ return ownPlayerFollow(id)&&cache.userFollows.some(x=>x.follower_user_id===id&&x.followed_user_id===state.user.id);
+}
+function hwFollowLabel(kind,id){
+ if(kind==='user')return !ownPlayerFollow(id)?'关注':hwIsMutualPlayerFollow(id)?'互相关注':'正在关注';
+ if(!ownFollow(id))return '关注';
+ // Every member of the currently published People library follows each
+ // player by default; an outgoing follow to them is always reciprocal.
+ return discoverableCharacters().some(c=>String(c.id)===String(id))?'互相关注':'正在关注';
+}
+function hwDefaultCharacterFollowers(){return discoverableCharacters().length}
 function hwTotalFollowing(id){return cache.follows.filter(x=>x.user_id===id).length+cache.userFollows.filter(x=>x.follower_user_id===id).length}
 // Background popularity is a deterministic display-only estimate from real
 // posting/comment activity and elapsed time. It never creates fake followers.
@@ -736,7 +747,7 @@ function hwOrganicFollowerEstimate(playerId,now=Date.now()){
  return Math.min(999999,Math.max(0,total));
 }
 function hwPlayerFollowers(id,now=Date.now()){
- return cache.userFollows.filter(x=>x.followed_user_id===id).length+hwOrganicFollowerEstimate(id,now);
+ return hwDefaultCharacterFollowers()+cache.userFollows.filter(x=>x.followed_user_id===id).length+hwOrganicFollowerEstimate(id,now);
 }
 function hwProfileFollowerTick(){
  if(state.view!=='profile'||state.profileKind!=='user')return;
@@ -870,9 +881,9 @@ function renderDetail(){const p=postById(state.postId);if(!p)return `<div class=
 function hwFollowDirectoryButton(p){
  if(p.kind==='user'&&state.user?.id===p.id)return '';
  if(p.kind==='character'&&isRandomCommenter(p))return '';
- const player=p.kind==='user',on=player?ownPlayerFollow(p.id):ownFollow(p.id);
+ const player=p.kind==='user';
  return '<button type="button" class="small-outline" data-action="'+(player?'follow-user':'follow')+'" data-id="'+E(p.id)+'">'
-  +(on?'正在关注':'关注')+'</button>';
+  +hwFollowLabel(p.kind,p.id)+'</button>';
 }
 
 function hwExploreDirectoryResults(){
@@ -924,7 +935,7 @@ function renderProfile(){
  const title={posts:'帖子',replies:'回复',media:'媒体',likes:'喜欢'};
  const selected=contents[tab]||posts;
  const followers=kind==='character'?cache.follows.filter(x=>x.character_id===p.id).length:0;
- const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'&&!isRandomCommenter(p)?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${ownFollow(p.id)?'正在关注':'关注'}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:kind==='user'?'<div class="profile-top-actions"><button class="small-outline" data-action="follow-user" data-id="'+E(p.id)+'">'+(ownPlayerFollow(p.id)?'正在关注':'关注')+'</button><button type="button" class="small-outline" title="仅作展示，玩家之间暂不支持私信" aria-label="私信（暂不可用）">发私信</button></div>':'';
+ const otherActions=isMe?`<button class="small-outline" data-action="edit-profile">编辑个人资料</button>`:kind==='character'&&!isRandomCommenter(p)?`<div class="profile-top-actions"><button class="small-outline" data-action="follow" data-id="${E(p.id)}">${hwFollowLabel('character',p.id)}</button><button class="small-outline" data-action="start-dm" data-id="${E(p.id)}">发私信</button></div>`:kind==='user'?'<div class="profile-top-actions"><button class="small-outline" data-action="follow-user" data-id="'+E(p.id)+'">'+hwFollowLabel('user',p.id)+'</button><button type="button" class="small-outline" title="仅作展示，玩家之间暂不支持私信" aria-label="私信（暂不可用）">发私信</button></div>':'';
  const following=kind==='character'?p.meta?.following:formatNum(hwTotalFollowing(p.id));
  const followersLabel=kind==='character'?p.meta?.followers:formatNum(hwPlayerFollowers(p.id));
  const emptyText=tab==='replies'?'还没有公开回复。':tab==='media'?'还没有发布带图片的帖子。':tab==='likes'?'还没有喜欢的帖子。':'这里暂时没有动态。';
@@ -1346,8 +1357,8 @@ async function hwRefreshFollowRelations(){
   hwProfileFollowerTick();
   // Refresh existing follow labels in place, preserving feed scroll and drafts.
   for(const button of document.querySelectorAll('#content [data-action="follow"],#content [data-action="follow-user"]')){
-   const followed=button.dataset.action==='follow-user'?ownPlayerFollow(button.dataset.id):ownFollow(button.dataset.id);
-   button.textContent=followed?'正在关注':'关注';
+   const kind=button.dataset.action==='follow-user'?'user':'character';
+   button.textContent=hwFollowLabel(kind,button.dataset.id);
   }
   // Do not rerender a writing draft. The next profile/explore navigation
   // picks up accurate button states from the refreshed relation caches.
