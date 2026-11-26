@@ -1020,9 +1020,19 @@ async function hwRefreshPublicDirectory(){
 window.addEventListener('focus',()=>hwRefreshPublicDirectory());
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)hwRefreshPublicDirectory()});
 setInterval(()=>{if(!document.hidden)hwRefreshPublicDirectory()},20000);
+async function hwAllFollowRows(table,columns,first,second){
+ const rows=[],pageSize=500;
+ for(let offset=0;;offset+=pageSize){
+  const response=await C.from(table).select(columns).order(first,{ascending:true}).order(second,{ascending:true}).range(offset,offset+pageSize-1);
+  if(response.error)return {data:null,error:response.error};
+  const batch=response.data||[];rows.push(...batch);
+  if(batch.length<pageSize)return {data:rows,error:null};
+ }
+}
+
 async function loadPublic(silent=false){if(!C){setNotice('Supabase 客户端未加载。请检查网络连接；站点需要加载 Supabase JavaScript SDK。');return;}
  try{const [chars,posts,profiles,likes,follows,userFollows,trends,castDirectory,characterLikes]=await Promise.all([
- C.from('hw_characters').select('*').order('name').limit(1000),C.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),hwAllPlayerProfiles(),C.from('hw_likes').select('post_id,user_id').limit(10000),C.from('hw_follows').select('character_id,user_id').limit(10000),C.from('hw_user_follows').select('follower_user_id,followed_user_id').limit(10000),C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_character_profile_likes').maybeSingle()]);
+ C.from('hw_characters').select('*').order('name').limit(1000),C.from('hw_posts').select('*').order('created_at',{ascending:false}).limit(3000),hwAllPlayerProfiles(),C.from('hw_likes').select('post_id,user_id').limit(10000),hwAllFollowRows('hw_follows','character_id,user_id','user_id','character_id'),hwAllFollowRows('hw_user_follows','follower_user_id,followed_user_id','follower_user_id','followed_user_id'),C.from('hw_site_settings').select('value').eq('key','public_trends').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_cast_ids').maybeSingle(),C.from('hw_site_settings').select('value').eq('key','public_character_profile_likes').maybeSingle()]);
  for(const r of [chars,posts,profiles,likes,follows,userFollows,trends,castDirectory,characterLikes])if(r.error)throw r.error;
  Object.assign(cache,{characters:chars.data||[],posts:posts.data||[],profiles:profiles.data||[],likes:likes.data||[],follows:follows.data||[],userFollows:userFollows.data||[],trends:Array.isArray(trends.data?.value)?trends.data.value:null,castIds:Array.isArray(castDirectory.data?.value)?castDirectory.data.value:null,characterLikes:characterLikes.data?.value&&typeof characterLikes.data.value==='object'&&!Array.isArray(characterLikes.data.value)?characterLikes.data.value:{}});setNotice('');renderPublicTrends();
  if(state.user){state.myProfile=cache.profiles.find(x=>x.id===state.user.id)||state.myProfile;}
@@ -1327,13 +1337,18 @@ async function hwRefreshFollowRelations(){
  hwFollowsRefreshing=true;
  try{
   const [characters,players]=await Promise.all([
-   C.from('hw_follows').select('user_id,character_id').limit(10000),
-   C.from('hw_user_follows').select('follower_user_id,followed_user_id').limit(10000)
+   hwAllFollowRows('hw_follows','user_id,character_id','user_id','character_id'),
+   hwAllFollowRows('hw_user_follows','follower_user_id,followed_user_id','follower_user_id','followed_user_id')
   ]);
   if(characters.error||players.error)throw characters.error||players.error;
   cache.follows=characters.data||[];
   cache.userFollows=players.data||[];
   hwProfileFollowerTick();
+  // Refresh existing follow labels in place, preserving feed scroll and drafts.
+  for(const button of document.querySelectorAll('#content [data-action="follow"],#content [data-action="follow-user"]')){
+   const followed=button.dataset.action==='follow-user'?ownPlayerFollow(button.dataset.id):ownFollow(button.dataset.id);
+   button.textContent=followed?'正在关注':'关注';
+  }
   // Do not rerender a writing draft. The next profile/explore navigation
   // picks up accurate button states from the refreshed relation caches.
  }catch(e){console.warn('关注关系刷新失败',e)}
