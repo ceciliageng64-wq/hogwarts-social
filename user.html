@@ -1391,9 +1391,12 @@ async function takeScreenshot(mode){
  const original=full?$('captureAll'):isolated?document.querySelector('.conversation-view'):$('captureMain');
  if(!original)return;
  // Freeze the player's CURRENT page position before any asynchronous work.
- const isProfileShot=state.view==='profile'&&!isolated;
- const startOffset=isProfileShot?Math.max(0,Math.floor(-original.getBoundingClientRect().top)):0;
- const visibleAnchor=isProfileShot?hwShotVisibleAnchor(original):null;
+ // Every timeline (home, explore, detail, profile, etc.) must start at the
+ // player's current position; previously only profiles respected scrolling.
+ // DM exports intentionally retain their existing whole-conversation behavior.
+ const isScrolledContentShot=state.view!=='messages';
+ const startOffset=isScrolledContentShot?Math.max(0,Math.floor(-original.getBoundingClientRect().top)):0;
+ const visibleAnchor=isScrolledContentShot?hwShotVisibleAnchor(original):null;
  try{
   await ensureScreenshotLibrary();
   $('hw-shot-menu').hidden=true;$('shot-toggle').setAttribute('aria-expanded','false');
@@ -1430,7 +1433,7 @@ async function takeScreenshot(mode){
   await Promise.race([Promise.all([...screen.querySelectorAll('img')].map(img=>img.decode?.().catch(()=>{})||Promise.resolve())),new Promise(r=>setTimeout(r,3500))]);
   // Reset scrolling in the staging copy so the start of each conversation is included.
   for(const el of screen.querySelectorAll('*'))if(el.scrollTop)el.scrollTop=0;
-  const captureStart=isProfileShot?hwShotAnchorOffset(screen,visibleAnchor,startOffset):startOffset;
+  const captureStart=isScrolledContentShot?hwShotAnchorOffset(screen,visibleAnchor,startOffset):startOffset;
   await hwScreenshotRender({screen,width,full,isolated,dark,startOffset:captureStart});
  }catch(e){toast('截图失败：'+H.errMsg(e));console.error(e)}finally{if(holder)holder.remove()}
 }
