@@ -1563,6 +1563,20 @@ function restoreHash(){const h=decodeURIComponent(location.hash.replace(/^#/,'')
    if(img.closest('.hw-zoom-wrap'))continue;
    const wrapper=document.createElement('div');wrapper.className='hw-zoom-wrap'+(img.closest('.bubble')?' hw-zoom-dm':'');
    img.parentNode.insertBefore(wrapper,img);wrapper.appendChild(img);
+   if(img.closest('.hw-zoom-dm')){
+    // Tap anywhere on a sent/received image to open its full-size preview.
+    // Keep keyboard support and return focus to the thumbnail on close.
+    img.style.cursor='zoom-in';
+    img.tabIndex=0;
+    img.setAttribute('role','button');
+    img.setAttribute('aria-label','点击查看私信图片大图');
+    img.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();show(img,img)});
+    img.addEventListener('keydown',e=>{
+     if(e.key==='Enter'||e.key===' '){
+      e.preventDefault();e.stopPropagation();show(img,img);
+     }
+    });
+   }
    const btn=document.createElement('button');btn.type='button';btn.className='hw-zoom-btn';btn.textContent='⤢ 查看大图';btn.setAttribute('aria-label','查看图片原图');btn.dataset.noscreenshot='';
    btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();show(img,btn)});
    wrapper.appendChild(btn);
