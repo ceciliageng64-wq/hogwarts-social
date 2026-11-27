@@ -3130,7 +3130,7 @@ function hwCloudDraw(){
   if(state.viewMode==='dm'&&hwCloudView.selected===c.id){hwCloudMarkRead(c.id);hwCloudDrawUnread();}
   right.dataset.cloudConversationId=c.id;
   right.dataset.cloudMessageSignature=messageSignature;
-  right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px" src="${esc(m.image_resolved)}" alt="私信图片">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div>${hwCloudInlinePreviewFor(c.id)}<div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…">${esc(hwCloudInlineDrafts.get(c.id)||(()=>{try{return sessionStorage.getItem('hw-dev-dm-draft:'+c.id)||''}catch(e){return ''}})())}</textarea><label for="hwCloudInlineImageInput" title="添加图片" aria-label="添加图片" style="cursor:pointer;font-size:22px;padding:7px">🖼️</label><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
+  right.innerHTML=`<div class="dm-thread-top"><div class="who"><strong class="dm-chat-name">${esc(c.playerName||'玩家')}</strong><small>玩家私信 · 发给 ${esc(c.characterName||'当前人物')}</small></div><button type="button" class="hw-cloud-clear-btn" data-cloud-chat="delete" title="点击一次永久删除当前整段真实聊天">🗑 删除会话</button></div><div class="dm-messages"><div class="dm-day">云端真实消息</div>${(c.messages||[]).map(m=>`<div class="dm-bubble-row ${m.sender_kind==='character'?'me':'them'}"><div class="dm-bubble" style="cursor:default">${esc(m.recalled?'消息已撤回':m.body||'')||'[图片]'}${m.image_resolved?`<img class="hw-cloud-message-photo" style="display:block;max-width:100%;max-height:220px;border-radius:12px;margin-top:6px;cursor:zoom-in" src="${esc(m.image_resolved)}" alt="私信图片，点击查看大图" role="button" tabindex="0" aria-label="查看私信图片大图">`:''}</div><span class="dm-msg-time">${esc(m.time||'')}</span></div>`).join('')||'<div class="dm-empty">还没有消息</div>'}</div>${hwCloudInlinePreviewFor(c.id)}<div class="dm-composer"><textarea id="hwCloudInlineInput" rows="2" placeholder="以 ${esc(c.characterName||'当前人物')} 的身份回复…">${esc(hwCloudInlineDrafts.get(c.id)||(()=>{try{return sessionStorage.getItem('hw-dev-dm-draft:'+c.id)||''}catch(e){return ''}})())}</textarea><label for="hwCloudInlineImageInput" title="添加图片" aria-label="添加图片" style="cursor:pointer;font-size:22px;padding:7px">🖼️</label><button type="button" data-cloud-chat="send" title="发送回复">${icon('share','',20)}</button></div>`;
   requestAnimationFrame(()=>{
    const pane=right.querySelector('.dm-messages');
    if(pane){
@@ -3159,6 +3159,49 @@ renderPreviewOnly=function(){
  hwCloudSaveScroll(); // Original rendering can replace the entire chat layout.
  hwOldRenderDM();hwCloudDraw();hwCloudDrawUnread();
 };
+// Keep private chat images at their original resolution when opened.
+// Only previews are enlarged; this does not modify or resend message media.
+const hwCloudDmImageLayer=document.createElement('div');
+hwCloudDmImageLayer.className='hw-cloud-dm-image-view';
+hwCloudDmImageLayer.hidden=true;
+hwCloudDmImageLayer.setAttribute('role','dialog');
+hwCloudDmImageLayer.setAttribute('aria-modal','true');
+hwCloudDmImageLayer.setAttribute('aria-label','私信图片大图');
+hwCloudDmImageLayer.innerHTML='<button type="button" class="hw-cloud-dm-image-close" aria-label="关闭大图">✕ 关闭</button><img alt="私信图片原图">';
+document.head.insertAdjacentHTML('beforeend','<style>.hw-cloud-dm-image-view[hidden]{display:none!important}.hw-cloud-dm-image-view{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.94);padding:58px 14px 20px}.hw-cloud-dm-image-view img{display:block;max-width:100%;max-height:calc(100dvh - 90px);width:auto;height:auto;object-fit:contain}.hw-cloud-dm-image-close{position:absolute;right:16px;top:12px;padding:9px 15px;background:#222;border:1px solid #777;border-radius:999px;color:white;font-size:14px;font-weight:700}</style>');
+document.body.appendChild(hwCloudDmImageLayer);
+const hwCloudDmEnlarged=hwCloudDmImageLayer.querySelector('img');
+let hwCloudDmImageReturnFocus=null,hwCloudDmImageOverflow='';
+function hwCloudDmImageClose(){
+ if(hwCloudDmImageLayer.hidden)return;
+ hwCloudDmImageLayer.hidden=true;
+ hwCloudDmEnlarged.removeAttribute('src');
+ document.body.style.overflow=hwCloudDmImageOverflow;
+ if(hwCloudDmImageReturnFocus?.isConnected)hwCloudDmImageReturnFocus.focus({preventScroll:true});
+}
+function hwCloudDmImageOpen(img){
+ if(!img?.src)return;
+ hwCloudDmImageReturnFocus=img;
+ hwCloudDmImageOverflow=document.body.style.overflow;
+ hwCloudDmEnlarged.src=img.currentSrc||img.src;
+ hwCloudDmImageLayer.hidden=false;
+ document.body.style.overflow='hidden';
+ hwCloudDmImageLayer.querySelector('button').focus({preventScroll:true});
+}
+hwCloudDmImageLayer.querySelector('button').addEventListener('click',hwCloudDmImageClose);
+hwCloudDmImageLayer.addEventListener('click',e=>{if(e.target===hwCloudDmImageLayer)hwCloudDmImageClose()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!hwCloudDmImageLayer.hidden){e.preventDefault();hwCloudDmImageClose()}});
+$('feedContent').addEventListener('click',e=>{
+ const img=e.target.closest('.dm-messages .hw-cloud-message-photo');
+ if(!img||state.viewMode!=='dm'||state.clientMode==='user')return;
+ e.preventDefault();e.stopImmediatePropagation();hwCloudDmImageOpen(img);
+},true);
+$('feedContent').addEventListener('keydown',e=>{
+ const img=e.target.closest('.dm-messages .hw-cloud-message-photo');
+ if(!img||state.viewMode!=='dm'||state.clientMode==='user'||!['Enter',' '].includes(e.key))return;
+ e.preventDefault();e.stopImmediatePropagation();hwCloudDmImageOpen(img);
+},true);
+
 $('feedContent').addEventListener('click',async e=>{
  if(state.viewMode!=='dm'||state.clientMode==='user')return;
  const cloud=e.target.closest('[data-cloud-chat]');
